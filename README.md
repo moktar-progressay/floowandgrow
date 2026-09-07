@@ -16,4 +16,3 @@ Netlify publishes the `site` directory. The production site is:
 https://floowandgrow.netlify.app
 
 Server-side OAuth secrets belong in Supabase Edge Function secrets and must never be committed to this repository.
-
