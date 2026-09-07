@@ -756,14 +756,10 @@ function renderConsole() {
 
   return '<div class="app-shell min-h-screen flex ' + (state.flowTaskId || state.relaxMode ? 'focus-mode' : '') + '">' +
     '<aside class="desktop-sidebar hidden md:flex w-72 shrink-0 flex-col" style="background:var(--panel);backdrop-filter:blur(10px);border-right:1px solid var(--line);">' + renderSidebarInner(false) + '</aside>' +
-    '<div id="mobileDrawerWrap" class="' + (state.mobileOpen ? "" : "hidden") + ' fixed inset-0 md:hidden" style="z-index:80;">' +
-      '<div id="mobileBackdrop" class="absolute inset-0" style="background:rgba(0,0,0,.7);backdrop-filter:blur(4px);"></div>' +
-      '<div class="absolute left-0 top-0 h-full w-80 flex flex-col" style="max-width:85%;background:var(--panel);border-right:1px solid var(--line);">' + renderSidebarInner(true) + '</div>' +
-    '</div>' +
     '<main class="app-main flex-1 w-full min-w-0">' +
-      '<div class="mobile-top-nav md:hidden px-4 py-2.5 flex items-center justify-between">' +
-        '<button id="openMobileNav" aria-label="Open navigation" class="theme-text p-3 -ml-3 min-w-[44px] min-h-[44px]">\u2630</button>' +
-        '<span class="theme-text font-semibold text-base">Focus<span style="color:var(--accent-2)">OS</span></span>' +
+      '<div class="mobile-top-nav md:hidden px-4 py-2.5 grid grid-cols-[76px_1fr_76px] items-center">' +
+        '<span aria-hidden="true"></span>' +
+        '<button id="mobileHomeLogo" class="theme-text font-semibold text-base text-center min-h-[44px]" aria-label="Go to Home">Focus<span style="color:var(--accent-2)">OS</span></button>' +
         renderThemeToggle("consoleThemeToggle") +
       '</div>' +
       '<div class="safe-bottom p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full">' +
@@ -960,7 +956,7 @@ function renderRecapCard() {
   var weekTasks = completed.filter(function (task) { return completedDate(task) >= weekStart; });
   var details = '';
   if (state.recapOpen) {
-    details = '<div id="recapContent" class="recap-content"><div class="grid grid-cols-2 gap-3 mt-4"><div class="recap-stat"><strong class="theme-text text-xl block">' + yesterdayTasks.length + '</strong><small class="muted-text">Yesterday</small></div><div class="recap-stat"><strong class="theme-text text-xl block">' + weekTasks.length + '</strong><small class="muted-text">Last 7 days</small></div></div>' + (weekTasks.length ? '<div class="mt-3">' + weekTasks.slice(0,3).map(function (task) { return '<div class="flex items-center gap-2 py-2"><span style="color:var(--emerald)">✓</span><span class="theme-text text-sm truncate">' + escapeHtml(task.title) + '</span></div>'; }).join('') + (weekTasks.length > 3 ? '<button data-dashboard-panel="progress" class="min-h-[44px] text-sm font-semibold" style="color:var(--accent)">View full recap</button>' : '') + '</div>' : '<p class="muted-text text-sm mt-3">No completed tasks recorded in the last 7 days.</p>') + '</div>';
+    details = '<div id="recapContent" class="recap-content"><div class="grid grid-cols-2 gap-3 mt-4"><div class="recap-stat"><strong class="theme-text text-xl block">' + yesterdayTasks.length + '</strong><small class="muted-text">Yesterday</small></div><div class="recap-stat"><strong class="theme-text text-xl block">' + weekTasks.length + '</strong><small class="muted-text">Last 7 days</small></div></div>' + (weekTasks.length ? '<div class="mt-3">' + weekTasks.slice(0,3).map(function (task) { return '<button data-edit-task="' + task.id + '" class="w-full flex items-center gap-3 py-3 text-left border-b" style="border-color:var(--line)" aria-label="Open completed task ' + escapeHtml(task.title) + '"><span style="color:var(--emerald)">✓</span><span class="theme-text text-sm flex-1">' + escapeHtml(task.title) + '</span><span style="color:var(--accent)">›</span></button>'; }).join('') + (weekTasks.length > 3 ? '<button data-dashboard-panel="progress" class="min-h-[48px] text-sm font-semibold" style="color:var(--accent)">View full recap</button>' : '') + '</div>' : '<p class="muted-text text-sm mt-3">No completed tasks recorded in the last 7 days.</p>') + '</div>';
   }
   return '<section class="recap-card"><button id="recapToggle" class="w-full min-h-[64px] px-4 flex items-center gap-3 text-left" aria-expanded="' + state.recapOpen + '" aria-controls="recapContent"><span class="text-xl" style="color:var(--accent)">◔</span><span class="flex-1"><strong class="theme-text block">Recap</strong><small class="muted-text">Yesterday and the last 7 days</small></span><span style="color:var(--accent)">' + (state.recapOpen ? '⌃' : '⌄') + '</span></button>' + details + '</section>';
 }
@@ -1257,7 +1253,8 @@ function renderQuickTaskForm(id, label, inCard) {
 }
 
 function renderMoreView() {
-  return '<section class="secondary-page"><div class="mb-6"><p class="hud text-[10px] mb-1" style="color:var(--accent)">FlowOS</p><h1 class="theme-text text-2xl font-bold">More</h1></div><div class="card px-4"><button id="openMoreConnections" class="more-row"><span class="text-xl">G</span><span class="flex-1"><strong class="theme-text block">Google Workspace</strong><small class="muted-text">Calendar · Gmail · Tasks · Drive</small></span>' + renderGoogleStatusPill() + '</button><button id="openRelaxMode" class="more-row"><span class="text-xl" style="color:var(--accent-2)">◉</span><span class="flex-1"><strong class="theme-text block">Relax</strong><small class="muted-text">Watch the orb and breathe</small></span><span>›</span></button><button data-view="vault" class="switch-view-btn more-row"><span class="text-xl">□</span><span class="flex-1"><strong class="theme-text block">Vault</strong><small class="muted-text">Files organised by project</small></span><span>›</span></button></div></section>';
+  var email = state.session && state.session.user ? state.session.user.email : '';
+  return '<section class="secondary-page"><div class="mb-6"><p class="hud text-[10px] mb-1" style="color:var(--accent)">FlowOS</p><h1 class="theme-text text-2xl font-bold">More</h1></div><div class="card px-4"><button id="openMoreConnections" class="more-row"><span class="text-xl">G</span><span class="flex-1"><strong class="theme-text block">Google Workspace</strong><small class="muted-text">Calendar · Gmail · Tasks · Drive</small></span>' + renderGoogleStatusPill() + '</button><button id="openRelaxMode" class="more-row"><span class="text-xl" style="color:var(--accent-2)">◉</span><span class="flex-1"><strong class="theme-text block">Relax</strong><small class="muted-text">Watch the orb and breathe</small></span><span>›</span></button><button data-view="vault" class="switch-view-btn more-row"><span class="text-xl">□</span><span class="flex-1"><strong class="theme-text block">Vault</strong><small class="muted-text">Files organised by project</small></span><span>›</span></button></div><div class="card px-4 mt-5"><div class="more-row"><span class="text-xl">●</span><span class="flex-1 min-w-0"><strong class="theme-text block">Account</strong><small class="muted-text block truncate">' + escapeHtml(email) + '</small></span>' + renderSyncPill() + '</div><button id="signOutMore" class="more-row" style="color:var(--danger)"><span class="text-xl">↪</span><strong class="flex-1 text-left">Sign out</strong></button></div></section>';
 }
 
 function renderTasksView() {
@@ -1634,6 +1631,8 @@ function attachConsoleHandlers() {
 
   var consoleThemeToggle = document.getElementById("consoleThemeToggle");
   if (consoleThemeToggle) consoleThemeToggle.addEventListener("click", toggleTheme);
+  var mobileHomeLogo = document.getElementById("mobileHomeLogo");
+  if (mobileHomeLogo) mobileHomeLogo.addEventListener("click", function () { state.view = "dashboard"; state.dashboardPanel = null; state.editingTaskId = null; state.flowTaskId = null; state.relaxMode = false; state.mobileOpen = false; render(); resetAppScroll(); });
   var desktopThemeToggle = document.getElementById("desktopThemeToggle");
   if (desktopThemeToggle) desktopThemeToggle.addEventListener("click", toggleTheme);
   var drawerThemeToggle = document.getElementById("drawerThemeToggle");
@@ -1663,7 +1662,7 @@ function attachConsoleHandlers() {
   els = document.querySelectorAll("[data-home-date]");
   for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { state.homeSelectedDate = e.currentTarget.getAttribute("data-home-date"); state.homeAgendaExpanded = false; render(); });
   var viewAllAnchors = document.getElementById("viewAllAnchors");
-  if (viewAllAnchors) viewAllAnchors.addEventListener("click", function () { state.view = 'tasks'; state.tasksScreenView = 'list'; state.taskView = 'anchors'; state.taskFiltersExpanded = true; render(); });
+  if (viewAllAnchors) viewAllAnchors.addEventListener("click", function () { state.view = 'tasks'; state.tasksScreenView = 'list'; state.taskView = 'anchors'; state.taskFiltersExpanded = true; render(); resetAppScroll(); });
   var chooseNextTask = document.getElementById("chooseNextTask");
   if (chooseNextTask) chooseNextTask.addEventListener("click", function () { var count = nextTaskCandidates().length; state.nextTaskIndex = count ? (state.nextTaskIndex + 1) % count : 0; render(); });
   var closeMoreBtn = document.getElementById("closeMoreBtn");
@@ -1671,9 +1670,9 @@ function attachConsoleHandlers() {
   var moreBackdrop = document.getElementById("moreBackdrop");
   if (moreBackdrop) moreBackdrop.addEventListener("click", function (e) { if (e.target === moreBackdrop) { state.moreOpen = false; render(); } });
   els = document.querySelectorAll("[data-dashboard-panel]");
-  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { state.view = "dashboard"; state.dashboardPanel = e.currentTarget.getAttribute("data-dashboard-panel"); if (state.dashboardPanel === "tasks") state.taskView = "all"; state.moreOpen = false; render(); });
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { state.view = "dashboard"; state.dashboardPanel = e.currentTarget.getAttribute("data-dashboard-panel"); if (state.dashboardPanel === "tasks") state.taskView = "all"; state.moreOpen = false; render(); resetAppScroll(); });
   var closeDashboardPanel = document.getElementById("closeDashboardPanel");
-  if (closeDashboardPanel) closeDashboardPanel.addEventListener("click", function () { state.dashboardPanel = null; render(); });
+  if (closeDashboardPanel) closeDashboardPanel.addEventListener("click", function () { state.dashboardPanel = null; render(); resetAppScroll(); });
   var openGoogleFromMore = document.getElementById("openGoogleFromMore");
   if (openGoogleFromMore) openGoogleFromMore.addEventListener("click", function () { if (state.google.connected) { state.moreOpen = false; state.settingsOpen = true; render(); } else { connectGoogleWorkspace(); } });
   var connectGoogleCalendar = document.getElementById("connectGoogleCalendar");
@@ -1790,7 +1789,7 @@ function attachConsoleHandlers() {
   els = document.querySelectorAll(".order-task-btn");
   for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { var parts = e.currentTarget.getAttribute("data-order-task").split(":"); orderCanonicalTask(parts[0], Number(parts[1])); });
   els = document.querySelectorAll("[data-edit-task]");
-  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { state.editingTaskId = e.currentTarget.getAttribute("data-edit-task"); render(); });
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { state.editingTaskId = e.currentTarget.getAttribute("data-edit-task"); render(); resetAppScroll(); });
 
   var closeTaskEditor = document.getElementById("closeTaskEditor");
   if (closeTaskEditor) closeTaskEditor.addEventListener("click", function () { state.editingTaskId = null; render(); });
@@ -1859,6 +1858,8 @@ function attachConsoleHandlers() {
     var el = document.getElementById(id);
     if (el) el.addEventListener("click", signOut);
   });
+  var signOutMore = document.getElementById("signOutMore");
+  if (signOutMore) signOutMore.addEventListener("click", signOut);
 
   var pomoFocus = document.getElementById("pomoFocusBtn");
   var pomoBreak = document.getElementById("pomoBreakBtn");
