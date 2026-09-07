@@ -1,0 +1,2047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>FocusOS — Autonomous Agent Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin="anonymous"></script>
+<style>
+  :root{
+    color-scheme:dark;
+    --bg:#020817; --panel:#091426; --panel-2:#0d1a30; --line:#20314d;
+    --accent:#25b9f4; --accent-2:#7764f6; --emerald:#2dd4a1; --emerald-soft:#064e3b;
+    --text:#f5f8ff; --muted:#9aa9bf; --soft:#111e34; --danger:#fb7185;
+    --shadow:0 18px 55px rgba(0,0,0,.25);
+  }
+  :root[data-theme="light"]{
+    color-scheme:light;
+    --bg:#f6f8fc; --panel:#ffffff; --panel-2:#f8fbff; --line:#dbe5f1;
+    --text:#10213f; --muted:#60708a; --soft:#eef5fb; --shadow:0 16px 44px rgba(55,84,130,.10);
+  }
+  :root[data-theme="light"] .text-white,:root[data-theme="light"] .text-slate-100,:root[data-theme="light"] .text-slate-200,:root[data-theme="light"] .text-slate-300{color:var(--text)!important}
+  :root[data-theme="light"] .text-slate-400,:root[data-theme="light"] .text-slate-500,:root[data-theme="light"] .text-slate-600{color:var(--muted)!important}
+  :root[data-theme="light"] .bg-slate-950\/50,:root[data-theme="light"] .bg-slate-950\/60,:root[data-theme="light"] .bg-slate-950\/70,:root[data-theme="light"] .bg-slate-800{background:var(--soft)!important}
+  :root[data-theme="light"] .border-slate-800,:root[data-theme="light"] .border-slate-800\/60,:root[data-theme="light"] .border-slate-800\/70,:root[data-theme="light"] .border-slate-700{border-color:var(--line)!important}
+  * { box-sizing:border-box; }
+  html, body { background:var(--bg); overflow-x:hidden; min-height:100%; }
+  body { font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; color:var(--text); letter-spacing:-.01em; }
+  h1,h2,h3,.heading-font{font-family:Manrope,Inter,sans-serif;letter-spacing:-.02em}.hud{font-family:'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#1e293b;border-radius:8px;}
+  ::-webkit-scrollbar-thumb:hover{background:#334155;}
+  .hidden{display:none !important;}
+  .view{display:none;}
+  .view.active{display:block; animation:fadeIn .25s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes zoomIn{from{opacity:0;transform:scale(.94);}to{opacity:1;transform:scale(1);}}
+  .zoom-in{animation:zoomIn .2s ease;}
+  @keyframes floatUp{0%{opacity:0;transform:translateY(6px) scale(.9);}15%{opacity:1;transform:translateY(0) scale(1);}80%{opacity:1;}100%{opacity:0;transform:translateY(-22px) scale(1);}}
+  .xp-float{animation:floatUp 1.3s ease forwards;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .spin{animation:spin 1s linear infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.4);}70%{box-shadow:0 0 0 8px rgba(16,185,129,0);}100%{box-shadow:0 0 0 0 rgba(16,185,129,0);}}
+  @keyframes breathe{0%,100%{transform:perspective(600px) rotateX(var(--tilt-y,0deg)) rotateY(var(--tilt-x,0deg)) scale(1);filter:saturate(.94) brightness(.98);box-shadow:0 0 38px rgba(37,185,244,.30),0 18px 45px rgba(85,65,246,.22),inset -22px -24px 38px rgba(28,18,105,.34),inset 18px 15px 30px rgba(255,255,255,.20)}50%{transform:perspective(600px) rotateX(var(--tilt-y,0deg)) rotateY(var(--tilt-x,0deg)) scale(1.04);filter:saturate(1.08) brightness(1.05);box-shadow:0 0 68px rgba(37,185,244,.50),0 22px 62px rgba(119,100,246,.30),inset -26px -28px 42px rgba(28,18,105,.30),inset 20px 17px 34px rgba(255,255,255,.26)}}
+  @keyframes orbFloat{0%,100%{transform:translateY(5px)}50%{transform:translateY(-9px)}}
+  @keyframes guidedBreathe{0%,100%{transform:scale(.96);filter:brightness(.94) saturate(.96)}42.857%,57.143%{transform:scale(1.045);filter:brightness(1.12) saturate(1.1)}}
+  .pulse-dot{animation:pulse 2s infinite;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);}
+  .glass{background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);}
+  .task-card{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;}
+  .nav-tab{transition:background .15s ease,color .15s ease;border:1px solid transparent;}
+  .nav-tab.active{background:rgba(16,185,129,.1);color:#fff;border-color:rgba(16,185,129,.3);}
+  .nav-tab:not(.active):hover{background:rgba(148,163,184,.08);}
+  input[type=text],input[type=password],input[type=email],input[type=date],input[type=time],textarea,select{background:var(--panel-2);border:1px solid var(--line);color:var(--text);}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--emerald);box-shadow:0 0 0 3px rgba(16,185,129,.15);}
+  .btn-primary{background:linear-gradient(110deg,var(--accent),var(--accent-2));color:#fff;font-weight:700;transition:filter .15s ease,transform .1s ease;box-shadow:0 12px 30px rgba(37,185,244,.20);}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-primary:active{transform:scale(.98);}
+  .btn-primary:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--muted);transition:border-color .15s ease,color .15s ease;}
+  .btn-ghost:hover{border-color:#334155;color:var(--text);}
+  .checked-item{text-decoration:line-through;color:#475569;}
+  .fade-line{color:var(--muted);}
+  .doc-card{transition:transform .12s ease,border-color .12s ease;}
+  .doc-card:hover{transform:translateY(-2px);border-color:#334155;}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s ease;z-index:200;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .theme-text{color:var(--text)!important}.muted-text{color:var(--muted)!important}.theme-surface{background:var(--panel)!important;border-color:var(--line)!important}
+  .theme-toggle{min-width:76px;height:44px;border:1px solid var(--line);background:var(--panel);border-radius:999px;display:inline-flex;align-items:center;justify-content:space-around;color:var(--muted);box-shadow:var(--shadow)}
+  .orb-stage{display:inline-block;animation:orbFloat 6.8s ease-in-out infinite;touch-action:none}
+  .orb{width:190px;height:190px;border-radius:50%;position:relative;margin:auto;background:radial-gradient(circle at 34% 25%,rgba(255,255,255,.92) 0 2%,rgba(173,240,255,.50) 3%,transparent 16%),radial-gradient(circle at 50% 48%,#fff 0 4%,#82f4ff 5%,#26c2f5 17%,#536dff 39%,#7650ef 60%,rgba(14,32,68,.18) 72%),linear-gradient(145deg,rgba(255,255,255,.30),rgba(42,18,122,.15));animation:breathe 5.6s ease-in-out infinite;will-change:transform,filter,box-shadow;cursor:pointer;border:1px solid rgba(180,220,255,.30);color:inherit;box-shadow:inset -22px -24px 38px rgba(28,18,105,.34),inset 18px 15px 30px rgba(255,255,255,.20)}
+  .orb:before,.orb:after{content:"";position:absolute;border:1px solid rgba(75,163,255,.35);border-radius:50%;inset:-24px}.orb:after{inset:-48px;border-color:rgba(119,100,246,.24)}
+  .orb.guided{animation-name:guidedBreathe;animation-duration:14s;animation-timing-function:cubic-bezier(.4,0,.2,1)}.orb.paused{animation-play-state:paused}
+  .orb-label{min-height:24px;color:var(--accent);font-size:.8rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+  .focus-home{min-height:calc(100dvh - 196px);display:flex;flex-direction:column}
+  .focus-widget{border-color:rgba(37,185,244,.30)!important}
+  .fab{position:fixed;right:22px;bottom:calc(98px + env(safe-area-inset-bottom));z-index:38;min-width:112px;height:58px;padding:0 22px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:#02101c;font-size:1rem;font-weight:800;line-height:1;box-shadow:0 12px 32px rgba(37,185,244,.30)}
+  .home-welcome{padding:20px 2px 4px}.home-orb-wrap{padding:14px 0 22px;text-align:center}
+  .today-summary{max-width:576px;width:100%;margin:0 auto;border:1px solid rgba(37,185,244,.28);border-radius:22px;background:var(--panel);overflow:hidden}
+  .today-summary-row{width:100%;min-height:50px;display:flex;align-items:center;gap:10px;padding:8px 16px;text-align:left;border-top:1px solid var(--line)}
+  .today-summary-dot{width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:var(--task-colour,var(--accent))}
+  .recap-card{max-width:576px;width:100%;margin:12px auto 0;border:1px solid var(--line);border-radius:20px;background:var(--panel);overflow:hidden}
+  .recap-content{padding:0 16px 16px;border-top:1px solid var(--line);animation:fadeIn .2s ease}
+  .recap-stat{padding:12px;border-radius:14px;background:var(--panel-2);border:1px solid var(--line)}
+  .tasks-view-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:5px;border:1px solid var(--line);border-radius:16px;background:var(--panel-2)}
+  .tasks-view-tab{min-height:46px;border-radius:12px;color:var(--muted);font-size:.875rem;font-weight:700;transition:background .15s ease,color .15s ease,box-shadow .15s ease}
+  .tasks-view-tab.active{background:var(--panel);color:var(--accent);box-shadow:var(--shadow)}
+  .sheet-backdrop{position:fixed;inset:0;z-index:70;background:rgba(0,5,15,.66);backdrop-filter:blur(6px)}
+  .bottom-sheet{position:absolute;left:0;right:0;bottom:calc(84px + env(safe-area-inset-bottom));max-height:68dvh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-bottom:0;border-radius:28px 28px 0 0;box-shadow:0 -20px 60px rgba(0,0,0,.38);padding:12px 20px 20px}
+  .sheet-handle{width:48px;height:5px;border-radius:999px;background:var(--muted);opacity:.55;margin:0 auto 14px}
+  .more-row{width:100%;min-height:72px;display:flex;align-items:center;gap:14px;text-align:left;border-bottom:1px solid var(--line)}
+  .more-row:last-child{border-bottom:0}
+  .more-accordion{max-width:576px;margin:12px auto 0;border:1px solid var(--line);border-radius:22px;padding:4px 18px;background:var(--panel);animation:fadeIn .25s ease}
+  .nested-line{border-left:2px solid color-mix(in srgb,var(--accent) 60%,var(--line));margin-left:20px;padding-left:18px}
+  .tag-chip{display:inline-flex;align-items:center;min-height:24px;padding:2px 9px;border:1px solid var(--tag-colour,var(--line));border-radius:999px;color:var(--tag-colour,var(--muted));font-size:11px}
+  .secondary-page{max-width:760px;margin:0 auto}.secondary-page-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
+  .calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}.calendar-day{min-height:88px;padding:8px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}.calendar-day.outside{opacity:.38}.calendar-day.today{border-color:var(--accent)}.calendar-day.selected{box-shadow:0 0 0 2px var(--accent);border-color:var(--accent)}.calendar-day-pick{min-width:32px;min-height:32px;border-radius:9px}.calendar-item{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:3px solid var(--item-colour,var(--accent));padding:3px 5px;margin-top:4px;border-radius:4px;background:var(--panel-2);font-size:10px;color:var(--text)}
+  .focus-page{min-height:calc(100dvh - 120px);max-width:720px;margin:0 auto;display:flex;flex-direction:column}.focus-page-task{flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center}
+  .relax-page{min-height:100dvh;display:flex;align-items:center;justify-content:center;text-align:center;position:relative}.relax-page .orb{width:clamp(210px,62vw,360px);height:clamp(210px,62vw,360px)}
+  .focus-mode .desktop-sidebar,.focus-mode .mobile-bottom-nav,.focus-mode .mobile-top-nav{display:none!important}.focus-mode .app-main{padding-top:0}.focus-mode .safe-bottom:after{display:none}
+  .capture-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.capture-tool{min-width:44px;min-height:44px;border:1px solid var(--line);border-radius:12px;color:var(--muted);background:var(--panel-2)}.capture-tool.active{color:var(--accent);border-color:var(--accent)}
+  .quick-task-text{min-height:112px;resize:vertical;line-height:1.5;padding-top:14px;padding-bottom:14px}
+  .task-action{min-width:44px;min-height:44px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;color:var(--accent)}
+  .vault-group{border:1px solid var(--line);border-radius:20px;background:var(--panel);overflow:hidden}.vault-group-header{min-height:58px;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .upcoming-button{width:100%;max-width:576px;margin:10px auto 0;min-height:58px;border:1px solid rgba(37,185,244,.35);border-radius:18px;background:rgba(37,185,244,.07);color:var(--text)}
+  .progress-bars{height:132px;display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:end}.progress-bar{min-height:4px;border-radius:8px 8px 3px 3px;background:var(--accent)}
+  .project-chip{display:inline-flex;align-items:center;min-height:25px;padding:2px 9px;border:1px solid var(--project-colour,var(--line));border-radius:999px;color:var(--project-colour,var(--muted));font-size:11px;font-weight:600}
+  button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(53,194,255,.75);outline-offset:3px}
+  .hero-grid{background-image:radial-gradient(circle at 50% 27%,rgba(37,185,244,.11),transparent 30%),radial-gradient(circle at 80% 62%,rgba(119,100,246,.09),transparent 26%)}
+  /* A real spacer is used instead of relying on padding because Tailwind's
+     generated p-* utilities can override padding on mobile. */
+  .safe-bottom::after{content:"";display:block;width:100%;height:calc(132px + env(safe-area-inset-bottom));pointer-events:none}
+  .mobile-bottom-nav{position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:40;background:color-mix(in srgb,var(--panel) 92%,transparent);backdrop-filter:blur(18px);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:22px;padding:7px;display:grid;grid-template-columns:repeat(4,1fr)}
+  .mobile-top-nav{position:fixed;top:0;left:0;right:0;z-index:60;min-height:64px;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+  .app-main{padding-top:64px}
+  .task-workspace-card{background:transparent;border:0;box-shadow:none;padding:0!important}
+  .order-task-btn{display:none}
+  .section-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left;min-height:52px}
+  @media(min-width:768px){.app-shell{height:100dvh;overflow:hidden}.app-main{height:100dvh;overflow-y:auto;padding-top:0}.mobile-bottom-nav{display:none}.safe-bottom::after{display:none}.desktop-sidebar{display:flex!important;position:sticky;top:0;height:100dvh}.task-workspace-card{background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);padding:1.25rem!important}.order-task-btn{display:inline-flex}.fab{right:36px;bottom:30px}.bottom-sheet{left:50%;right:auto;bottom:24px;width:min(620px,calc(100% - 48px));transform:translateX(-50%);border-bottom:1px solid var(--line);border-radius:28px}.focus-home{min-height:calc(100dvh - 130px)}}
+  @media(max-width:560px){.calendar-grid{gap:3px}.calendar-day{min-height:68px;padding:5px;border-radius:9px}.calendar-item{font-size:8px;padding:2px 3px}.calendar-weekday{font-size:9px}}
+  @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"><div class="card px-5 py-3 text-sm text-white shadow-xl" style="border-color:var(--emerald);"></div></div>
+
+<script>
+/* ============================================================
+   CONFIGURATION — replace these two lines
+   1. Create a free project at https://supabase.com
+   2. Project Settings -> API -> copy Project URL + anon public key
+============================================================ */
+var SUPABASE_URL = "https://mtsqdhvvrxywbtyabbwo.supabase.co";
+var SUPABASE_ANON_KEY = "sb_publishable_OWslxdSKfxkZJdqC3BvfbA_RTx0ktxx";
+var GOOGLE_WORKSPACE_FUNCTION = SUPABASE_URL + "/functions/v1/google-workspace";
+
+var SETUP_SQL = "create table if not exists focusos_state (\n" +
+"  user_id uuid references auth.users(id) primary key,\n" +
+"  xp integer default 0,\n" +
+"  habits jsonb default '{}'::jsonb,\n" +
+"  tasks jsonb default '{}'::jsonb,\n" +
+"  docs jsonb default '[]'::jsonb,\n" +
+"  connections jsonb default '{}'::jsonb,\n" +
+"  workspace jsonb default '{\"anchors\":[],\"timeline\":[],\"completed\":[],\"inboxZeroDates\":[]}'::jsonb,\n" +
+"  updated_at timestamptz default now()\n" +
+");\n\n" +
+"alter table focusos_state enable row level security;\n\n" +
+"create policy \"Users manage their own row\"\n" +
+"on focusos_state\n" +
+"for all\n" +
+"using (auth.uid() = user_id)\n" +
+"with check (auth.uid() = user_id);";
+
+function isSupabaseConfigured() {
+  return typeof SUPABASE_URL === "string" && typeof SUPABASE_ANON_KEY === "string" &&
+    SUPABASE_URL.indexOf("https://") === 0 &&
+    SUPABASE_URL.indexOf("YOUR_SUPABASE_URL") === -1 &&
+    SUPABASE_ANON_KEY.indexOf("YOUR_SUPABASE_ANON_KEY") === -1 &&
+    SUPABASE_ANON_KEY.length > 20;
+}
+
+var sb = null;
+if (isSupabaseConfigured() && window.supabase && window.supabase.createClient) {
+  try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch (e) { sb = null; }
+}
+
+/* ============================================================
+   CONSTANTS
+============================================================ */
+var XP_PER_LEVEL = 300;
+var FOCUS_SECONDS = 25 * 60;
+var BREAK_SECONDS = 5 * 60;
+var ORIGINAL_TITLE = "FocusOS - Autonomous Agent Console";
+
+var CONNECTION_SERVICES = [
+  { key: "whatsapp", label: "WhatsApp Business", emoji: "\ud83d\udcac", hint: "Endpoint should return recent conversation messages." },
+  { key: "zoho", label: "Zoho CRM", emoji: "\ud83d\udcc8", hint: "Endpoint should return deal/pipeline records." },
+  { key: "jotform", label: "Jotform", emoji: "\ud83d\udce5", hint: "Endpoint should return recent form submissions." }
+];
+
+var CHECKLIST_DEFAULTS = [
+  "Attachment verified?",
+  "Recipient name spelling confirmed?",
+  "Dollar amount double-checked?",
+  "Deadline / date stated clearly?",
+  "Subject line matches the content?",
+  "Read once out loud before sending?"
+];
+
+var DEFAULT_TASKS = {
+  red: [],
+  yellow: [],
+  green: []
+};
+
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function defaultWorkspace() { return { anchors: [], timeline: [], completed: [], inboxZeroDates: [] }; }
+function normalizeWorkspace(value) {
+  var w = value && typeof value === "object" ? value : {};
+  return {
+    anchors: Array.isArray(w.anchors) ? w.anchors : [],
+    timeline: Array.isArray(w.timeline) ? w.timeline : [],
+    completed: Array.isArray(w.completed) ? w.completed : [],
+    inboxZeroDates: Array.isArray(w.inboxZeroDates) ? w.inboxZeroDates : []
+  };
+}
+function escapeHtml(str) { var d = document.createElement("div"); d.textContent = (str === null || str === undefined) ? "" : String(str); return d.innerHTML; }
+function safeExternalUrl(str) { try { var url = new URL(String(str || "")); return url.protocol === "https:" ? url.href : "#"; } catch (_e) { return "#"; } }
+function money(n) { return "$" + Number(n || 0).toLocaleString("en-US"); }
+
+/* ============================================================
+   GLOBAL APP STATE
+============================================================ */
+var state = {
+  screen: "checking",
+  session: null,
+  cloud: null,
+  syncStatus: "idle",
+  saveTimer: null,
+  view: "dashboard",
+  liveData: { gmail: null, calendar: null, drive: null, googleTasks: null, whatsapp: null, zoho: null, jotform: null },
+  tasks: [],
+  projects: [],
+  tags: [],
+  taskTags: [],
+  taskView: "today",
+  tasksScreenView: "calendar",
+  projectFilter: "all",
+  tagFilter: "all",
+  projectQuery: "",
+  taskFiltersExpanded: false,
+  taskListExpanded: false,
+  taskSaving: false,
+  google: { status: "checking", connected: false, email: "moktar@progressay.com", unread: 0, error: "" },
+  googleLoading: false,
+  vaultUploading: false,
+  flowTaskId: null,
+  relaxMode: false,
+  editingTaskId: null,
+  mobileOpen: false,
+  settingsOpen: false,
+  moreOpen: false,
+  recapOpen: false,
+  dashboardPanel: null,
+  calendarCursor: new Date(),
+  calendarSelectedDate: localDay(),
+  tagManagerOpen: false,
+  projectExpanded: {},
+  nextTaskIndex: 0,
+  breathingActive: false,
+  breathingPhase: "",
+  breathingTimerId: null,
+  nextTasksOpen: false,
+  openSections: { add: false, summary: false, calendar: false, projects: false, activity: false },
+  pomodoro: { mode: "focus", secondsLeft: FOCUS_SECONDS, customMinutes: 25, running: false, titleTimerId: null },
+  authMode: "signin",
+  authNotice: "",
+  checklistChecked: CHECKLIST_DEFAULTS.map(function () { return false; }),
+  vaultQuery: "",
+  vaultProjectFilter: "all",
+  assistantRaw: "",
+  theme: window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"
+};
+
+function applyTheme() {
+  document.documentElement.setAttribute("data-theme", state.theme);
+  document.documentElement.style.colorScheme = state.theme;
+}
+function toggleTheme() {
+  state.theme = state.theme === "dark" ? "light" : "dark";
+  if (state.cloud && state.cloud.connections) {
+    state.cloud.connections._preferences = state.cloud.connections._preferences || {};
+    state.cloud.connections._preferences.theme = state.theme;
+    scheduleCloudSave();
+  }
+  applyTheme();
+  render();
+}
+function renderThemeToggle(id) {
+  return '<button type="button" id="' + id + '" class="theme-toggle" aria-label="Switch to ' + (state.theme === "dark" ? "light" : "dark") + ' theme" title="Change theme"><span aria-hidden="true">☀</span><span class="font-semibold" style="color:var(--text)" aria-hidden="true">' + (state.theme === "dark" ? "☾" : "●") + '</span></button>';
+}
+
+function showToast(message) {
+  var toast = document.getElementById("toast");
+  toast.querySelector("div").textContent = message;
+  toast.classList.add("show");
+  setTimeout(function () { toast.classList.remove("show"); }, 2200);
+}
+
+/* ============================================================
+   ROOT RENDER SWITCH
+============================================================ */
+function render() {
+  applyTheme();
+  var root = document.getElementById("root");
+  if (!isSupabaseConfigured() || !sb) { root.innerHTML = renderSetupScreen(); attachSetupHandlers(); return; }
+  if (state.screen === "checking") { root.innerHTML = renderLoadingScreen("Checking session..."); return; }
+  if (state.screen === "landing") { root.innerHTML = renderLandingScreen(); attachLandingHandlers(); return; }
+  if (state.screen === "lock") { root.innerHTML = renderLockScreen(); attachLockHandlers(); return; }
+  if (state.screen === "loading") { root.innerHTML = renderLoadingScreen("Loading your data..."); return; }
+  if (state.screen === "console") { root.innerHTML = renderConsole(); attachConsoleHandlers(); startPomodoroTicker(); return; }
+}
+
+function renderLandingScreen() {
+  return '<main class="hero-grid min-h-screen px-5 py-5 sm:px-8 flex flex-col">' +
+    '<header class="w-full max-w-5xl mx-auto flex items-center justify-between">' +
+      '<div class="flex items-center gap-3"><div aria-hidden="true" class="w-11 h-11 rounded-full" style="background:radial-gradient(circle,#eaffff 0 10%,#25b9f4 18%,#7764f6 58%,transparent 61%);box-shadow:0 0 24px rgba(37,185,244,.4)"></div><span class="theme-text text-2xl font-semibold tracking-tight">Focus<span style="color:var(--accent-2)">OS</span></span></div>' +
+      renderThemeToggle("landingThemeToggle") +
+    '</header>' +
+    '<section class="w-full max-w-xl mx-auto text-center flex-1 flex flex-col justify-center py-12">' +
+      '<p class="text-xs font-semibold tracking-[.22em] uppercase mb-5" style="color:var(--accent)">Your calm command centre</p>' +
+      '<h1 class="theme-text text-4xl sm:text-6xl font-bold tracking-tight leading-[1.04]">Your life, organised around what matters <span style="background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;color:transparent">now.</span></h1>' +
+      '<p class="muted-text mt-6 text-base sm:text-lg leading-relaxed max-w-lg mx-auto">FocusOS brings your tasks, calendar, emails and documents together, then guides you to the next right thing.</p>' +
+      '<div class="my-14 relative"><div class="orb" aria-hidden="true"></div></div>' +
+      '<div class="space-y-3 max-w-md w-full mx-auto">' +
+        '<button id="landingGetStarted" class="btn-primary w-full min-h-[56px] rounded-2xl px-6 text-base">Get started</button>' +
+        '<button id="landingLogin" class="btn-ghost w-full min-h-[54px] rounded-2xl px-6 text-base font-semibold theme-text">Log in</button>' +
+      '</div>' +
+      '<p class="muted-text text-xs leading-relaxed mt-6">🛡 You stay in control. FocusOS acts only with your permission.</p>' +
+    '</section>' +
+    '<section class="grid grid-cols-3 gap-2 sm:gap-4 max-w-xl w-full mx-auto pb-4" aria-label="Benefits">' +
+      '<div class="card px-2 py-4 text-center"><span aria-hidden="true">◎</span><p class="theme-text text-xs mt-2 font-medium">One clear priority</p></div>' +
+      '<div class="card px-2 py-4 text-center"><span aria-hidden="true">▦</span><p class="theme-text text-xs mt-2 font-medium">Automatic daily plan</p></div>' +
+      '<div class="card px-2 py-4 text-center"><span aria-hidden="true">✓</span><p class="theme-text text-xs mt-2 font-medium">Fewer forgotten tasks</p></div>' +
+    '</section>' +
+  '</main>';
+}
+
+function attachLandingHandlers() {
+  document.getElementById("landingGetStarted").addEventListener("click", function () { state.authMode = "signup"; state.screen = "lock"; render(); });
+  document.getElementById("landingLogin").addEventListener("click", function () { state.authMode = "signin"; state.screen = "lock"; render(); });
+  document.getElementById("landingThemeToggle").addEventListener("click", toggleTheme);
+}
+
+function renderLoadingScreen(msg) {
+  return '<div class="min-h-screen flex items-center justify-center">' +
+    '<div class="flex items-center gap-3 text-slate-400 text-sm">' +
+    '<span class="inline-block spin" style="width:18px;height:18px;border:2px solid #10b98155;border-top-color:#10b981;border-radius:9999px;"></span>' +
+    escapeHtml(msg) +
+    '</div></div>';
+}
+
+/* ============================================================
+   SETUP REQUIRED SCREEN
+============================================================ */
+function renderSetupScreen() {
+  return '<div class="min-h-screen flex items-center justify-center p-6">' +
+    '<div class="max-w-xl w-full glass p-8" style="border-color: rgba(245,158,11,.3);">' +
+      '<div class="flex items-center gap-3 mb-4">' +
+        '<div class="rounded-lg p-2" style="background: rgba(245,158,11,.1); color:#fbbf24;">\ud83d\uddc4\ufe0f</div>' +
+        '<h1 class="text-white text-xl font-semibold">Supabase setup required</h1>' +
+      '</div>' +
+      '<p class="text-slate-400 text-sm leading-relaxed mb-5">FocusOS needs a Supabase project to handle sign-in and save your data in the cloud. This takes about two minutes:</p>' +
+      '<ol class="text-sm text-slate-300 space-y-3 mb-6 list-decimal list-inside">' +
+        '<li>Create a free project at <span class="text-emerald-400">supabase.com</span></li>' +
+        '<li>Open <span class="text-slate-200 font-medium">Project Settings &rarr; API</span></li>' +
+        '<li>Copy the <span class="text-slate-200 font-medium">Project URL</span> and <span class="text-slate-200 font-medium">anon public key</span></li>' +
+        '<li>Paste them into <code class="text-emerald-300 bg-slate-950/60 px-1.5 py-0.5 rounded">SUPABASE_URL</code> and <code class="text-emerald-300 bg-slate-950/60 px-1.5 py-0.5 rounded">SUPABASE_ANON_KEY</code> near the top of this file\u2019s script</li>' +
+        '<li>Run the SQL below in Supabase\u2019s <span class="text-slate-200 font-medium">SQL Editor</span></li>' +
+        '<li>Email auth is on by default under Authentication &rarr; Providers</li>' +
+        '<li>Save this file and reload it</li>' +
+      '</ol>' +
+      '<div class="relative">' +
+        '<pre id="sqlBlock" class="text-[11px] leading-relaxed text-slate-300 bg-slate-950/70 border border-slate-800 rounded-xl p-4 overflow-x-auto whitespace-pre-wrap">' + escapeHtml(SETUP_SQL) + '</pre>' +
+        '<button id="copySqlBtn" class="absolute top-2 right-2 text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">Copy SQL</button>' +
+      '</div>' +
+    '</div></div>';
+}
+
+function attachSetupHandlers() {
+  var btn = document.getElementById("copySqlBtn");
+  if (!btn) return;
+  btn.addEventListener("click", function () {
+    navigator.clipboard.writeText(SETUP_SQL).then(function () {
+      btn.textContent = "Copied \u2713";
+      setTimeout(function () { btn.textContent = "Copy SQL"; }, 1500);
+    }).catch(function () { showToast("Could not copy - select the text manually."); });
+  });
+}
+
+/* ============================================================
+   LOCK SCREEN
+============================================================ */
+function renderLockScreen() {
+  var mode = state.authMode;
+  return '<div class="min-h-screen flex items-center justify-center p-6 relative overflow-hidden">' +
+    '<div class="absolute -top-32 -right-32 w-96 h-96 rounded-full pointer-events-none" style="background:rgba(16,185,129,.1);filter:blur(80px);"></div>' +
+    '<div class="absolute -bottom-32 -left-24 w-80 h-80 rounded-full pointer-events-none" style="background:rgba(99,102,241,.1);filter:blur(80px);"></div>' +
+    '<div class="absolute top-5 left-5"><button id="backToLanding" class="btn-ghost min-h-[44px] px-4 rounded-xl text-sm">← Back</button></div>' +
+    '<div class="absolute top-5 right-5">' + renderThemeToggle("authThemeToggle") + '</div>' +
+    '<div class="zoom-in relative w-full max-w-sm">' +
+      '<div class="text-center mb-8">' +
+        '<div class="inline-flex items-center gap-2.5 mb-3">' +
+          '<div class="w-3 h-3 rounded-full pulse-dot" style="background:var(--emerald);"></div>' +
+          '<span class="text-2xl font-semibold tracking-tight text-white">FocusOS</span>' +
+        '</div>' +
+        '<p class="text-sm text-slate-500">Autonomous Agent Console - authentication required</p>' +
+      '</div>' +
+      '<div class="glass p-7">' +
+        '<div class="flex items-center gap-1.5 mb-6 bg-slate-950/50 rounded-full p-1">' +
+          '<button type="button" data-mode="signin" class="auth-mode-btn flex-1 text-xs py-2 rounded-full transition-colors font-medium ' + (mode === "signin" ? "bg-emerald-500" : "text-slate-400") + '" style="' + (mode === "signin" ? "color:#022c22;" : "") + '">Sign in</button>' +
+          '<button type="button" data-mode="signup" class="auth-mode-btn flex-1 text-xs py-2 rounded-full transition-colors font-medium ' + (mode === "signup" ? "bg-emerald-500" : "text-slate-400") + '" style="' + (mode === "signup" ? "color:#022c22;" : "") + '">Create account</button>' +
+        '</div>' +
+        '<form id="authForm" class="space-y-4">' +
+          '<div><label class="text-xs text-slate-500 mb-1.5 block">Email</label>' +
+          '<input type="email" id="authEmail" placeholder="you@company.com" autocomplete="email" required class="w-full rounded-xl px-4 py-2.5 text-sm placeholder-slate-600"></div>' +
+          '<div><label class="text-xs text-slate-500 mb-1.5 block">Password</label>' +
+          '<input type="password" id="authPassword" placeholder="********" autocomplete="' + (mode === "signin" ? "current-password" : "new-password") + '" required class="w-full rounded-xl px-4 py-2.5 text-sm placeholder-slate-600"></div>' +
+          '<div id="authMessage">' + (state.authNotice ? '<div class="rounded-lg px-3 py-2.5 text-xs mb-2" style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:#34d399;">' + escapeHtml(state.authNotice) + '</div>' : '') + '</div>' +
+          '<button type="submit" id="authSubmitBtn" class="btn-primary w-full rounded-xl px-5 py-3 text-sm flex items-center justify-center gap-2">' + (mode === "signin" ? "Sign in" : "Create account") + '</button>' +
+        '</form>' +
+      '</div>' +
+      '<p class="text-center text-[11px] text-slate-600 mt-5">Your data is stored in your own Supabase project, tied to your account.</p>' +
+    '</div></div>';
+}
+
+function attachLockHandlers() {
+  document.getElementById("backToLanding").addEventListener("click", function () { state.screen = "landing"; render(); });
+  document.getElementById("authThemeToggle").addEventListener("click", toggleTheme);
+  var modeBtns = document.querySelectorAll(".auth-mode-btn");
+  for (var i = 0; i < modeBtns.length; i++) {
+    modeBtns[i].addEventListener("click", function (e) {
+      state.authMode = e.currentTarget.getAttribute("data-mode");
+      render();
+    });
+  }
+
+  var form = document.getElementById("authForm");
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var email = document.getElementById("authEmail").value.trim();
+    var password = document.getElementById("authPassword").value;
+    var msgBox = document.getElementById("authMessage");
+    var submitBtn = document.getElementById("authSubmitBtn");
+    msgBox.innerHTML = "";
+    state.authNotice = "";
+    if (!email || !password) {
+      msgBox.innerHTML = '<div class="rounded-lg px-3 py-2.5 text-xs mb-2" style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.25);color:#fca5a5;">Enter both an email and a password.</div>';
+      return;
+    }
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Please wait...";
+
+    var authPromise = state.authMode === "signin"
+      ? sb.auth.signInWithPassword({ email: email, password: password })
+      : sb.auth.signUp({ email: email, password: password });
+
+    authPromise.then(function (result) {
+      if (result.error) throw result.error;
+      var data = result.data;
+      if (data.session) {
+        state.session = data.session;
+        state.screen = "loading";
+        render();
+        loadCloudData();
+      } else if (state.authMode === "signup") {
+        state.authNotice = "Account created - check your email to confirm, then sign in.";
+        state.authMode = "signin";
+        render();
+      } else {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Sign in";
+      }
+    }).catch(function (err) {
+      msgBox.innerHTML = '<div class="rounded-lg px-3 py-2.5 text-xs mb-2" style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.25);color:#fca5a5;">' + escapeHtml(err.message || "Something went wrong.") + '</div>';
+      submitBtn.disabled = false;
+      submitBtn.textContent = state.authMode === "signin" ? "Sign in" : "Create account";
+    });
+  });
+}
+
+/* ============================================================
+   AUTH LIFECYCLE
+============================================================ */
+function initAuth() {
+  if (!isSupabaseConfigured() || !sb) { render(); return; }
+  sb.auth.getSession().then(function (result) {
+    state.session = result.data.session;
+    if (state.session) { state.screen = "loading"; render(); loadCloudData(); }
+    else { state.screen = "landing"; render(); }
+  }).catch(function () {
+    state.screen = "landing";
+    render();
+  });
+
+  sb.auth.onAuthStateChange(function (_event, session) {
+    state.session = session;
+    if (!session) {
+      state.cloud = null;
+      state.screen = "landing";
+      render();
+    }
+  });
+}
+
+function signOut() {
+  sb.auth.signOut().then(function () {
+    state.cloud = null;
+    state.screen = "landing";
+    render();
+  });
+}
+
+/* ============================================================
+   CLOUD DATA LOAD / SAVE
+============================================================ */
+function loadCloudData() {
+  var userId = state.session.user.id;
+  sb.from("focusos_state").select("*").eq("user_id", userId).maybeSingle().then(function (result) {
+    if (result.error) throw result.error;
+    var row = result.data;
+    if (!row) {
+      var defaultRow = {
+        user_id: userId, xp: 0,
+        habits: { date: todayStr(), values: {} },
+        tasks: DEFAULT_TASKS,
+        docs: [],
+        workspace: defaultWorkspace(),
+        connections: { gmail: {}, drive: {}, whatsapp: {}, zoho: {}, jotform: {}, _preferences: { theme: state.theme } }
+      };
+      return sb.from("focusos_state").insert(defaultRow).then(function (insertResult) {
+        if (insertResult.error) throw insertResult.error;
+        state.cloud = defaultRow;
+        return enterConsole();
+      });
+    } else {
+      state.cloud = row;
+      state.cloud.workspace = normalizeWorkspace(row.workspace);
+      if (row.connections && row.connections._preferences && row.connections._preferences.theme) {
+        state.theme = row.connections._preferences.theme;
+        applyTheme();
+      }
+      return enterConsole();
+    }
+  }).catch(function (err) {
+    state.syncStatus = "error";
+    state.screen = "console";
+    state.cloud = state.cloud || {
+      xp: 0, habits: { date: todayStr(), values: {} }, tasks: DEFAULT_TASKS, docs: [],
+      workspace: defaultWorkspace(),
+      connections: { gmail: {}, drive: {}, whatsapp: {}, zoho: {}, jotform: {}, _preferences: { theme: state.theme } }
+    };
+    render();
+    showToast("Could not load cloud data: " + (err.message || "unknown error"));
+  });
+}
+
+function loadCanonicalData() {
+  return Promise.all([
+    sb.from("focusos_tasks").select("id,title,priority,status,project_id,scheduled_date,scheduled_time,is_daily_anchor,recurrence,sort_order,source,completed_at,created_at,updated_at").order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
+    sb.from("focusos_projects").select("id,name,colour,status,created_at,updated_at").eq("status", "active").order("created_at", { ascending: true }),
+    sb.from("focusos_tags").select("id,name,colour,created_at,updated_at").order("name", { ascending: true }),
+    sb.from("focusos_task_tags").select("task_id,tag_id")
+  ]).then(function (results) {
+    if (results[0].error) throw results[0].error;
+    if (results[1].error) throw results[1].error;
+    if (results[2].error) throw results[2].error;
+    if (results[3].error) throw results[3].error;
+    state.tasks = results[0].data || [];
+    state.projects = results[1].data || [];
+    state.tags = results[2].data || [];
+    state.taskTags = results[3].data || [];
+    state.projects.forEach(function (project) { if (state.projectExpanded[project.id] === undefined) state.projectExpanded[project.id] = true; });
+    if (state.projectExpanded.none === undefined) state.projectExpanded.none = true;
+  });
+}
+
+function enterConsole() {
+  return loadCanonicalData().then(function () {
+    state.syncStatus = "saved";
+    state.screen = "console";
+    render();
+    loadGoogleWorkspaceData();
+  });
+}
+
+/* ============================================================
+   GOOGLE WORKSPACE - SECURE OAUTH VIA SUPABASE EDGE FUNCTION
+============================================================ */
+function googleRequest(path, method) {
+  if (!state.session || !state.session.access_token) return Promise.reject(new Error("Sign in required."));
+  return fetch(GOOGLE_WORKSPACE_FUNCTION + path, {
+    method: method || "GET",
+    headers: { Authorization: "Bearer " + state.session.access_token, "Content-Type": "application/json" }
+  }).then(function (response) {
+    return response.json().catch(function () { return {}; }).then(function (body) {
+      if (!response.ok) throw new Error(body.error || "Google Workspace request failed.");
+      return body;
+    });
+  });
+}
+
+function loadGoogleWorkspaceData(force) {
+  if (state.googleLoading || !state.session) return;
+  if (!force && state.google.status === "connected" && state.liveData.gmail && state.liveData.calendar && state.liveData.googleTasks) return;
+  state.googleLoading = true;
+  state.google.status = "checking";
+  googleRequest("/data", "GET").then(function (data) {
+    state.google.connected = !!data.connected;
+    state.google.status = data.connected ? "connected" : "disconnected";
+    state.google.email = data.email || "moktar@progressay.com";
+    state.google.unread = data.gmail ? Number(data.gmail.unread || 0) : 0;
+    state.google.error = "";
+    state.liveData.gmail = data.gmail && Array.isArray(data.gmail.messages) ? data.gmail.messages : [];
+    state.liveData.calendar = data.calendar && Array.isArray(data.calendar.events) ? data.calendar.events : [];
+    state.liveData.googleTasks = data.tasks && Array.isArray(data.tasks.items) ? data.tasks.items : [];
+    state.liveData.drive = data.drive && Array.isArray(data.drive.files) ? data.drive.files.map(function (file) {
+      var type = file.mimeType && file.mimeType.indexOf("folder") !== -1 ? "Folder" : file.mimeType && file.mimeType.indexOf("document") !== -1 ? "Google Doc" : file.mimeType && file.mimeType.indexOf("spreadsheet") !== -1 ? "Google Sheet" : file.mimeType && file.mimeType.indexOf("presentation") !== -1 ? "Google Slides" : "Drive file";
+      var size = file.size === null || file.size === undefined ? "Size unavailable" : file.size < 1024 * 1024 ? Math.max(1, Math.round(file.size / 1024)) + " KB" : (file.size / 1024 / 1024).toFixed(1) + " MB";
+      return { id: file.id, name: file.name, tag: type, date: file.modifiedTime ? new Date(file.modifiedTime).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "", size: size, link: file.link, starred: !!file.starred, drive: true };
+    }) : [];
+    recordInboxZeroDay();
+  }).catch(function (error) {
+    state.google.connected = false;
+    state.google.status = error.message.indexOf("setup is incomplete") !== -1 ? "setup" : "error";
+    state.google.error = error.message;
+    state.liveData.gmail = [];
+    state.liveData.calendar = [];
+    state.liveData.drive = [];
+    state.liveData.googleTasks = [];
+  }).finally(function () {
+    state.googleLoading = false;
+    if (state.screen === "console") render();
+    var params = new URLSearchParams(window.location.search);
+    if (params.get("google") === "connected") showToast("Google Workspace connected.");
+    if (params.get("google") === "denied") showToast("Google connection was cancelled.");
+    if (params.get("google") === "error") showToast(params.get("message") || "Google connection failed.");
+    if (params.has("google")) window.history.replaceState({}, document.title, window.location.pathname);
+  });
+}
+
+function connectGoogleWorkspace() {
+  var button = document.getElementById("connectGoogleBtn");
+  if (button) { button.disabled = true; button.textContent = "Opening Google..."; }
+  googleRequest("/start", "POST").then(function (data) {
+    if (!data.url) throw new Error("Google did not return an authorisation URL.");
+    window.location.assign(data.url);
+  }).catch(function (error) {
+    state.google.status = error.message.indexOf("setup is incomplete") !== -1 ? "setup" : "error";
+    state.google.error = error.message;
+    render();
+    showToast(error.message);
+  });
+}
+
+function disconnectGoogleWorkspace() {
+  if (!window.confirm("Disconnect Google Workspace from FocusOS?")) return;
+  googleRequest("/disconnect", "POST").then(function () {
+    state.google = { status: "disconnected", connected: false, email: "moktar@progressay.com", unread: 0, error: "" };
+    state.liveData.gmail = [];
+    state.liveData.calendar = [];
+    state.liveData.drive = [];
+    state.liveData.googleTasks = [];
+    render();
+    showToast("Google Workspace disconnected.");
+  }).catch(function (error) { showToast(error.message); });
+}
+
+function scheduleCloudSave() {
+  state.syncStatus = "saving";
+  updateSyncPill();
+  clearTimeout(state.saveTimer);
+  state.saveTimer = setTimeout(function () {
+    if (!state.session) return;
+    var c = state.cloud;
+    sb.from("focusos_state").update({
+      xp: c.xp, habits: c.habits, tasks: c.tasks, docs: c.docs, connections: c.connections, workspace: c.workspace, updated_at: new Date().toISOString()
+    }).eq("user_id", state.session.user.id).then(function (result) {
+      state.syncStatus = result.error ? "error" : "saved";
+      updateSyncPill();
+    }).catch(function () {
+      state.syncStatus = "error";
+      updateSyncPill();
+    });
+  }, 700);
+}
+
+function updateSyncPill() {
+  var el = document.getElementById("syncPill");
+  if (el) el.outerHTML = renderSyncPill();
+}
+
+function renderSyncPill() {
+  var map = {
+    saving: { text: "Saving...", cls: "color:#fcd34d;background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.25);", spin: true },
+    saved: { text: "Synced", cls: "color:#6ee7b7;background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.25);", spin: false },
+    error: { text: "Sync error", cls: "color:#fca5a5;background:rgba(244,63,94,.1);border-color:rgba(244,63,94,.25);", spin: false },
+    idle: { text: "Idle", cls: "color:#94a3b8;background:rgba(100,116,139,.1);border-color:rgba(100,116,139,.25);", spin: false }
+  };
+  var s = map[state.syncStatus] || map.idle;
+  return '<div id="syncPill" class="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border" style="' + s.cls + '">' +
+    '<span class="' + (s.spin ? "spin" : "") + '">\u2601\ufe0f</span> ' + s.text + '</div>';
+}
+
+/* ============================================================
+   MAIN CONSOLE
+============================================================ */
+function renderConsole() {
+  var c = state.cloud;
+  var xp = c.xp || 0;
+  var level = Math.floor(xp / XP_PER_LEVEL) + 1;
+  var into = xp % XP_PER_LEVEL;
+  var pct = Math.min(100, Math.round((into / XP_PER_LEVEL) * 100));
+
+  return '<div class="app-shell min-h-screen flex ' + (state.flowTaskId || state.relaxMode ? 'focus-mode' : '') + '">' +
+    '<aside class="desktop-sidebar hidden md:flex w-72 shrink-0 flex-col" style="background:var(--panel);backdrop-filter:blur(10px);border-right:1px solid var(--line);">' + renderSidebarInner(false) + '</aside>' +
+    '<div id="mobileDrawerWrap" class="' + (state.mobileOpen ? "" : "hidden") + ' fixed inset-0 md:hidden" style="z-index:80;">' +
+      '<div id="mobileBackdrop" class="absolute inset-0" style="background:rgba(0,0,0,.7);backdrop-filter:blur(4px);"></div>' +
+      '<div class="absolute left-0 top-0 h-full w-80 flex flex-col" style="max-width:85%;background:var(--panel);border-right:1px solid var(--line);">' + renderSidebarInner(true) + '</div>' +
+    '</div>' +
+    '<main class="app-main flex-1 w-full min-w-0">' +
+      '<div class="mobile-top-nav md:hidden px-4 py-2.5 flex items-center justify-between">' +
+        '<button id="openMobileNav" aria-label="Open navigation" class="theme-text p-3 -ml-3 min-w-[44px] min-h-[44px]">\u2630</button>' +
+        '<span class="theme-text font-semibold text-base">Focus<span style="color:var(--accent-2)">OS</span></span>' +
+        renderThemeToggle("consoleThemeToggle") +
+      '</div>' +
+      '<div class="safe-bottom p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full">' +
+        (state.relaxMode ? renderRelaxPage() : state.flowTaskId ? renderFlowPage() : state.editingTaskId ? renderTaskEditorPage() :
+        '<div class="relative mb-6 hidden md:block">' +
+          '<div class="glass px-5 py-4">' +
+            '<div class="flex items-center justify-between mb-2">' +
+              '<div class="flex items-center gap-2.5">' +
+                '<div class="rounded-lg p-1.5" style="background:rgba(16,185,129,.1);color:#34d399;">\ud83c\udfc6</div>' +
+                '<span class="text-sm font-semibold text-white">Level ' + level + ' Autonomous Agent</span>' +
+              '</div>' +
+              '<span class="text-xs text-slate-400">' + into + ' / ' + XP_PER_LEVEL + ' XP</span>' +
+            '</div>' +
+            '<div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">' +
+              '<div class="h-full rounded-full transition-all duration-500" style="width:' + pct + '%;background:var(--emerald);"></div>' +
+            '</div>' +
+          '</div>' +
+          '<div id="xpFloaterZone" class="absolute -top-2 right-4 flex flex-col items-end pointer-events-none"></div>' +
+        '</div>' +
+        '<div id="view-dashboard" class="view ' + (state.view === "dashboard" ? "active" : "") + '">' + renderDashboardView() + '</div>' +
+        '<div id="view-tasks" class="view ' + (state.view === "tasks" ? "active" : "") + '">' + renderTasksView() + '</div>' +
+        '<div id="view-vault" class="view ' + (state.view === "vault" ? "active" : "") + '">' + renderVaultView() + '</div>' +
+        '<div id="view-more" class="view ' + (state.view === "more" ? "active" : "") + '">' + renderMoreView() + '</div>' +
+        '<div id="view-assistant" class="view ' + (state.view === "assistant" ? "active" : "") + '">' + renderAssistantView() + '</div>') +
+      '</div>' +
+    '</main>' +
+    '<nav class="mobile-bottom-nav" aria-label="Primary">' +
+      renderMobileNavButton("dashboard","⌂","Home") + renderMobileNavButton("tasks","☑","Tasks") + renderMobileNavButton("vault","□","Vault") + renderMobileNavButton("more","•••","More") +
+    '</nav>' +
+    (state.view === "dashboard" && !state.dashboardPanel && !state.editingTaskId ? '<button id="floatingAddTask" class="fab" aria-label="Add task">+ Task</button>' : '') +
+    (state.openSections.add ? renderTaskCreateSheet() : "") +
+    (state.tagManagerOpen ? renderTagManager() : "") +
+    (state.settingsOpen ? renderConnectionsModal() : "") +
+    '</div>';
+}
+
+function renderMobileNavButton(view, icon, label) {
+  var active = state.view === view;
+  return '<button data-view="' + view + '" data-mobile="1" class="switch-view-btn min-h-[58px] rounded-2xl flex flex-col items-center justify-center gap-1 text-xs font-medium" style="color:' + (active ? 'var(--accent)' : 'var(--muted)') + ';background:' + (active ? 'rgba(37,185,244,.10)' : 'transparent') + '"><span class="text-xl" aria-hidden="true">' + icon + '</span>' + label + '</button>';
+}
+
+function renderSidebarInner(isMobile) {
+  var email = (state.session && state.session.user) ? state.session.user.email : "";
+  var tabs = [
+    { id: "dashboard", label: "Today", emoji: "\u26a1" },
+    { id: "tasks", label: "Tasks", emoji: "☑" },
+    { id: "vault", label: "Second Brain Vault", emoji: "\ud83d\udcc1" },
+    { id: "more", label: "More", emoji: "•••" }
+  ];
+  var tabsHtml = tabs.map(function (t) {
+    return '<button data-view="' + t.id + '" data-mobile="' + (isMobile ? "1" : "0") + '" class="switch-view-btn nav-tab ' + (state.view === t.id ? "active" : "text-slate-400") + ' w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm">' +
+      '<span>' + t.emoji + '</span><span class="font-medium">' + t.label + '</span></button>';
+  }).join("");
+
+  return '<div class="px-6 py-7 border-b border-slate-800/60 flex items-center justify-between">' +
+      '<div><div class="flex items-center gap-2.5">' +
+        '<div class="w-3 h-3 rounded-full pulse-dot" style="background:var(--emerald);"></div>' +
+        '<span class="text-xl font-semibold tracking-tight text-white">FocusOS</span></div>' +
+        '<p class="text-xs mt-2 text-slate-500 truncate" style="max-width:180px;" title="' + escapeHtml(email) + '">' + escapeHtml(email) + '</p></div>' +
+      (isMobile ? '<button id="closeMobileNav" class="text-slate-500 hover:text-white">\u2715</button>' : "") +
+    '</div>' +
+    '<nav class="px-3 py-5 space-y-1">' + tabsHtml + '</nav>' +
+    '<div class="px-4 pb-4">' + renderPomodoroWidget() + '</div>' +
+    '<div class="mt-auto px-4 pb-6 space-y-3">' +
+      '<div class="flex justify-center">' + renderSyncPill() + '</div>' +
+      '<div class="flex justify-center">' + renderThemeToggle(isMobile ? "drawerThemeToggle" : "desktopThemeToggle") + '</div>' +
+      '<button id="' + (isMobile ? "openSettingsFromDrawer" : "openSettingsDesktop") + '" class="btn-ghost w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm">\u2699\ufe0f Connections</button>' +
+      '<button id="' + (isMobile ? "signOutMobile" : "signOutDesktop") + '" class="btn-ghost w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm" style="color:#fca5a5;">\u21a9 Sign out</button>' +
+    '</div>';
+}
+
+function renderPomodoroWidget() {
+  var p = state.pomodoro;
+  var mm = String(Math.floor(p.secondsLeft / 60)).padStart(2, "0");
+  var ss = String(p.secondsLeft % 60).padStart(2, "0");
+  return '<div class="rounded-2xl px-4 py-4" style="background:var(--panel-2);border:1px solid var(--line);">' +
+    '<div class="flex items-center gap-1.5 mb-3 rounded-full p-1" style="background:rgba(15,23,42,.7);">' +
+      '<button id="pomoFocusBtn" class="flex-1 text-[11px] py-1.5 rounded-full transition-colors ' + (p.mode === "focus" ? "font-semibold" : "text-slate-400") + '" style="' + (p.mode === "focus" ? "background:var(--emerald);color:#022c22;" : "") + '">Focus Sprint</button>' +
+      '<button id="pomoBreakBtn" class="flex-1 text-[11px] py-1.5 rounded-full transition-colors ' + (p.mode === "break" ? "font-semibold" : "text-slate-400") + '" style="' + (p.mode === "break" ? "background:#6366f1;color:#1e1b4b;" : "") + '">Dopamine Break</button>' +
+    '</div>' +
+    '<div class="text-center mb-3"><span id="pomoDisplay" class="text-3xl font-bold tracking-tight text-white" style="font-variant-numeric: tabular-nums;">' + mm + ':' + ss + '</span></div>' +
+    '<div class="flex items-center justify-center gap-2">' +
+      '<button id="pomoToggleBtn" class="rounded-full p-2.5" style="background:var(--emerald);color:#022c22;">' + (p.running ? "\u23f8" : "\u25b6") + '</button>' +
+      '<button id="pomoResetBtn" class="rounded-full p-2.5 border border-slate-700 text-slate-300">\u21ba</button>' +
+    '</div></div>';
+}
+
+/* ============================================================
+   DASHBOARD VIEW
+============================================================ */
+function renderDashboardView() {
+  var todayTasks = state.tasks.filter(function (task) { return task.status === 'open' && task.scheduled_date === localDay(); }).sort(function (a,b) { if (a.priority === b.priority) return Number(a.sort_order || 0) - Number(b.sort_order || 0); return a.priority === 'red' ? -1 : 1; });
+  var todayEvents = state.google.connected ? (state.liveData.calendar || []).filter(function (event) { return event.start && localDay(new Date(event.start)) === localDay(); }) : [];
+  if (state.dashboardPanel) return renderDashboardPanel(state.dashboardPanel);
+  return '<section class="max-w-3xl mx-auto focus-home">' +
+    '<header class="home-welcome"><p class="hud text-[10px] mb-1" style="color:var(--accent)">Today</p><h1 class="theme-text text-2xl sm:text-3xl font-bold">' + escapeHtml(homeWelcomeMessage()) + '</h1></header>' +
+    '<div class="home-orb-wrap">' +
+      '<span id="homeOrbStage" class="orb-stage"><button id="breathingOrb" class="orb" aria-label="Open Relax breathing mode" style="width:clamp(150px,40vw,210px);height:clamp(150px,40vw,210px)"></button></span>' +
+      '<p class="muted-text text-xs mt-10">Tap the orb to relax</p>' +
+    '</div>' +
+    renderTodaySummary(todayTasks, todayEvents) +
+    renderRecapCard() +
+  '</section>';
+}
+
+function renderRelaxPage() {
+  return '<section class="relax-page"><button id="exitRelaxBtn" class="btn-ghost rounded-xl min-w-[48px] min-h-[48px] absolute top-5 left-0" aria-label="Exit Relax mode">‹</button><div><p class="hud text-[10px] mb-14" style="color:var(--emerald)">Breathe</p><span id="relaxOrbStage" class="orb-stage"><button id="breathingOrb" class="orb ' + (state.breathingActive ? 'guided' : '') + '" aria-pressed="' + state.breathingActive + '" aria-label="' + (state.breathingActive ? 'Pause guided breathing' : 'Start guided breathing') + '"></button></span><p id="orbInstruction" class="orb-label mt-16" aria-live="polite">' + escapeHtml(state.breathingPhase || 'Tap to begin') + '</p><p class="muted-text text-xs mt-3">Nothing else is required.</p></div></section>';
+}
+
+function homeWelcomeMessage() {
+  var user = state.session && state.session.user ? state.session.user : {};
+  var metadata = user.user_metadata || {};
+  var raw = metadata.first_name || metadata.full_name || metadata.name || String(user.email || '').split('@')[0] || '';
+  var first = String(raw).trim().split(/\s+/)[0];
+  if (!first) return 'Welcome back';
+  return 'Welcome back, ' + first.charAt(0).toUpperCase() + first.slice(1);
+}
+
+function renderTodaySummary(tasks, events) {
+  var taskRows = tasks.slice(0,3).map(function (task) {
+    var time = task.scheduled_time ? String(task.scheduled_time).slice(0,5) : 'Any time';
+    return '<button data-edit-task="' + task.id + '" class="today-summary-row" aria-label="Open ' + escapeHtml(task.title) + '"><span class="today-summary-dot" style="--task-colour:' + projectColour(task.project_id,task.priority) + '"></span><span class="muted-text text-xs w-14 shrink-0">' + escapeHtml(time) + '</span><strong class="theme-text text-sm flex-1 truncate">' + escapeHtml(task.title) + '</strong><span style="color:var(--accent)">›</span></button>';
+  }).join('');
+  var totalLabel = tasks.length + ' task' + (tasks.length === 1 ? '' : 's') + (state.google.connected ? ' · ' + events.length + ' calendar event' + (events.length === 1 ? '' : 's') : '');
+  var footer = tasks.length > 3 || events.length ? '<button data-dashboard-panel="upcoming" class="today-summary-row justify-center text-sm font-semibold" style="color:var(--accent)">Open today’s agenda</button>' : '';
+  return '<section class="today-summary" aria-labelledby="todaySummaryTitle"><div class="flex items-center justify-between gap-3 p-4"><div><h2 id="todaySummaryTitle" class="theme-text font-bold">Today’s tasks</h2><p class="muted-text text-xs mt-1">' + totalLabel + '</p></div><time class="theme-text text-sm">' + new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + '</time></div>' + (taskRows || '<p class="muted-text text-sm px-4 pb-4">Nothing is due today.</p>') + footer + '</section>';
+}
+
+function completedDate(task) {
+  if (!task.completed_at) return null;
+  var date = new Date(task.completed_at);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function renderRecapCard() {
+  var now = new Date();
+  var yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+  var weekStart = new Date(now); weekStart.setDate(now.getDate() - 6); weekStart.setHours(0,0,0,0);
+  var completed = state.tasks.filter(function (task) { return task.status === 'completed' && completedDate(task); });
+  var yesterdayTasks = completed.filter(function (task) { return localDay(completedDate(task)) === localDay(yesterday); });
+  var weekTasks = completed.filter(function (task) { return completedDate(task) >= weekStart; });
+  var details = '';
+  if (state.recapOpen) {
+    details = '<div id="recapContent" class="recap-content"><div class="grid grid-cols-2 gap-3 mt-4"><div class="recap-stat"><strong class="theme-text text-xl block">' + yesterdayTasks.length + '</strong><small class="muted-text">Yesterday</small></div><div class="recap-stat"><strong class="theme-text text-xl block">' + weekTasks.length + '</strong><small class="muted-text">Last 7 days</small></div></div>' + (weekTasks.length ? '<div class="mt-3">' + weekTasks.slice(0,3).map(function (task) { return '<div class="flex items-center gap-2 py-2"><span style="color:var(--emerald)">✓</span><span class="theme-text text-sm truncate">' + escapeHtml(task.title) + '</span></div>'; }).join('') + (weekTasks.length > 3 ? '<button data-dashboard-panel="progress" class="min-h-[44px] text-sm font-semibold" style="color:var(--accent)">View full recap</button>' : '') + '</div>' : '<p class="muted-text text-sm mt-3">No completed tasks recorded in the last 7 days.</p>') + '</div>';
+  }
+  return '<section class="recap-card"><button id="recapToggle" class="w-full min-h-[64px] px-4 flex items-center gap-3 text-left" aria-expanded="' + state.recapOpen + '" aria-controls="recapContent"><span class="text-xl" style="color:var(--accent)">◔</span><span class="flex-1"><strong class="theme-text block">Recap</strong><small class="muted-text">Yesterday and the last 7 days</small></span><span style="color:var(--accent)">' + (state.recapOpen ? '⌃' : '⌄') + '</span></button>' + details + '</section>';
+}
+
+function nextTaskCandidates() {
+  var priorityRank = { red: 0, blue: 1, yellow: 1, green: 1 };
+  return state.tasks.filter(function (task) { return task.status === 'open'; }).slice().sort(function (a,b) {
+    var aToday = a.scheduled_date === localDay() ? 0 : 1, bToday = b.scheduled_date === localDay() ? 0 : 1;
+    if (aToday !== bToday) return aToday - bToday;
+    var ap = Object.prototype.hasOwnProperty.call(priorityRank,a.priority) ? priorityRank[a.priority] : 3;
+    var bp = Object.prototype.hasOwnProperty.call(priorityRank,b.priority) ? priorityRank[b.priority] : 3;
+    if (ap !== bp) return ap - bp;
+    return Number(a.sort_order || 0) - Number(b.sort_order || 0);
+  });
+}
+function nextTaskReason(task) { return (task.scheduled_date === localDay() ? 'scheduled for today and ' : '') + (task.priority === 'red' ? 'marked critical' : task.priority === 'yellow' ? 'marked for today' : task.priority === 'green' ? 'the next routine task' : 'first in your task order'); }
+function renderProjectChip(task) { var project = state.projects.find(function (item) { return item.id === task.project_id; }); return project ? '<span class="project-chip" style="--project-colour:' + projectColour(project.id,task.priority) + '">▣ ' + escapeHtml(project.name) + '</span>' : '<span class="project-chip">Inbox</span>'; }
+
+function renderMoreAccordion() {
+  var googleStatus = state.google.connected ? 'Connected' : 'Not connected';
+  return '<section id="moreAccordion" class="more-accordion" aria-label="More options">' +
+    '<button data-dashboard-panel="tasks" class="more-row"><span class="text-xl" style="color:var(--accent)">☑</span><span class="flex-1"><strong class="theme-text block">All tasks</strong><small class="muted-text">One flat list across every project</small></span><span style="color:var(--accent)">›</span></button>' +
+    '<button data-dashboard-panel="calendar" class="more-row"><span class="text-xl" style="color:var(--accent)">▣</span><span class="flex-1"><strong class="theme-text block">Calendar &amp; timeline</strong><small class="muted-text">Dates, times and upcoming events</small></span><span style="color:var(--accent)">›</span></button>' +
+    '<button data-dashboard-panel="projects" class="more-row"><span class="text-xl" style="color:var(--accent)">□</span><span class="flex-1"><strong class="theme-text block">Projects</strong><small class="muted-text">The same tasks grouped inside folders</small></span><span style="color:var(--accent)">›</span></button>' +
+    '<button data-dashboard-panel="progress" class="more-row"><span class="text-xl" style="color:var(--accent)">◔</span><span class="flex-1"><strong class="theme-text block">Progress &amp; activity</strong><small class="muted-text">Completed work and recent changes</small></span><span style="color:var(--accent)">›</span></button>' +
+    '<button id="openGoogleFromMore" class="more-row"><span class="text-xl" aria-hidden="true">G</span><span class="flex-1"><strong class="theme-text block">Google Workspace</strong><small class="muted-text">Calendar · Gmail · Tasks · Drive</small></span><small style="color:' + (state.google.connected ? 'var(--emerald)' : 'var(--accent)') + '">' + (state.google.connected ? googleStatus : 'Connect') + '</small><span style="color:var(--accent)">›</span></button>' +
+  '</section>';
+}
+
+function renderUpcomingButton() {
+  var taskCount = state.tasks.filter(function (task) { return task.status === 'open' && task.scheduled_date === localDay(); }).length;
+  var eventCount = state.google.connected ? (state.liveData.calendar || []).filter(function (event) { return event.start && localDay(new Date(event.start)) === localDay(); }).length : 0;
+  return '<button data-dashboard-panel="upcoming" class="upcoming-button px-4 flex items-center gap-3 text-left"><span class="text-xl" style="color:var(--accent)">◷</span><span class="flex-1"><strong class="block">What\'s coming up</strong><small class="muted-text">' + taskCount + ' task' + (taskCount === 1 ? '' : 's') + (state.google.connected ? ' · ' + eventCount + ' event' + (eventCount === 1 ? '' : 's') : '') + ' today</small></span><span style="color:var(--accent)">›</span></button>';
+}
+
+function renderTaskCreateSheet() {
+  return '<div id="taskCreateBackdrop" class="sheet-backdrop"><section id="taskCreateSheet" class="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="taskCreateTitle" tabindex="-1"><div class="sheet-handle"></div><div class="flex items-center justify-between mb-3"><div><h2 id="taskCreateTitle" class="theme-text text-xl font-bold">Capture</h2><p class="muted-text text-sm mt-1">Add it now. Organise only if useful.</p></div><button type="button" id="closeDashboardAddTask" class="theme-text min-w-[44px] min-h-[44px] text-2xl" aria-label="Close">×</button></div>' + renderQuickTaskForm('floatingTaskForm', 'What is on your mind?', false) + '</section></div>';
+}
+
+function renderDashboardPanel(panel) {
+  var title = panel === 'tasks' ? 'All tasks' : panel === 'calendar' ? 'Calendar & timeline' : panel === 'projects' ? 'Projects' : panel === 'upcoming' ? 'What\'s coming up' : 'Progress & activity';
+  var body = panel === 'tasks' ? renderAllTasksPanel() : panel === 'calendar' ? renderCalendarTimelinePanel() : panel === 'projects' ? renderNestedProjects() : panel === 'upcoming' ? renderUpcomingPanel() : renderActivityPanel(state.google.connected ? state.google.unread : 0);
+  return '<section class="secondary-page"><div class="secondary-page-header"><button id="closeDashboardPanel" class="theme-text min-w-[44px] min-h-[44px] text-2xl" aria-label="Back">‹</button><h1 class="theme-text text-2xl font-bold">' + title + '</h1><span class="w-11"></span></div>' + body + '</section>';
+}
+
+function renderUpcomingPanel() {
+  var today = localDay();
+  var tasks = state.tasks.filter(function (task) { return task.status === 'open' && task.scheduled_date === today; }).sort(function (a,b) { return String(a.scheduled_time || '99:99').localeCompare(String(b.scheduled_time || '99:99')); });
+  var events = state.google.connected ? (state.liveData.calendar || []).filter(function (event) { return event.start && localDay(new Date(event.start)) === today; }) : [];
+  var eventRows = events.map(function (event) { var start = new Date(event.start); var time = isNaN(start.getTime()) ? '' : start.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); return '<a class="more-row px-4" href="' + escapeHtml(safeExternalUrl(event.link)) + '" target="_blank" rel="noopener"><span style="color:var(--accent-2)">●</span><span class="flex-1"><strong class="theme-text block text-sm">' + escapeHtml(event.title) + '</strong><small class="muted-text">' + escapeHtml(time || 'All day') + '</small></span><span style="color:var(--accent)">↗</span></a>'; }).join('');
+  return '<p class="muted-text text-sm mb-4">Everything scheduled for today, without the rest of the dashboard.</p><div class="card p-4 mb-5"><h2 class="theme-text font-semibold mb-3">Tasks due today</h2>' + renderCanonicalTaskList(tasks) + '</div><div class="card overflow-hidden"><h2 class="theme-text font-semibold p-4 border-b" style="border-color:var(--line)">Calendar events</h2>' + (state.google.connected ? (eventRows || '<p class="muted-text text-sm p-4">No calendar events today.</p>') : '<div class="p-4"><p class="muted-text text-sm mb-3">Connect Google Workspace to include your real calendar events.</p><button id="connectGoogleUpcoming" class="btn-primary rounded-xl min-h-[46px] px-4">Connect Google Workspace</button></div>') + '</div>';
+}
+
+function renderAllTasksPanel() {
+  var googleTasks = state.google.connected && Array.isArray(state.liveData.googleTasks) ? state.liveData.googleTasks : [];
+  var tagFilter = state.tags.length ? '<label class="muted-text text-xs block mb-3">Filter by tag<select id="tagFilter" class="w-full rounded-xl px-3 min-h-[46px] mt-2"><option value="all">All tags</option>' + state.tags.map(function (tag) { return '<option value="' + tag.id + '" ' + (state.tagFilter === tag.id ? 'selected' : '') + '>' + escapeHtml(tag.name) + '</option>'; }).join('') + '</select></label>' : '';
+  return tagFilter + renderNestedProjects() +
+    (state.google.connected ? '<details class="card p-4 mt-6"><summary class="theme-text min-h-[44px] cursor-pointer font-semibold">Google Tasks <span class="muted-text text-sm font-normal">· ' + googleTasks.length + ' open · read-only</span></summary>' + (googleTasks.length ? '<a class="more-row" href="' + escapeHtml(safeExternalUrl(googleTasks[0].link)) + '" target="_blank" rel="noopener"><span class="muted-text">○</span><span class="flex-1"><strong class="theme-text block text-sm">' + escapeHtml(googleTasks[0].title) + '</strong><small class="muted-text">Next from ' + escapeHtml(googleTasks[0].taskListTitle || 'Google Tasks') + '</small></span><span style="color:var(--accent)">↗</span></a>' : '<p class="muted-text text-sm pt-3">No open Google Tasks found.</p>') + '</details>' : '');
+}
+
+function renderCalendarTimelinePanel() {
+  var cursor = new Date(state.calendarCursor); cursor.setDate(1); cursor.setHours(12,0,0,0);
+  var gridStart = new Date(cursor); gridStart.setDate(1 - ((cursor.getDay() + 6) % 7));
+  var monthKey = localDay(cursor).slice(0,7);
+  var weekdays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function (day) { return '<div class="calendar-weekday muted-text text-center text-[11px] font-semibold py-1">' + day + '</div>'; }).join('');
+  var events = state.google.connected ? (state.liveData.calendar || []) : [];
+  var externalTasks = state.google.connected ? (state.liveData.googleTasks || []) : [];
+  var cells = [];
+  for (var i = 0; i < 42; i++) {
+    var date = new Date(gridStart); date.setDate(gridStart.getDate() + i);
+    var key = localDay(date);
+    var tasks = state.tasks.filter(function (task) { return task.status === 'open' && task.scheduled_date === key; });
+    var dayEvents = events.filter(function (event) { return event.start && localDay(new Date(event.start)) === key; });
+    var googleDayTasks = externalTasks.filter(function (task) { return task.due && String(task.due).slice(0,10) === key; });
+    var items = tasks.slice(0,2).map(function (task) { return '<button data-edit-task="' + task.id + '" class="calendar-item w-full text-left" style="--item-colour:' + projectColour(task.project_id, task.priority) + '" title="Open ' + escapeHtml(task.title) + '">' + escapeHtml(task.scheduled_time ? String(task.scheduled_time).slice(0,5) + ' ' + task.title : task.title) + '</button>'; }).join('');
+    items += dayEvents.slice(0,2).map(function (event) { return '<a class="calendar-item" style="--item-colour:var(--accent-2)" href="' + escapeHtml(safeExternalUrl(event.link)) + '" target="_blank" rel="noopener" title="' + escapeHtml(event.title) + '">' + escapeHtml(event.title) + '</a>'; }).join('');
+    if (tasks.length + dayEvents.length < 4) items += googleDayTasks.slice(0,1).map(function (task) { return '<a class="calendar-item" style="--item-colour:var(--warning)" href="' + escapeHtml(safeExternalUrl(task.link)) + '" target="_blank" rel="noopener" title="Google Task: ' + escapeHtml(task.title) + '">' + escapeHtml(task.title) + '</a>'; }).join('');
+    var total = tasks.length + dayEvents.length + googleDayTasks.length;
+    var hidden = Math.max(0, total - 4);
+    cells.push('<div class="calendar-day ' + (key.slice(0,7) !== monthKey ? 'outside ' : '') + (key === localDay() ? 'today ' : '') + (key === state.calendarSelectedDate ? 'selected' : '') + '"><div class="flex items-center justify-between"><button data-calendar-day="' + key + '" class="calendar-day-pick theme-text text-xs font-semibold" aria-label="Show agenda for ' + date.toLocaleDateString('en-GB') + '">' + date.getDate() + '</button>' + (total ? '<span class="muted-text text-[9px]">' + total + '</span>' : '') + '</div>' + items + (hidden > 0 ? '<button data-calendar-day="' + key + '" class="muted-text text-[9px] min-h-[30px]">+' + hidden + ' more</button>' : '') + '</div>');
+  }
+  var selectedTasks = state.tasks.filter(function (task) { return task.status === 'open' && task.scheduled_date === state.calendarSelectedDate; }).sort(function(a,b){ return String(a.scheduled_time || '99:99').localeCompare(String(b.scheduled_time || '99:99')); });
+  var selectedEvents = events.filter(function(event){ return event.start && localDay(new Date(event.start)) === state.calendarSelectedDate; });
+  var selectedDate = new Date(state.calendarSelectedDate + 'T12:00:00');
+  var agenda = '<section class="card p-4 sm:p-5 mt-4"><div class="flex items-center justify-between mb-3"><h3 class="theme-text font-bold">' + selectedDate.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}) + '</h3><button id="addOnSelectedDay" class="btn-ghost rounded-xl min-h-[44px] px-3">+ Task</button></div>' + (selectedTasks.length ? renderCanonicalTaskList(selectedTasks) : '<p class="muted-text text-sm py-2">No FocusOS tasks on this day.</p>') + selectedEvents.map(function(event){ return '<a class="more-row" href="' + escapeHtml(safeExternalUrl(event.link)) + '" target="_blank" rel="noopener"><span style="color:var(--accent-2)">●</span><span class="flex-1"><strong class="theme-text block text-sm">' + escapeHtml(event.title) + '</strong><small class="muted-text">Google Calendar</small></span><span>↗</span></a>'; }).join('') + '</section>';
+  return '<div class="card p-3 sm:p-5"><div class="flex items-center justify-between mb-4"><button id="calendarPrev" class="btn-ghost min-w-[44px] min-h-[44px] rounded-xl" aria-label="Previous month">‹</button><h2 class="theme-text text-lg font-bold">' + cursor.toLocaleDateString('en-GB',{month:'long',year:'numeric'}) + '</h2><button id="calendarNext" class="btn-ghost min-w-[44px] min-h-[44px] rounded-xl" aria-label="Next month">›</button></div><div class="calendar-grid mb-2">' + weekdays + cells.join('') + '</div><div class="flex flex-wrap gap-4 mt-4 text-xs muted-text"><span><b style="color:var(--accent)">●</b> FocusOS</span><span><b style="color:var(--accent-2)">●</b> Calendar</span><span><b style="color:var(--warning)">●</b> Google Tasks</span></div>' + (!state.google.connected ? '<button id="connectGoogleCalendar" class="btn-primary w-full min-h-[48px] rounded-xl mt-4">Connect Google Workspace</button>' : '') + '</div>' + agenda;
+}
+
+function projectColour(projectId, priority) {
+  var project = state.projects.find(function (item) { return item.id === projectId; });
+  if (project && /^#[0-9a-f]{6}$/i.test(project.colour || '')) return project.colour;
+  return priority === 'red' ? 'var(--danger)' : 'var(--accent)';
+}
+
+function renderDashboardSection(key, title, content) {
+  var open = !!state.openSections[key];
+  return '<article class="card px-5 mb-4"><button class="section-toggle theme-text" data-toggle-section="' + key + '" aria-expanded="' + open + '"><span class="font-semibold">' + escapeHtml(title) + '</span><span aria-hidden="true">' + (open ? '−' : '+') + '</span></button>' + (open ? '<div class="pb-5 pt-1">' + content + '</div>' : '') + '</article>';
+}
+
+function localDay(date) {
+  var d = date || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function renderDaySummary() {
+  var yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  var completed = state.tasks.filter(function (item) { return item.status === 'completed' && item.completed_at && localDay(new Date(item.completed_at)) === localDay(yesterday); });
+  var taskCount = state.tasks.filter(function (item) { return item.status === 'open' && item.scheduled_date === localDay(); }).length;
+  var eventCount = (state.liveData.calendar || []).filter(function (event) { return event.start && localDay(new Date(event.start)) === localDay(); }).length;
+  return '<div class="grid sm:grid-cols-2 gap-3"><div class="rounded-xl p-4" style="background:var(--panel-2);border:1px solid var(--line)"><p class="hud text-[10px]" style="color:var(--muted)">Yesterday</p><p class="theme-text text-sm mt-2">' + (completed.length ? completed.length + ' task' + (completed.length === 1 ? '' : 's') + ' completed' : 'No completed tasks recorded') + '</p></div><div class="rounded-xl p-4" style="background:var(--panel-2);border:1px solid var(--line)"><p class="hud text-[10px]" style="color:var(--muted)">Today</p><p class="theme-text text-sm mt-2">' + taskCount + ' tasks · ' + eventCount + ' calendar events</p></div></div>';
+}
+
+function projectOptions(selected) {
+  return '<option value="">No Project / Inbox</option>' + state.projects.map(function (project) { return '<option value="' + project.id + '" ' + (selected === project.id ? 'selected' : '') + '>' + escapeHtml(project.name) + '</option>'; }).join('');
+}
+
+function tagsForTask(taskId) {
+  var ids = state.taskTags.filter(function (link) { return link.task_id === taskId; }).map(function (link) { return link.tag_id; });
+  return state.tags.filter(function (tag) { return ids.indexOf(tag.id) !== -1; });
+}
+
+function renderTagOptions(selectedIds) {
+  var selected = selectedIds || [];
+  return state.tags.map(function (tag) { return '<option value="' + tag.id + '" ' + (selected.indexOf(tag.id) !== -1 ? 'selected' : '') + '>' + escapeHtml(tag.name) + '</option>'; }).join('');
+}
+
+function renderTaskTags(taskId) {
+  return tagsForTask(taskId).map(function (tag) { var colour = /^#[0-9a-f]{6}$/i.test(tag.colour || '') ? tag.colour : 'var(--muted)'; return '<span class="tag-chip" style="--tag-colour:' + colour + '">' + escapeHtml(tag.name) + '</span>'; }).join('');
+}
+
+function renderCanonicalTaskForm(id) {
+  var close = id === 'dashboardTaskForm' ? '<button type="button" id="closeDashboardAddTask" class="muted-text p-2">×</button>' : '';
+  var selectedProject = state.projectFilter !== 'all' && state.projectFilter !== 'none' ? state.projectFilter : '';
+  return '<form id="' + id + '" class="space-y-3"><div class="flex items-center justify-between"><h3 id="taskCreateTitle" class="theme-text font-semibold">Add task</h3>' + close + '</div><input name="title" required class="w-full rounded-xl px-4 min-h-[50px]" placeholder="What needs doing?"><div class="grid grid-cols-2 gap-2"><select name="priority" class="rounded-xl px-3 min-h-[48px]"><option value="blue">Blue · Not priority</option><option value="red">Red · Priority</option></select><select name="project_id" class="rounded-xl px-3 min-h-[48px]">' + projectOptions(selectedProject) + '</select><input name="scheduled_date" type="date" class="rounded-xl px-3 min-h-[48px]"><input name="scheduled_time" type="time" class="rounded-xl px-3 min-h-[48px]"></div>' +
+    (state.tags.length ? '<label class="muted-text text-xs block">Tags<select name="tag_ids" multiple class="w-full rounded-xl px-3 py-2 mt-2 min-h-[76px]">' + renderTagOptions([]) + '</select></label>' : '<button type="button" id="manageTagsFromTask" class="btn-ghost w-full rounded-xl min-h-[46px]">Create your first tag</button>') +
+    '<label class="theme-text flex items-center gap-3 text-sm"><input name="is_daily_anchor" type="checkbox"> Daily anchor</label><button class="btn-primary w-full rounded-xl min-h-[50px]">Save task</button></form>';
+}
+
+function taskMatchesView(task) {
+  if (state.projectFilter === 'none' && task.project_id) return false;
+  if (state.projectFilter !== 'all' && state.projectFilter !== 'none' && task.project_id !== state.projectFilter) return false;
+  if (state.tagFilter !== 'all' && !state.taskTags.some(function (link) { return link.task_id === task.id && link.tag_id === state.tagFilter; })) return false;
+  if (state.taskView === 'completed') return task.status === 'completed';
+  if (task.status !== 'open') return false;
+  if (state.taskView === 'today') return task.scheduled_date === localDay();
+  if (state.taskView === 'timeline') return !!task.scheduled_date;
+  if (state.taskView === 'anchors') return !!task.is_daily_anchor;
+  return true;
+}
+
+function renderTaskWorkspace() {
+  var primaryViews = [['today','Today'],['priority','Priority'],['all','All']];
+  var secondaryViews = [['timeline','Timeline'],['anchors','Anchors'],['completed','Completed']];
+  var filtered = state.tasks.filter(taskMatchesView);
+  if (state.taskView === 'timeline') filtered.sort(function (a,b) { return String(a.scheduled_date || '').localeCompare(String(b.scheduled_date || '')) || String(a.scheduled_time || '').localeCompare(String(b.scheduled_time || '')); });
+  if (state.taskView === 'priority') {
+    var priorityRank = { red: 0, blue: 1, yellow: 1, green: 1 };
+    filtered.sort(function (a, b) {
+      var aRank = Object.prototype.hasOwnProperty.call(priorityRank, a.priority) ? priorityRank[a.priority] : 3;
+      var bRank = Object.prototype.hasOwnProperty.call(priorityRank, b.priority) ? priorityRank[b.priority] : 3;
+      return aRank - bRank || Number(a.sort_order || 0) - Number(b.sort_order || 0);
+    });
+  }
+  var detailViewActive = secondaryViews.some(function (view) { return state.taskView === view[0]; }) || state.projectFilter !== 'all';
+  var detailsOpen = state.taskFiltersExpanded || detailViewActive;
+  var tabHtml = function (view) { return '<button data-task-view="' + view[0] + '" class="task-view-btn rounded-full px-4 py-2.5 text-sm font-semibold" style="background:' + (state.taskView === view[0] ? 'rgba(37,185,244,.14)' : 'var(--panel-2)') + ';color:' + (state.taskView === view[0] ? 'var(--accent)' : 'var(--muted)') + '">' + view[1] + '</button>'; };
+  var primaryTabs = primaryViews.map(tabHtml).join('');
+  var secondaryTabs = secondaryViews.map(tabHtml).join('');
+  var projectSelect = '<select id="projectFilter" class="rounded-xl px-3 min-h-[44px] text-sm"><option value="all">All projects</option><option value="none" ' + (state.projectFilter === 'none' ? 'selected' : '') + '>No Project / Inbox</option>' + state.projects.map(function (project) { return '<option value="' + project.id + '" ' + (state.projectFilter === project.id ? 'selected' : '') + '>' + escapeHtml(project.name) + '</option>'; }).join('') + '</select>';
+  var visible = state.taskListExpanded ? filtered : filtered.slice(0, 4);
+  var remaining = filtered.length - visible.length;
+  var moreTasks = remaining > 0 ? '<button id="showMoreTasksBtn" class="btn-ghost w-full rounded-xl min-h-[48px] mt-3 text-sm">Show ' + remaining + ' more task' + (remaining === 1 ? '' : 's') + '</button>' : (state.taskListExpanded && filtered.length > 4 ? '<button id="showFewerTasksBtn" class="btn-ghost w-full rounded-xl min-h-[48px] mt-3 text-sm">Show fewer</button>' : '');
+  var taskListHtml = state.taskView === 'priority' ? '<div class="mb-5"><h4 class="text-sm font-semibold mb-2" style="color:var(--danger)">1. Priority</h4>' + renderCanonicalTaskList(filtered.filter(function (task) { return task.priority === 'red'; })) + '</div><div><h4 class="text-sm font-semibold mb-2" style="color:var(--accent)">2. Not priority</h4>' + renderCanonicalTaskList(filtered.filter(function (task) { return task.priority !== 'red'; })) + '</div>' : renderCanonicalTaskList(visible);
+  return '<div class="flex items-center justify-between gap-3 mb-4"><div><h3 class="theme-text font-semibold">Tasks</h3><p class="muted-text text-xs mt-1">' + filtered.length + ' in this view</p></div><button id="toggleTaskFiltersBtn" class="btn-ghost rounded-xl px-3 min-h-[44px] text-sm" aria-expanded="' + detailsOpen + '">' + (detailsOpen ? 'Fewer views' : 'More views') + '</button></div>' +
+    '<div class="grid grid-cols-3 gap-2 mb-4">' + primaryTabs + '</div>' +
+    (detailsOpen ? '<div class="rounded-2xl p-3 mb-4" style="background:var(--panel);border:1px solid var(--line)"><div class="flex flex-wrap gap-2 mb-3">' + secondaryTabs + '</div><label class="muted-text text-xs block mb-2" for="projectFilter">Project</label>' + projectSelect + '</div>' : '') +
+    '<div id="canonicalTaskList">' + taskListHtml + '</div>' + (state.taskView === 'priority' ? '' : moreTasks);
+}
+
+function renderCanonicalTaskList(tasks) {
+  if (!tasks.length) return '<div class="rounded-xl p-5 text-center" style="background:var(--panel-2);border:1px solid var(--line)"><p class="theme-text text-sm font-semibold">Nothing in this view</p><p class="muted-text text-xs mt-1">Tasks appear here from the same master list.</p></div>';
+  return tasks.map(function (task, index) {
+    var meta = [task.scheduled_date || '', task.scheduled_time ? String(task.scheduled_time).slice(0,5) : ''].filter(Boolean).join(' · ');
+    return '<div class="task-card flex items-center gap-2 px-3 py-3 mb-2" style="border-left:4px solid ' + projectColour(task.project_id,task.priority) + '"><button data-complete-task="' + task.id + '" class="complete-task-btn theme-text p-2" aria-label="' + (task.status === 'completed' ? 'Reopen task' : 'Complete task') + '">' + (task.status === 'completed' ? '✓' : '○') + '</button><button data-edit-task="' + task.id + '" class="flex-1 text-left min-h-[44px]" aria-label="Open and edit ' + escapeHtml(task.title) + '"><p class="theme-text text-sm font-semibold ' + (task.status === 'completed' ? 'checked-item' : '') + '">' + escapeHtml(task.title) + '</p><div class="flex flex-wrap items-center gap-2 mt-2">' + renderProjectChip(task) + '<span class="tag-chip" style="--tag-colour:' + projectColour(null,task.priority) + '">' + (task.priority === 'red' ? 'PRIORITY' : 'NOT PRIORITY') + '</span>' + renderTaskTags(task.id) + (meta ? '<span class="muted-text text-xs">' + escapeHtml(meta) + '</span>' : '') + '</div></button><button data-flow-task="' + task.id + '" class="task-action" aria-label="Start focus on ' + escapeHtml(task.title) + '" title="Start focus">▶</button><button data-order-task="' + task.id + ':-1" class="order-task-btn muted-text p-2" ' + (index === 0 ? 'disabled' : '') + '>↑</button><button data-order-task="' + task.id + ':1" class="order-task-btn muted-text p-2" ' + (index === tasks.length - 1 ? 'disabled' : '') + '>↓</button></div>';
+  }).join('');
+}
+
+function renderProjectManager() {
+  var rows = state.projects.map(function (project) { var count = state.tasks.filter(function (task) { return task.project_id === project.id && task.status === 'open'; }).length; return '<div class="rounded-xl p-3 mb-2 flex items-center gap-2" style="background:var(--panel-2);border:1px solid var(--line)"><button class="filter-project-btn flex-1 text-left" data-id="' + project.id + '"><p class="theme-text text-sm font-semibold">' + escapeHtml(project.name) + '</p><p class="muted-text text-xs">' + count + ' open task' + (count === 1 ? '' : 's') + '</p></button><button class="rename-project-btn muted-text p-2" data-id="' + project.id + '">✎</button><button class="delete-project-btn muted-text p-2" data-id="' + project.id + '">×</button></div>'; }).join('');
+  return (rows || '<p class="muted-text text-sm mb-3">No projects yet. Tasks can remain in your Inbox.</p>') + '<form id="projectForm" class="flex gap-2"><input name="name" required class="rounded-xl px-3 min-h-[46px] flex-1" placeholder="New project name"><button class="btn-primary rounded-xl px-4">Create</button></form>';
+}
+
+function renderNestedProjects() {
+  var query = state.projectQuery.toLowerCase().trim();
+  function taskMatchesSearch(task) { return !query || task.title.toLowerCase().indexOf(query) !== -1 || tagsForTask(task.id).some(function (tag) { return tag.name.toLowerCase().indexOf(query) !== -1; }); }
+  var groups = state.projects.map(function (project) { var all = state.tasks.filter(function (task) { return task.status === 'open' && task.project_id === project.id && (state.tagFilter === 'all' || state.taskTags.some(function (link) { return link.task_id === task.id && link.tag_id === state.tagFilter; })); }); return { id: project.id, name: project.name, colour: project.colour, icon: '□', tasks: !query || project.name.toLowerCase().indexOf(query) !== -1 ? all : all.filter(taskMatchesSearch) }; }).filter(function (group) { return !query || group.name.toLowerCase().indexOf(query) !== -1 || group.tasks.length; });
+  var unassigned = state.tasks.filter(function (task) { return task.status === 'open' && !task.project_id && taskMatchesSearch(task) && (state.tagFilter === 'all' || state.taskTags.some(function (link) { return link.task_id === task.id && link.tag_id === state.tagFilter; })); });
+  if (!query || unassigned.length || 'no project'.indexOf(query) !== -1) groups.push({ id: 'none', name: 'No project', icon: '▱', tasks: unassigned });
+  var rows = groups.map(function (group) {
+    var expanded = state.projectExpanded[group.id] !== false;
+    var taskRows = expanded ? '<div class="nested-line">' + renderCanonicalTaskList(group.tasks) + '<button data-add-to-project="' + group.id + '" class="min-h-[44px] px-2 text-sm" style="color:var(--accent)">+ Add task</button></div>' : '';
+    var colour = /^#[0-9a-f]{6}$/i.test(group.colour || '') ? group.colour : 'var(--accent)';
+    return '<div class="py-3 border-b" style="border-color:var(--line)"><div class="flex items-center gap-3"><button data-toggle-project="' + group.id + '" class="project-toggle flex-1 min-h-[58px] flex items-center text-left gap-3"><span class="text-xl" style="color:' + colour + '">' + group.icon + '</span><span class="flex-1"><strong class="theme-text block">' + escapeHtml(group.name) + '</strong><small class="muted-text">' + group.tasks.length + ' task' + (group.tasks.length === 1 ? '' : 's') + '</small></span><span style="color:' + colour + '">' + (expanded ? '⌄' : '›') + '</span></button>' + (group.id !== 'none' ? '<input data-project-colour="' + group.id + '" type="color" value="' + (/^#[0-9a-f]{6}$/i.test(group.colour || '') ? group.colour : '#35c2ff') + '" class="w-10 h-10 rounded-lg p-1" aria-label="Project colour"><button data-rename-project="' + group.id + '" class="muted-text min-w-[44px] min-h-[44px]" aria-label="Rename project">✎</button>' : '') + '</div>' + taskRows + '</div>';
+  }).join('');
+  return '<input id="projectSearch" value="' + escapeHtml(state.projectQuery) + '" class="w-full rounded-xl px-4 min-h-[50px] mb-4" placeholder="Search projects, tasks and tags"><div class="mb-4 flex gap-2"><button id="openTagManager" class="btn-ghost rounded-xl min-h-[46px] px-4">Manage tags</button></div><form id="projectQuickForm" class="flex gap-2 mb-4"><input name="name" required maxlength="60" class="rounded-xl px-3 min-h-[48px] flex-1" placeholder="New project"><input name="colour" type="color" value="#35c2ff" class="rounded-xl w-12 min-h-[48px] p-1" aria-label="Project colour"><button class="btn-primary rounded-xl px-4">Add</button></form><div class="card px-4">' + (rows || '<p class="muted-text text-sm py-6 text-center">Nothing matches your search.</p>') + '</div>';
+}
+
+function renderTagManager() {
+  var tags = state.tags.map(function (tag) { var colour = /^#[0-9a-f]{6}$/i.test(tag.colour || '') ? tag.colour : 'var(--muted)'; return '<div class="more-row"><span class="tag-chip" style="--tag-colour:' + colour + '">' + escapeHtml(tag.name) + '</span><span class="flex-1"></span><button data-rename-tag="' + tag.id + '" class="muted-text min-w-[44px] min-h-[44px]">Rename</button><button data-delete-tag="' + tag.id + '" class="min-w-[44px] min-h-[44px]" style="color:var(--danger)" aria-label="Delete tag">×</button></div>'; }).join('');
+  return '<div id="tagBackdrop" class="sheet-backdrop"><section id="tagSheet" class="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="tagTitle" tabindex="-1"><div class="sheet-handle"></div><div class="flex items-center justify-between"><h2 id="tagTitle" class="theme-text text-xl font-bold">Tags</h2><button id="closeTagManager" class="theme-text min-w-[44px] min-h-[44px] text-2xl">×</button></div>' + (tags || '<p class="muted-text text-sm py-4">No tags yet.</p>') + '<form id="tagForm" class="flex gap-2 mt-4"><input name="name" required maxlength="40" class="rounded-xl px-3 min-h-[48px] flex-1" placeholder="New tag"><input name="colour" type="color" value="#7c9bff" class="rounded-xl w-12 min-h-[48px] p-1" aria-label="Tag colour"><button class="btn-primary rounded-xl px-4">Add</button></form></section></div>';
+}
+
+function inboxZeroStreak() {
+  var dates = normalizeWorkspace(state.cloud.workspace).inboxZeroDates;
+  var count = 0, d = new Date();
+  while (dates.indexOf(localDay(d)) !== -1) { count++; d.setDate(d.getDate() - 1); }
+  return count;
+}
+
+function renderActivityPanel(emailCount) {
+  var completed = state.tasks.filter(function (task) { return task.status === 'completed'; });
+  var open = state.tasks.filter(function (task) { return task.status === 'open'; });
+  var overdue = open.filter(function (task) { return task.scheduled_date && task.scheduled_date < localDay(); });
+  var days = []; var weekTotal = 0;
+  for (var offset = 6; offset >= 0; offset--) { var date = new Date(); date.setDate(date.getDate() - offset); var key = localDay(date); var count = completed.filter(function (task) { return task.completed_at && localDay(new Date(task.completed_at)) === key; }).length; weekTotal += count; days.push({ label: date.toLocaleDateString('en-GB',{weekday:'short'}).slice(0,1), count: count }); }
+  var max = Math.max.apply(null, days.map(function (day) { return day.count; }).concat([1]));
+  var bars = days.map(function (day) { return '<div class="text-center"><div class="progress-bar mx-auto" style="height:' + Math.max(4,Math.round(day.count/max*100)) + 'px" title="' + day.count + ' completed"></div><small class="muted-text block mt-2">' + day.label + '</small></div>'; }).join('');
+  var recent = state.tasks.slice().sort(function (a,b) { return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at); }).slice(0,5);
+  var activity = recent.map(function (task) { var completedState = task.status === 'completed'; return '<button data-edit-task="' + task.id + '" class="w-full flex gap-3 py-3 text-left border-b" style="border-color:var(--line)"><span style="color:' + (completedState ? 'var(--emerald)' : 'var(--accent)') + '">' + (completedState ? '✓' : '＋') + '</span><span><span class="theme-text text-sm block">' + escapeHtml(task.title) + '</span><small class="muted-text mt-1">' + (completedState ? 'Completed' : 'Updated') + ' · ' + new Date(task.updated_at || task.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + '</small></span></button>'; }).join('');
+  var attention = overdue.length ? '<div class="card p-5 mb-5" style="border-color:rgba(251,113,133,.35)"><h2 class="theme-text font-semibold">Needs attention</h2><p class="muted-text text-sm mt-1 mb-3">' + overdue.length + ' overdue task' + (overdue.length === 1 ? '' : 's') + '</p>' + renderCanonicalTaskList(overdue.slice(0,3)) + '</div>' : '';
+  return attention + '<div class="grid sm:grid-cols-3 gap-3 mb-5"><div class="card p-4"><p class="muted-text text-xs">Completed this week</p><p class="theme-text text-3xl font-bold mt-2">' + weekTotal + '</p></div><div class="card p-4"><p class="muted-text text-xs">Open now</p><p class="theme-text text-3xl font-bold mt-2">' + open.length + '</p></div><div class="card p-4"><p class="muted-text text-xs">Completion rate</p><p class="theme-text text-3xl font-bold mt-2">' + (state.tasks.length ? Math.round(completed.length/state.tasks.length*100) : 0) + '%</p></div></div><div class="card p-5 mb-5"><h2 class="theme-text font-semibold">Last seven days</h2><div class="progress-bars mt-4">' + bars + '</div></div><div class="card px-5"><h2 class="theme-text font-semibold pt-5">Recent task activity</h2>' + (activity || '<p class="muted-text text-sm py-5">Activity will appear when tasks change.</p>') + '</div>';
+}
+
+function renderCalendarAgenda() {
+  if (!state.google.connected) return '<p class="muted-text text-sm">Connect Google Workspace to see your next events.</p>';
+  var events = (state.liveData.calendar || []).slice(0, 3);
+  if (!events.length) return '<p class="muted-text text-sm">No events in the next seven days.</p>';
+  return '<div class="space-y-4">' + events.map(function (event) {
+    var start = event.start ? new Date(event.start) : null;
+    var when = start && !isNaN(start.getTime()) ? start.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) + " · " + start.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "Upcoming";
+    return '<a class="block rounded-xl p-3" style="background:var(--panel-2);border:1px solid var(--line)" href="' + escapeHtml(safeExternalUrl(event.link)) + '" target="_blank" rel="noopener"><p class="theme-text text-sm font-semibold">' + escapeHtml(event.title) + '</p><p class="muted-text text-xs mt-1">' + escapeHtml(when) + '</p></a>';
+  }).join("") + '</div>';
+}
+
+function renderQuickTaskForm(id, label, inCard) {
+  var prefix = id.replace(/[^a-z0-9]/gi, '');
+  var selectedProject = state.projectFilter !== 'all' && state.projectFilter !== 'none' ? state.projectFilter : '';
+  return '<form id="' + id + '" class="' + (inCard ? 'card p-4 sm:p-5' : '') + '">' +
+    '<label class="theme-text text-sm font-semibold block mb-2">' + escapeHtml(label) + '</label>' +
+    '<textarea name="title" required rows="5" class="quick-task-text w-full rounded-xl px-4 text-base" placeholder="Add a task, thought, reminder or idea..."></textarea>' +
+    '<button class="btn-primary w-full rounded-xl min-h-[50px] mt-3">Save</button>' +
+    '<details class="mt-3"><summary class="btn-ghost rounded-xl min-h-[46px] px-4 flex items-center cursor-pointer">Add details</summary><div class="grid sm:grid-cols-2 gap-3 mt-3"><label class="muted-text text-xs">Date<input name="scheduled_date" type="date" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label><label class="muted-text text-xs">Time<input name="scheduled_time" type="time" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label><label class="muted-text text-xs">Project<span class="flex gap-2 mt-1"><select name="project_id" class="w-full rounded-xl px-3 min-h-[48px]">' + projectOptions(selectedProject) + '</select><button type="button" class="btn-ghost rounded-xl px-3 min-h-[48px]" data-create-project-inline="1">+ New</button></span></label><label class="muted-text text-xs">Priority<select name="priority" class="w-full rounded-xl px-3 min-h-[48px] mt-1"><option value="">Blue · Not priority</option><option value="red">Red · Priority</option></select></label></div>' +
+    (state.tags.length ? '<label class="muted-text text-xs block mt-3">Tags<select name="tag_ids" multiple class="w-full rounded-xl px-3 py-2 mt-1 min-h-[76px]">' + renderTagOptions([]) + '</select></label>' : '<button type="button" class="btn-ghost w-full rounded-xl min-h-[46px] mt-3" data-open-tags-inline="1">Create your first tag</button>') + '<label class="theme-text flex items-center gap-3 min-h-[44px] text-sm mt-3"><input name="is_daily_anchor" type="checkbox"> Daily anchor</label></details>' +
+    '<button type="button" class="brain-dump-toggle w-full text-left min-h-[58px] mt-3 px-3 rounded-xl" style="background:var(--panel-2);border:1px solid transparent"><strong class="theme-text block text-sm">Brain dump mode</strong><small class="muted-text">Enter one thought per line. We will save them to Inbox.</small></button>' +
+  '</form>';
+}
+
+function renderMoreView() {
+  return '<section class="secondary-page"><div class="mb-6"><p class="hud text-[10px] mb-1" style="color:var(--accent)">FlowOS</p><h1 class="theme-text text-2xl font-bold">More</h1></div><div class="card px-4"><button id="openMoreConnections" class="more-row"><span class="text-xl">G</span><span class="flex-1"><strong class="theme-text block">Google Workspace</strong><small class="muted-text">Calendar · Gmail · Tasks · Drive</small></span>' + renderGoogleStatusPill() + '</button><button id="openRelaxMode" class="more-row"><span class="text-xl" style="color:var(--accent-2)">◉</span><span class="flex-1"><strong class="theme-text block">Relax</strong><small class="muted-text">Watch the orb and breathe</small></span><span>›</span></button><button data-view="vault" class="switch-view-btn more-row"><span class="text-xl">□</span><span class="flex-1"><strong class="theme-text block">Vault</strong><small class="muted-text">Files organised by project</small></span><span>›</span></button></div></section>';
+}
+
+function renderTasksView() {
+  var calendarActive = state.tasksScreenView === 'calendar';
+  return '<section class="secondary-page">' +
+    '<div class="flex items-center justify-between gap-3 mb-4"><div><p class="hud text-[10px] mb-1" style="color:var(--accent)">Organise</p><h1 class="theme-text text-2xl font-bold">Tasks</h1></div><button id="openTasksAddTask" class="btn-primary rounded-xl min-h-[46px] px-4">+ Add task</button></div>' +
+    '<div class="tasks-view-tabs mb-5" role="tablist" aria-label="Task views">' +
+      '<button data-tasks-screen-view="calendar" class="tasks-view-tab ' + (calendarActive ? 'active' : '') + '" role="tab" aria-selected="' + calendarActive + '">Calendar</button>' +
+      '<button data-tasks-screen-view="projects" class="tasks-view-tab ' + (!calendarActive ? 'active' : '') + '" role="tab" aria-selected="' + (!calendarActive) + '">Projects</button>' +
+    '</div>' +
+    '<div role="tabpanel">' + (calendarActive ? renderCalendarTimelinePanel() : renderNestedProjects()) + '</div>' +
+  '</section>';
+}
+
+function stageColorClasses(stage) {
+  if (stage === "Closed Won") return "text-emerald-400";
+  if (stage === "Negotiation") return "text-indigo-300";
+  if (stage === "Proposal Sent") return "text-amber-300";
+  return "text-slate-300";
+}
+
+function renderChecklistItems() {
+  return CHECKLIST_DEFAULTS.map(function (label, idx) {
+    return '<button data-checklist-idx="' + idx + '" class="checklist-btn w-full flex items-center gap-3 text-left">' +
+      '<span>' + (state.checklistChecked[idx] ? "\u2705" : "\u2b58") + '</span>' +
+      '<span class="text-sm ' + (state.checklistChecked[idx] ? "checked-item" : "text-slate-200") + '">' + label + '</span></button>';
+  }).join("");
+}
+
+/* ============================================================
+   VAULT VIEW
+============================================================ */
+function renderVaultView() {
+  var isLive = isConnLive("drive");
+  return '<div class="flex flex-wrap items-center justify-between gap-3 mb-6">' +
+      '<div><h2 class="theme-text font-semibold text-xl">Vault</h2><p class="muted-text text-sm mt-1">Your files and Google Drive, in one search.</p></div>' +
+      '<label class="btn-primary rounded-xl min-h-[48px] px-4 flex items-center cursor-pointer">+ Add document<input id="vaultUploadInput" type="file" class="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md,.png,.jpg,.jpeg"></label>' +
+    '</div>' +
+    (isLive ? '<div class="card px-4 py-3 mb-4 flex items-center justify-between"><span class="theme-text text-sm">Google Drive connected</span><span style="color:var(--emerald)">● Live</span></div>' : '<div class="card px-4 py-3 mb-4 flex items-center justify-between gap-3"><div><p class="theme-text text-sm font-semibold">Google Drive</p><p class="muted-text text-xs mt-1">Connect to search your real Drive files.</p></div><button id="connectVaultDrive" class="btn-primary rounded-xl min-h-[44px] px-4">Connect</button></div>') +
+    '<div class="grid sm:grid-cols-[1fr,220px] gap-3 mb-6"><div class="relative"><span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">\ud83d\udd0d</span>' +
+      '<input type="text" id="vaultSearch" value="' + escapeHtml(state.vaultQuery) + '" placeholder="Search documents, projects..." class="w-full rounded-xl pl-11 pr-4 py-3 text-sm placeholder-slate-600"></div><select id="vaultProjectFilter" class="rounded-xl px-3 min-h-[48px]" aria-label="Filter documents by project"><option value="all">All projects</option><option value="none" ' + (state.vaultProjectFilter === 'none' ? 'selected' : '') + '>No project</option>' + state.projects.map(function (project) { return '<option value="' + project.id + '" ' + (state.vaultProjectFilter === project.id ? 'selected' : '') + '>' + escapeHtml(project.name) + '</option>'; }).join('') + '</select></div>' +
+    '<div id="docGrid">' + renderVaultDocsOnly() + '</div>';
+}
+
+/* ============================================================
+   ASSISTANT VIEW
+============================================================ */
+function renderAssistantView() {
+  var inbox = getInboxItems();
+  var next = nextTaskCandidates()[0] || null;
+  var todayTasks = state.tasks.filter(function (task) { return task.status === 'open' && task.scheduled_date === localDay(); }).length;
+  var todayEvents = state.google.connected ? (state.liveData.calendar || []).filter(function (event) { return event.start && localDay(new Date(event.start)) === localDay(); }).length : 0;
+  var nextHtml = next ? '<div class="flex items-start gap-3"><span class="text-2xl" style="color:' + projectColour(next.project_id,next.priority) + '">●</span><div class="flex-1"><h3 class="theme-text text-lg font-bold">' + escapeHtml(next.title) + '</h3><div class="flex flex-wrap gap-2 mt-2">' + renderProjectChip(next) + renderTaskTags(next.id) + '</div></div></div><div class="grid grid-cols-2 gap-2 mt-5"><button data-flow-task="' + next.id + '" class="btn-primary rounded-xl min-h-[50px]">Start focus</button><button data-edit-task="' + next.id + '" class="btn-ghost rounded-xl min-h-[50px]">Edit task</button></div>' : '<p class="muted-text text-sm">No open tasks. Add one when you are ready.</p>';
+  var inboxHtml = state.google.connected ? '<div class="flex items-center justify-between gap-3"><div><p class="theme-text font-semibold">Gmail</p><p class="muted-text text-sm mt-1">' + state.google.unread + ' unread message' + (state.google.unread === 1 ? '' : 's') + '</p></div><span style="color:var(--emerald)">● Connected</span></div>' : '<div class="flex items-center justify-between gap-3"><div><p class="theme-text font-semibold">Gmail</p><p class="muted-text text-sm mt-1">Connect Google Workspace to use your real inbox.</p></div><button id="agentOpenConnections" class="btn-ghost rounded-xl min-h-[44px] px-3">Connect</button></div>';
+  return '<section class="max-w-3xl mx-auto"><div class="mb-6"><h1 class="theme-text text-3xl font-bold">Focus assistant</h1><p class="muted-text mt-2">Useful shortcuts, based only on your real tasks and connected services.</p></div>' +
+    '<div class="card p-5 sm:p-6 mb-4"><p class="hud text-[10px] mb-4" style="color:var(--accent)">Suggested next action</p>' + nextHtml + '</div>' +
+    '<button data-dashboard-panel="upcoming" class="card p-5 w-full text-left flex items-center gap-4 mb-4"><span class="text-2xl" style="color:var(--accent)">◷</span><span class="flex-1"><strong class="theme-text block">Review today</strong><small class="muted-text">' + todayTasks + ' tasks · ' + todayEvents + ' events</small></span><span style="color:var(--accent)">›</span></button>' +
+    '<div class="card p-5 mb-4">' + inboxHtml + '</div>' +
+    '<details class="card p-5"><summary class="theme-text min-h-[44px] cursor-pointer font-semibold">Clean up a message</summary><p class="muted-text text-sm mt-2 mb-3">Turn rough notes into a clearer draft.</p><textarea id="chaoticInput" rows="6" placeholder="Paste your rough message…" class="w-full rounded-xl px-4 py-3 text-sm resize-y mb-3">' + escapeHtml(state.assistantRaw) + '</textarea><button id="runCleanupBtn" class="btn-primary rounded-xl px-5 min-h-[48px]">Optimise draft</button><div class="grid sm:grid-cols-2 gap-4 mt-4"><div class="rounded-xl p-4" style="background:var(--panel-2);border:1px solid var(--line)"><div class="flex items-center justify-between gap-2 mb-2"><strong class="theme-text text-sm">Draft</strong><button id="copyDraftBtn" class="btn-ghost text-xs px-3 min-h-[40px] rounded-lg">Copy</button></div><div id="draftOutput" class="muted-text text-sm whitespace-pre-wrap">Run cleanup to see your draft.</div></div><div class="rounded-xl p-4" style="background:var(--panel-2);border:1px solid var(--line)"><strong class="theme-text text-sm">Checks</strong><div id="safetyOutput" class="muted-text text-sm mt-2">Run cleanup to check what may be missing.</div></div></div></details></section>';
+}
+
+/* ============================================================
+   CONNECTIONS MODAL
+============================================================ */
+function renderConnectionsModal() {
+  var conns = state.cloud.connections;
+  var google = state.google;
+  var googleAction = google.connected
+    ? '<div class="flex flex-wrap gap-2"><button id="refreshGoogleConnectionBtn" class="btn-primary text-xs px-4 py-2 rounded-lg">Refresh data</button><button id="disconnectGoogleBtn" class="btn-ghost text-xs px-4 py-2 rounded-lg" style="color:var(--rose)">Disconnect</button></div>'
+    : '<button id="connectGoogleBtn" class="btn-primary text-xs px-4 py-2.5 rounded-lg" ' + (google.status === "checking" ? "disabled" : "") + '>' + (google.status === "checking" ? "Checking..." : "Connect Google Workspace") + '</button>';
+  var googleHtml = '<div class="rounded-xl p-5" style="border:1px solid rgba(37,185,244,.3);background:rgba(37,185,244,.05)">' +
+    '<div class="flex items-start justify-between gap-3 mb-3"><div><p class="theme-text text-sm font-semibold">Google Workspace</p><p class="muted-text text-xs mt-1">Gmail + Calendar + Tasks + Drive</p></div>' + renderGoogleStatusPill() + '</div>' +
+    '<p class="muted-text text-xs leading-relaxed mb-4">Connect <strong class="theme-text">moktar@progressay.com</strong>. FocusOS requests read-only access to unread email details, upcoming calendar events, Google Tasks and Drive file metadata.</p>' +
+    (google.error ? '<div class="rounded-lg px-3 py-2.5 text-xs mb-4" style="background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.22);color:#fca5a5">' + escapeHtml(google.error) + '</div>' : '') +
+    googleAction + '</div>';
+  var servicesHtml = CONNECTION_SERVICES.map(function (svc) {
+    var conn = conns[svc.key] || {};
+    return '<div class="rounded-xl border border-slate-800/70 p-4">' +
+      '<div class="flex items-center justify-between mb-3"><span class="text-sm font-medium text-white">' + svc.emoji + ' ' + svc.label + '</span>' + renderStatusPill(conn.status) + '</div>' +
+      '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">' +
+        '<input type="text" data-conn-field="' + svc.key + ':url" placeholder="Endpoint URL" value="' + escapeHtml(conn.url || "") + '" class="rounded-lg px-3 py-2 text-xs placeholder-slate-600">' +
+        '<input type="password" data-conn-field="' + svc.key + ':token" placeholder="API token / key" value="' + escapeHtml(conn.token || "") + '" class="rounded-lg px-3 py-2 text-xs placeholder-slate-600">' +
+      '</div><p class="text-[11px] text-slate-600 mb-3">' + svc.hint + '</p>' +
+      '<div class="flex items-center gap-2"><button data-test-conn="' + svc.key + '" class="test-conn-btn text-xs px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200">\ud83d\udd04 Test connection</button>' +
+      (conn.status && conn.status.indexOf("error") === 0 ? '<span class="text-[11px] text-rose-400">' + escapeHtml(conn.status.replace("error: ", "")) + '</span>' : "") +
+      '</div></div>';
+  }).join("");
+
+  return '<div class="overlay fade-in" id="settingsOverlay" style="z-index:90;background:rgba(2,6,23,.8);backdrop-filter:blur(6px);">' +
+    '<div class="zoom-in" style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;width:100%;max-width:640px;max-height:88vh;overflow-y:auto;" id="settingsPanel">' +
+      '<div class="sticky top-0 px-6 py-4 flex items-center justify-between border-b border-slate-800" style="background:#0f172a;">' +
+        '<div><h2 class="text-white font-semibold text-lg">\u2699\ufe0f Connections</h2><p class="text-xs text-slate-500 mt-0.5">Authorise the services FocusOS can read.</p></div>' +
+        '<button id="closeSettingsBtn" class="text-slate-500 hover:text-white">\u2715</button></div>' +
+      '<div class="px-6 py-5 space-y-5">' +
+        '<div class="rounded-xl px-4 py-3 flex items-start gap-2.5" style="background:rgba(18,217,153,.05);border:1px solid rgba(18,217,153,.2);"><span>\ud83d\udd12</span>' +
+        '<p class="text-xs leading-relaxed" style="color:#6ee7b7;">Google tokens are encrypted and handled by the secure Supabase function. They are never placed in this page.</p></div>' +
+        googleHtml +
+        '<details class="pt-2"><summary class="muted-text min-h-[44px] cursor-pointer text-sm">Advanced integrations</summary><div class="space-y-4 mt-3">' + servicesHtml + '</div></details>' +
+      '</div></div></div>';
+}
+
+function renderGoogleStatusPill() {
+  if (state.google.status === "connected") return '<span class="text-[11px] px-2.5 py-1 rounded-full" style="color:#6ee7b7;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3)">Connected</span>';
+  if (state.google.status === "checking") return '<span class="text-[11px] px-2.5 py-1 rounded-full" style="color:#a5b4fc;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3)">Checking</span>';
+  if (state.google.status === "setup") return '<span class="text-[11px] px-2.5 py-1 rounded-full" style="color:#fcd34d;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3)">Setup required</span>';
+  if (state.google.status === "error") return '<span class="text-[11px] px-2.5 py-1 rounded-full" style="color:#fca5a5;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3)">Error</span>';
+  return '<span class="text-[11px] px-2.5 py-1 rounded-full" style="color:#94a3b8;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3)">Not connected</span>';
+}
+
+function renderStatusPill(status) {
+  if (status === "connected") return '<span class="text-[11px] px-2.5 py-1 rounded-full" style="color:#6ee7b7;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);">Connected</span>';
+  if (status && status.indexOf("error") === 0) return '<span class="text-[11px] px-2.5 py-1 rounded-full" style="color:#fca5a5;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);">Error</span>';
+  return '<span class="text-[11px] px-2.5 py-1 rounded-full" style="color:#94a3b8;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);">Not connected</span>';
+}
+
+/* ============================================================
+   FLOWSTATE OVERLAY
+============================================================ */
+function renderTaskEditorPage() {
+  var task = findTaskById(state.editingTaskId);
+  if (!task) return '';
+  var selectedTags = tagsForTask(task.id).map(function (tag) { return tag.id; });
+  return '<section class="secondary-page"><div class="secondary-page-header"><button id="closeTaskEditor" class="theme-text min-w-[44px] min-h-[44px] text-2xl" aria-label="Back">‹</button><h1 class="theme-text text-2xl font-bold">Task</h1><button id="deleteEditedTask" class="min-w-[44px] min-h-[44px]" style="color:var(--danger)" aria-label="Delete task">×</button></div>' +
+    '<form id="taskEditorForm" class="card p-5 sm:p-7"><label class="muted-text text-xs block">Task title<textarea name="title" required rows="3" class="quick-task-text w-full rounded-xl px-4 mt-2">' + escapeHtml(task.title) + '</textarea></label>' +
+    '<div class="grid sm:grid-cols-2 gap-3 mt-4"><label class="muted-text text-xs">Priority<select name="priority" class="w-full rounded-xl px-3 min-h-[48px] mt-1"><option value="" ' + (task.priority !== 'red' ? 'selected' : '') + '>Blue · Not priority</option><option value="red" ' + (task.priority === 'red' ? 'selected' : '') + '>Red · Priority</option></select></label><label class="muted-text text-xs">Move project<select name="project_id" class="w-full rounded-xl px-3 min-h-[48px] mt-1">' + projectOptions(task.project_id || '') + '</select></label><label class="muted-text text-xs">Due date<input name="scheduled_date" type="date" value="' + escapeHtml(task.scheduled_date || '') + '" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label><label class="muted-text text-xs">Time<input name="scheduled_time" type="time" value="' + escapeHtml(task.scheduled_time ? String(task.scheduled_time).slice(0,5) : '') + '" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label></div>' +
+    (state.tags.length ? '<label class="muted-text text-xs block mt-4">Tags<select name="tag_ids" multiple class="w-full rounded-xl px-3 py-2 mt-1 min-h-[84px]">' + renderTagOptions(selectedTags) + '</select></label>' : '<button type="button" data-open-tags-inline="1" class="btn-ghost w-full rounded-xl min-h-[46px] mt-4">Create your first tag</button>') +
+    '<label class="theme-text flex items-center gap-3 text-sm mt-4 min-h-[44px]"><input name="is_daily_anchor" type="checkbox" ' + (task.is_daily_anchor ? 'checked' : '') + '> Daily anchor</label>' +
+    '<div class="grid sm:grid-cols-2 gap-3 mt-5"><button class="btn-primary rounded-xl min-h-[52px]">Save changes</button><button type="button" id="startEditedTask" class="btn-ghost rounded-xl min-h-[52px]">Start focus</button></div><button type="button" id="completeEditedTask" class="btn-ghost w-full rounded-xl min-h-[48px] mt-3">' + (task.status === 'completed' ? 'Reopen task' : 'Mark complete') + '</button></form></section>';
+}
+
+function renderFlowPage() {
+  var task = findTaskById(state.flowTaskId);
+  if (!task) return "";
+  var p = state.pomodoro;
+  var mm = String(Math.floor(p.secondsLeft / 60)).padStart(2, "0");
+  var ss = String(p.secondsLeft % 60).padStart(2, "0");
+  var modeButton = function(mode,label){ return '<button data-flow-mode="' + mode + '" class="flow-mode-btn rounded-full px-3 min-h-[42px] text-xs font-semibold" style="background:' + (p.mode === mode ? 'rgba(37,185,244,.16)' : 'var(--panel-2)') + ';color:' + (p.mode === mode ? 'var(--accent)' : 'var(--muted)') + '">' + label + '</button>'; };
+  return '<section class="focus-page"><header class="flex items-center justify-between"><button id="exitFlowBtn" class="btn-ghost rounded-xl min-w-[48px] min-h-[48px]" aria-label="Return to Today">‹</button><p class="hud text-[10px]" style="color:var(--emerald)">Focus mode</p><button id="changeFlowTaskBtn" class="btn-ghost rounded-xl min-h-[44px] px-3 text-xs">Change task</button></header>' +
+    '<div class="focus-page-task"><span class="orb-stage mb-12"><div class="orb" style="width:132px;height:132px;pointer-events:none"></div></span><div class="flex justify-center gap-2 mb-4">' + renderProjectChip(task) + renderTaskTags(task.id) + '</div><h1 class="theme-text text-2xl sm:text-4xl font-bold leading-tight">' + escapeHtml(task.title) + '</h1><div class="flex flex-wrap justify-center gap-2 mt-6">' + modeButton('focus','Pomodoro') + modeButton('break','Short break') + modeButton('long','Long break') + modeButton('custom','Custom') + '</div>' + (p.mode === 'custom' ? '<label class="muted-text text-xs mt-4">Minutes <input id="flowCustomMinutes" type="number" min="1" max="180" value="' + Number(p.customMinutes || 25) + '" class="w-24 rounded-xl px-3 min-h-[44px] ml-2"></label>' : '') + '<p id="flowPomoDisplay" class="theme-text text-6xl font-bold mt-6" style="font-variant-numeric:tabular-nums">' + mm + ':' + ss + '</p><div class="flex justify-center gap-3 mt-5"><button id="flowPomoToggle" class="btn-primary rounded-2xl min-h-[54px] px-8">' + (p.running ? 'Pause' : 'Start') + '</button><button id="flowPomoReset" class="btn-ghost rounded-2xl min-h-[54px] px-5">Reset</button></div></div>' +
+    '<div class="grid grid-cols-2 gap-3"><button id="completeFlowTaskBtn" class="btn-primary rounded-2xl min-h-[54px]">' + (task.status === 'completed' ? 'Reopen' : 'Complete') + '</button><button id="editFlowTaskBtn" class="btn-ghost rounded-2xl min-h-[54px]">Edit task</button></div></section>';
+}
+
+function findTaskById(id) {
+  return state.tasks.find(function (task) { return task.id === id; }) || null;
+}
+
+/* ============================================================
+   DATA HELPERS
+============================================================ */
+function isConnLive(key) {
+  if (key === "drive") return state.google.connected && Array.isArray(state.liveData.drive);
+  var conn = state.cloud.connections[key] || {};
+  return conn.status === "connected" && Array.isArray(state.liveData[key]) && state.liveData[key].length > 0;
+}
+function getZohoDeals() { return isConnLive("zoho") ? state.liveData.zoho : []; }
+function getJotformLeads() { return isConnLive("jotform") ? state.liveData.jotform : []; }
+function getFilteredDocs() {
+  var isLive = isConnLive("drive");
+  var projectMap = (state.cloud.connections && state.cloud.connections.vaultProjectMap) || {};
+  var driveDocs = (isLive ? state.liveData.drive : []).map(function (doc) { var copy = {}; for (var key in doc) copy[key] = doc[key]; copy.project_id = projectMap[doc.id] || null; return copy; });
+  var source = driveDocs.concat(state.cloud.docs);
+  if (state.vaultProjectFilter === "none") source = source.filter(function (doc) { return !doc.project_id; });
+  else if (state.vaultProjectFilter !== "all") source = source.filter(function (doc) { return doc.project_id === state.vaultProjectFilter; });
+  var q = state.vaultQuery.toLowerCase().trim();
+  if (!q) return source;
+  return source.filter(function (d) { var project = state.projects.find(function (item) { return item.id === d.project_id; }); return (d.name || "").toLowerCase().indexOf(q) !== -1 || (d.tag || "").toLowerCase().indexOf(q) !== -1 || (project && project.name.toLowerCase().indexOf(q) !== -1); });
+}
+function getInboxItems() {
+  if (state.google.connected && Array.isArray(state.liveData.gmail)) return state.liveData.gmail;
+  return [];
+}
+
+function recordInboxZeroDay() {
+  if (!state.cloud || !state.google.connected || state.google.unread !== 0) return;
+  state.cloud.workspace = normalizeWorkspace(state.cloud.workspace);
+  var today = localDay();
+  if (state.cloud.workspace.inboxZeroDates.indexOf(today) === -1) {
+    state.cloud.workspace.inboxZeroDates.push(today);
+    scheduleCloudSave();
+  }
+}
+
+function refreshCanonicalData(message) {
+  return loadCanonicalData().then(function () { state.syncStatus = "saved"; state.taskSaving = false; render(); if (message) showToast(message); }).catch(function (error) { state.syncStatus = "error"; state.taskSaving = false; render(); showToast(error.message || "Could not save task data."); });
+}
+
+function canonicalTaskPayload(form) {
+  var data = new FormData(form);
+  return {
+    user_id: state.session.user.id,
+    title: String(data.get("title") || "").trim(),
+    priority: data.get("priority") === "red" ? "red" : null,
+    project_id: data.get("project_id") || null,
+    scheduled_date: data.get("scheduled_date") || null,
+    scheduled_time: data.get("scheduled_time") || null,
+    is_daily_anchor: data.get("is_daily_anchor") === "on",
+    recurrence: data.get("is_daily_anchor") === "on" ? "daily" : "none",
+    status: "open",
+    sort_order: state.tasks.filter(function (task) { return task.status === "open"; }).length + 1
+  };
+}
+
+function selectedTagIds(select) {
+  if (!select) return [];
+  return Array.prototype.slice.call(select.selectedOptions || []).map(function (option) { return option.value; }).filter(Boolean);
+}
+
+function replaceTaskTags(taskId, tagIds) {
+  return sb.from("focusos_task_tags").delete().eq("task_id", taskId).then(function (deleted) {
+    if (deleted.error) throw deleted.error;
+    if (!tagIds.length) return null;
+    return sb.from("focusos_task_tags").insert(tagIds.map(function (tagId) { return { user_id: state.session.user.id, task_id: taskId, tag_id: tagId }; })).then(function (inserted) { if (inserted.error) throw inserted.error; });
+  });
+}
+
+function createCanonicalTask(form) {
+  var payload = canonicalTaskPayload(form);
+  var tagIds = selectedTagIds(form.querySelector('[name="tag_ids"]'));
+  if (!payload.title || state.taskSaving) return;
+  state.taskSaving = true; state.syncStatus = "saving"; updateSyncPill();
+  var titles = form.dataset.brainDump === 'true' ? payload.title.split(/\n+/).map(function(title){ return title.trim(); }).filter(Boolean) : [payload.title];
+  if (titles.length > 1) {
+    sb.from("focusos_tasks").insert(titles.map(function(title,index){ var item = Object.assign({},payload); item.title = title; item.project_id = null; item.sort_order = payload.sort_order + index; return item; })).then(function(result){ if(result.error) throw result.error; state.openSections.add = false; return refreshCanonicalData(titles.length + " tasks captured to Inbox."); }).catch(function(error){ state.taskSaving=false; state.syncStatus="error"; updateSyncPill(); showToast(error.message || "Could not save brain dump."); });
+    return;
+  }
+  sb.from("focusos_tasks").insert(payload).select("id").single().then(function (result) { if (result.error) throw result.error; return replaceTaskTags(result.data.id, tagIds); }).then(function () { state.openSections.add = false; return refreshCanonicalData("Task added."); }).catch(function (error) { state.taskSaving = false; state.syncStatus = "error"; updateSyncPill(); showToast(error.message || "Could not add task."); });
+}
+
+function updateCanonicalTask(id, patch, message, tagIds) {
+  state.taskSaving = true; state.syncStatus = "saving"; updateSyncPill();
+  patch.updated_at = new Date().toISOString();
+  return sb.from("focusos_tasks").update(patch).eq("id", id).then(function (result) { if (result.error) throw result.error; return Array.isArray(tagIds) ? replaceTaskTags(id, tagIds) : null; }).then(function () { return refreshCanonicalData(message || "Task updated."); }).catch(function (error) { state.taskSaving = false; state.syncStatus = "error"; updateSyncPill(); showToast(error.message || "Could not update task."); });
+}
+
+function deleteCanonicalTask(id) {
+  state.taskSaving = true; state.syncStatus = "saving"; updateSyncPill();
+  return sb.from("focusos_tasks").delete().eq("id", id).then(function (result) { if (result.error) throw result.error; state.flowTaskId = null; state.editingTaskId = null; return refreshCanonicalData("Task deleted."); }).catch(function (error) { state.taskSaving = false; state.syncStatus = "error"; updateSyncPill(); showToast(error.message || "Could not delete task."); });
+}
+
+function toggleCanonicalTask(id) {
+  var task = findTaskById(id); if (!task) return;
+  var completed = task.status !== "completed";
+  state.flowTaskId = null;
+  return updateCanonicalTask(id, { status: completed ? "completed" : "open", completed_at: completed ? new Date().toISOString() : null }, completed ? "Task completed." : "Task reopened.");
+}
+
+function orderCanonicalTask(id, delta) {
+  var visible = state.tasks.filter(taskMatchesView);
+  var index = visible.findIndex(function (task) { return task.id === id; });
+  var other = visible[index + delta];
+  if (index < 0 || !other) return;
+  var current = visible[index];
+  var firstOrder = current.sort_order || index + 1;
+  var secondOrder = other.sort_order || index + delta + 1;
+  state.syncStatus = "saving"; updateSyncPill();
+  Promise.all([sb.from("focusos_tasks").update({ sort_order: secondOrder, updated_at: new Date().toISOString() }).eq("id", current.id), sb.from("focusos_tasks").update({ sort_order: firstOrder, updated_at: new Date().toISOString() }).eq("id", other.id)]).then(function (results) { if (results[0].error) throw results[0].error; if (results[1].error) throw results[1].error; return refreshCanonicalData(); }).catch(function (error) { state.syncStatus = "error"; updateSyncPill(); showToast(error.message || "Could not reorder tasks."); });
+}
+
+function createProject(form) {
+  var data = new FormData(form); var name = String(data.get("name") || "").trim(); if (!name) return;
+  var colour = String(data.get("colour") || "");
+  sb.from("focusos_projects").insert({ user_id: state.session.user.id, name: name, colour: /^#[0-9a-f]{6}$/i.test(colour) ? colour : null, status: "active" }).then(function (result) { if (result.error) throw result.error; return refreshCanonicalData("Project created."); }).catch(function (error) { showToast(error.message || "Could not create project."); });
+}
+
+function createProjectNamed(name) {
+  name = String(name || "").trim();
+  if (!name) return Promise.resolve();
+  return sb.from("focusos_projects").insert({ user_id: state.session.user.id, name: name, colour: "#35c2ff", status: "active" }).then(function (result) { if (result.error) throw result.error; return refreshCanonicalData("Project created."); }).catch(function (error) { showToast(error.message || "Could not create project."); });
+}
+
+function createTag(form) {
+  var data = new FormData(form); var name = String(data.get("name") || "").trim();
+  if (!name) return;
+  var colour = String(data.get("colour") || "");
+  sb.from("focusos_tags").insert({ user_id: state.session.user.id, name: name, colour: /^#[0-9a-f]{6}$/i.test(colour) ? colour : null }).then(function (result) { if (result.error) throw result.error; return refreshCanonicalData("Tag created."); }).catch(function (error) { showToast(error.message || "Could not create tag."); });
+}
+
+function startGuidedBreathing() {
+  clearTimeout(state.breathingTimerId);
+  state.breathingActive = !state.breathingActive;
+  if (!state.breathingActive) { state.breathingPhase = ""; render(); return; }
+  var phases = [{ label: "Breathe in", duration: 6000 }, { label: "Hold", duration: 2000 }, { label: "Breathe out", duration: 6000 }];
+  var index = 0;
+  state.breathingPhase = phases[0].label;
+  render();
+  function advance() {
+    if (!state.breathingActive) return;
+    state.breathingTimerId = setTimeout(function () {
+      if (!state.breathingActive) return;
+      index = (index + 1) % phases.length;
+      state.breathingPhase = phases[index].label;
+      var label = document.getElementById("orbInstruction");
+      if (label) label.textContent = state.breathingPhase;
+      advance();
+    }, phases[index].duration);
+  }
+  advance();
+}
+
+function closeTopOverlay() {
+  if (state.tagManagerOpen) state.tagManagerOpen = false;
+  else if (state.openSections.add) state.openSections.add = false;
+  else if (state.settingsOpen) state.settingsOpen = false;
+  else if (state.moreOpen) state.moreOpen = false;
+  else if (state.relaxMode) { clearTimeout(state.breathingTimerId); state.breathingActive = false; state.breathingPhase = ""; state.relaxMode = false; }
+  else if (state.flowTaskId) state.flowTaskId = null;
+  else return false;
+  render();
+  setTimeout(function () {
+    var target = document.getElementById("seeMoreBtn") || document.getElementById("floatingAddTask");
+    if (target) target.focus();
+  }, 0);
+  return true;
+}
+
+function trapDialogFocus(event) {
+  var dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+  if (!dialog || event.key !== "Tab") return;
+  var items = Array.prototype.slice.call(dialog.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+  if (!items.length) { event.preventDefault(); dialog.focus(); return; }
+  var first = items[0], last = items[items.length - 1];
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
+
+function enableSheetSwipe(sheetId) {
+  var sheet = document.getElementById(sheetId);
+  if (!sheet) return;
+  var startY = null;
+  sheet.addEventListener("touchstart", function (event) { startY = event.touches[0].clientY; }, { passive: true });
+  sheet.addEventListener("touchend", function (event) {
+    if (startY !== null && event.changedTouches[0].clientY - startY > 72) closeTopOverlay();
+    startY = null;
+  }, { passive: true });
+}
+
+/* ============================================================
+   EVENT WIRING
+============================================================ */
+function attachConsoleHandlers() {
+  var i, els;
+
+  els = document.querySelectorAll("[data-tasks-screen-view]");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { state.tasksScreenView = e.currentTarget.getAttribute("data-tasks-screen-view"); render(); });
+  var openTasksAddTask = document.getElementById("openTasksAddTask");
+  if (openTasksAddTask) openTasksAddTask.addEventListener("click", function () { state.openSections.add = true; state.projectFilter = "all"; render(); });
+
+  els = document.querySelectorAll("[data-capture-detail]");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { var id = e.currentTarget.getAttribute("data-capture-detail"); var panel = document.getElementById(id); if (!panel) return; panel.classList.toggle("hidden"); e.currentTarget.classList.toggle("active", !panel.classList.contains("hidden")); });
+  els = document.querySelectorAll("[data-create-project-inline]");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function () { var name = window.prompt("New project name"); if (name && name.trim()) createProjectNamed(name); });
+  els = document.querySelectorAll("[data-open-tags-inline]");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function () { state.openSections.add = false; state.tagManagerOpen = true; render(); });
+
+  var consoleThemeToggle = document.getElementById("consoleThemeToggle");
+  if (consoleThemeToggle) consoleThemeToggle.addEventListener("click", toggleTheme);
+  var desktopThemeToggle = document.getElementById("desktopThemeToggle");
+  if (desktopThemeToggle) desktopThemeToggle.addEventListener("click", toggleTheme);
+  var drawerThemeToggle = document.getElementById("drawerThemeToggle");
+  if (drawerThemeToggle) drawerThemeToggle.addEventListener("click", toggleTheme);
+
+  var breathingOrb = document.getElementById("breathingOrb");
+  if (breathingOrb) breathingOrb.addEventListener("click", function(){ if (!state.relaxMode) { state.relaxMode = true; state.breathingActive = false; state.breathingPhase = ''; render(); } else startGuidedBreathing(); });
+  var exitRelaxBtn = document.getElementById("exitRelaxBtn");
+  if (exitRelaxBtn) exitRelaxBtn.addEventListener("click", function(){ clearTimeout(state.breathingTimerId); state.breathingActive=false; state.breathingPhase=''; state.relaxMode=false; render(); });
+  ['homeOrbStage','relaxOrbStage'].forEach(function(id){ var stage=document.getElementById(id); if(!stage) return; stage.addEventListener('pointermove',function(e){ var r=stage.getBoundingClientRect(); var x=((e.clientX-r.left)/r.width-.5)*8; var y=((e.clientY-r.top)/r.height-.5)*-8; var orb=stage.querySelector('.orb'); if(orb){ orb.style.setProperty('--tilt-x',x+'deg'); orb.style.setProperty('--tilt-y',y+'deg'); }}); stage.addEventListener('pointerleave',function(){ var orb=stage.querySelector('.orb'); if(orb){ orb.style.removeProperty('--tilt-x'); orb.style.removeProperty('--tilt-y'); }}); });
+  var seeMoreBtn = document.getElementById("seeMoreBtn");
+  if (seeMoreBtn) seeMoreBtn.addEventListener("click", function () { state.moreOpen = !state.moreOpen; render(); setTimeout(function () { var button = document.getElementById("seeMoreBtn"); if (button) button.focus(); }, 0); });
+  var recapToggle = document.getElementById("recapToggle");
+  if (recapToggle) recapToggle.addEventListener("click", function () { state.recapOpen = !state.recapOpen; render(); setTimeout(function () { var button = document.getElementById("recapToggle"); if (button) button.focus(); }, 0); });
+  var chooseNextTask = document.getElementById("chooseNextTask");
+  if (chooseNextTask) chooseNextTask.addEventListener("click", function () { var count = nextTaskCandidates().length; state.nextTaskIndex = count ? (state.nextTaskIndex + 1) % count : 0; render(); });
+  var closeMoreBtn = document.getElementById("closeMoreBtn");
+  if (closeMoreBtn) closeMoreBtn.addEventListener("click", closeTopOverlay);
+  var moreBackdrop = document.getElementById("moreBackdrop");
+  if (moreBackdrop) moreBackdrop.addEventListener("click", function (e) { if (e.target === moreBackdrop) { state.moreOpen = false; render(); } });
+  els = document.querySelectorAll("[data-dashboard-panel]");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { state.view = "dashboard"; state.dashboardPanel = e.currentTarget.getAttribute("data-dashboard-panel"); if (state.dashboardPanel === "tasks") state.taskView = "all"; state.moreOpen = false; render(); });
+  var closeDashboardPanel = document.getElementById("closeDashboardPanel");
+  if (closeDashboardPanel) closeDashboardPanel.addEventListener("click", function () { state.dashboardPanel = null; render(); });
+  var openGoogleFromMore = document.getElementById("openGoogleFromMore");
+  if (openGoogleFromMore) openGoogleFromMore.addEventListener("click", function () { if (state.google.connected) { state.moreOpen = false; state.settingsOpen = true; render(); } else { connectGoogleWorkspace(); } });
+  var connectGoogleCalendar = document.getElementById("connectGoogleCalendar");
+  if (connectGoogleCalendar) connectGoogleCalendar.addEventListener("click", connectGoogleWorkspace);
+  var connectGoogleUpcoming = document.getElementById("connectGoogleUpcoming");
+  if (connectGoogleUpcoming) connectGoogleUpcoming.addEventListener("click", connectGoogleWorkspace);
+  var calendarPrev = document.getElementById("calendarPrev");
+  if (calendarPrev) calendarPrev.addEventListener("click", function () { var d = new Date(state.calendarCursor); d.setMonth(d.getMonth() - 1); state.calendarCursor = d; render(); });
+  var calendarNext = document.getElementById("calendarNext");
+  if (calendarNext) calendarNext.addEventListener("click", function () { var d = new Date(state.calendarCursor); d.setMonth(d.getMonth() + 1); state.calendarCursor = d; render(); });
+  els = document.querySelectorAll('[data-calendar-day]');
+  for (i = 0; i < els.length; i++) els[i].addEventListener('click', function(e){ state.calendarSelectedDate = e.currentTarget.getAttribute('data-calendar-day'); state.calendarCursor = new Date(state.calendarSelectedDate + 'T12:00:00'); render(); });
+  var addOnSelectedDay = document.getElementById('addOnSelectedDay');
+  if (addOnSelectedDay) addOnSelectedDay.addEventListener('click', function(){ state.openSections.add=true; render(); setTimeout(function(){ var input=document.querySelector('#floatingTaskForm [name="scheduled_date"]'); if(input) input.value=state.calendarSelectedDate; },0); });
+  ["floatingAddTask", "emptyAddTask"].forEach(function (id) { var button = document.getElementById(id); if (button) button.addEventListener("click", function () { state.openSections.add = true; render(); }); });
+  var taskCreateBackdrop = document.getElementById("taskCreateBackdrop");
+  if (taskCreateBackdrop) taskCreateBackdrop.addEventListener("click", function (e) { if (e.target === taskCreateBackdrop) { state.openSections.add = false; render(); } });
+  var manageTagsFromTask = document.getElementById("manageTagsFromTask");
+  if (manageTagsFromTask) manageTagsFromTask.addEventListener("click", function () { state.openSections.add = false; state.tagManagerOpen = true; render(); });
+  var openTagManager = document.getElementById("openTagManager");
+  if (openTagManager) openTagManager.addEventListener("click", function () { state.tagManagerOpen = true; render(); });
+  var closeTagManager = document.getElementById("closeTagManager");
+  if (closeTagManager) closeTagManager.addEventListener("click", function () { state.tagManagerOpen = false; render(); });
+  var tagBackdrop = document.getElementById("tagBackdrop");
+  if (tagBackdrop) tagBackdrop.addEventListener("click", function (e) { if (e.target === tagBackdrop) { state.tagManagerOpen = false; render(); } });
+  var tagForm = document.getElementById("tagForm");
+  if (tagForm) tagForm.addEventListener("submit", function (e) { e.preventDefault(); createTag(e.currentTarget); });
+  var projectQuickForm = document.getElementById("projectQuickForm");
+  if (projectQuickForm) projectQuickForm.addEventListener("submit", function (e) { e.preventDefault(); createProject(e.currentTarget); });
+  var brainDumpToggle = document.querySelector('.brain-dump-toggle');
+  if (brainDumpToggle) brainDumpToggle.addEventListener('click', function(){ var form=brainDumpToggle.closest('form'); var enabled=form.dataset.brainDump !== 'true'; form.dataset.brainDump=enabled?'true':'false'; var area=form.querySelector('[name="title"]'); area.placeholder=enabled?'One thought per line…':'Add a task, thought, reminder or idea...'; area.rows=enabled?8:5; brainDumpToggle.style.borderColor=enabled?'var(--accent)':'transparent'; area.focus(); });
+  var openMoreConnections = document.getElementById('openMoreConnections');
+  if (openMoreConnections) openMoreConnections.addEventListener('click', function(){ state.settingsOpen=true; render(); });
+  var openRelaxMode = document.getElementById('openRelaxMode');
+  if (openRelaxMode) openRelaxMode.addEventListener('click', function(){ state.relaxMode=true; render(); });
+  els = document.querySelectorAll("[data-toggle-project]");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { var id = e.currentTarget.getAttribute("data-toggle-project"); state.projectExpanded[id] = state.projectExpanded[id] === false; render(); });
+  els = document.querySelectorAll("[data-add-to-project]");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { state.openSections.add = true; state.projectFilter = e.currentTarget.getAttribute("data-add-to-project"); render(); });
+  els = document.querySelectorAll("[data-rename-project]");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { var id = e.currentTarget.getAttribute("data-rename-project"); var project = state.projects.find(function (item) { return item.id === id; }); var name = window.prompt("Rename project", project ? project.name : ""); if (!project || !name || !name.trim()) return; sb.from("focusos_projects").update({ name: name.trim(), updated_at: new Date().toISOString() }).eq("id", id).then(function (result) { if (result.error) throw result.error; return refreshCanonicalData("Project renamed."); }).catch(function (error) { showToast(error.message || "Could not rename project."); }); });
+  els = document.querySelectorAll("[data-project-colour]");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("change", function (e) { var id = e.currentTarget.getAttribute("data-project-colour"); var colour = e.currentTarget.value; sb.from("focusos_projects").update({ colour: colour, updated_at: new Date().toISOString() }).eq("id", id).then(function (result) { if (result.error) throw result.error; return refreshCanonicalData("Project colour updated."); }).catch(function (error) { showToast(error.message || "Could not update project colour."); }); });
+  els = document.querySelectorAll("[data-rename-tag]");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { var id = e.currentTarget.getAttribute("data-rename-tag"); var tag = state.tags.find(function (item) { return item.id === id; }); var name = window.prompt("Rename tag", tag ? tag.name : ""); if (!tag || !name || !name.trim()) return; sb.from("focusos_tags").update({ name: name.trim(), updated_at: new Date().toISOString() }).eq("id", id).then(function (result) { if (result.error) throw result.error; return refreshCanonicalData("Tag renamed."); }).catch(function (error) { showToast(error.message || "Could not rename tag."); }); });
+  els = document.querySelectorAll("[data-delete-tag]");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { var id = e.currentTarget.getAttribute("data-delete-tag"); if (!window.confirm("Delete this tag? Tasks will not be deleted.")) return; sb.from("focusos_tags").delete().eq("id", id).then(function (result) { if (result.error) throw result.error; return refreshCanonicalData("Tag deleted."); }).catch(function (error) { showToast(error.message || "Could not delete tag."); }); });
+  var tagFilter = document.getElementById("tagFilter");
+  if (tagFilter) tagFilter.addEventListener("change", function () { state.tagFilter = tagFilter.value; render(); });
+  var projectSearch = document.getElementById("projectSearch");
+  if (projectSearch) projectSearch.addEventListener("input", function () { state.projectQuery = projectSearch.value; render(); setTimeout(function () { var input = document.getElementById("projectSearch"); if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); } }, 0); });
+
+  enableSheetSwipe("moreSheet");
+  enableSheetSwipe("taskCreateSheet");
+  enableSheetSwipe("tagSheet");
+
+  els = document.querySelectorAll("[data-toggle-section]");
+  for (i = 0; i < els.length; i++) {
+    els[i].addEventListener("click", function (e) {
+      var key = e.currentTarget.getAttribute("data-toggle-section");
+      state.openSections[key] = !state.openSections[key];
+      render();
+    });
+  }
+
+  var openDashboardAddTask = document.getElementById("openDashboardAddTask");
+  if (openDashboardAddTask) openDashboardAddTask.addEventListener("click", function () { state.openSections.add = true; render(); });
+  var closeDashboardAddTask = document.getElementById("closeDashboardAddTask");
+  if (closeDashboardAddTask) closeDashboardAddTask.addEventListener("click", function () { state.openSections.add = false; render(); });
+
+  ["floatingTaskForm"].forEach(function (id) {
+    var form = document.getElementById(id);
+    if (form) form.addEventListener("submit", function (e) { e.preventDefault(); createCanonicalTask(e.currentTarget); });
+  });
+
+  els = document.querySelectorAll(".task-view-btn");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { state.taskView = e.currentTarget.getAttribute("data-task-view"); state.taskListExpanded = false; render(); });
+  var toggleTaskFiltersBtn = document.getElementById("toggleTaskFiltersBtn");
+  if (toggleTaskFiltersBtn) toggleTaskFiltersBtn.addEventListener("click", function () {
+    var secondaryActive = ["timeline", "anchors", "completed"].indexOf(state.taskView) !== -1 || state.projectFilter !== "all";
+    if (secondaryActive && state.taskFiltersExpanded) { state.taskView = "today"; state.projectFilter = "all"; }
+    state.taskFiltersExpanded = !state.taskFiltersExpanded;
+    state.taskListExpanded = false;
+    render();
+  });
+  var showMoreTasksBtn = document.getElementById("showMoreTasksBtn");
+  if (showMoreTasksBtn) showMoreTasksBtn.addEventListener("click", function () { state.taskListExpanded = true; render(); });
+  var showFewerTasksBtn = document.getElementById("showFewerTasksBtn");
+  if (showFewerTasksBtn) showFewerTasksBtn.addEventListener("click", function () { state.taskListExpanded = false; render(); });
+  var projectFilter = document.getElementById("projectFilter");
+  if (projectFilter) projectFilter.addEventListener("change", function () { state.projectFilter = projectFilter.value; state.taskListExpanded = false; render(); });
+  els = document.querySelectorAll(".complete-task-btn");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { toggleCanonicalTask(e.currentTarget.getAttribute("data-complete-task")); });
+  els = document.querySelectorAll(".order-task-btn");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { var parts = e.currentTarget.getAttribute("data-order-task").split(":"); orderCanonicalTask(parts[0], Number(parts[1])); });
+  els = document.querySelectorAll("[data-edit-task]");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { state.editingTaskId = e.currentTarget.getAttribute("data-edit-task"); render(); });
+
+  var closeTaskEditor = document.getElementById("closeTaskEditor");
+  if (closeTaskEditor) closeTaskEditor.addEventListener("click", function () { state.editingTaskId = null; render(); });
+  var taskEditorForm = document.getElementById("taskEditorForm");
+  if (taskEditorForm) taskEditorForm.addEventListener("submit", function (e) { e.preventDefault(); var data = new FormData(e.currentTarget); var title = String(data.get("title") || "").trim(); if (!title) return; updateCanonicalTask(state.editingTaskId, { title: title, priority: data.get("priority") === "red" ? "red" : null, project_id: data.get("project_id") || null, scheduled_date: data.get("scheduled_date") || null, scheduled_time: data.get("scheduled_time") || null, is_daily_anchor: data.get("is_daily_anchor") === "on", recurrence: data.get("is_daily_anchor") === "on" ? "daily" : "none" }, "Task updated.", selectedTagIds(e.currentTarget.querySelector('[name="tag_ids"]'))); });
+  var startEditedTask = document.getElementById("startEditedTask");
+  if (startEditedTask) startEditedTask.addEventListener("click", function () { state.flowTaskId = state.editingTaskId; state.editingTaskId = null; render(); });
+  var completeEditedTask = document.getElementById("completeEditedTask");
+  if (completeEditedTask) completeEditedTask.addEventListener("click", function () { toggleCanonicalTask(state.editingTaskId); });
+  var deleteEditedTask = document.getElementById("deleteEditedTask");
+  if (deleteEditedTask) deleteEditedTask.addEventListener("click", function () { if (window.confirm("Delete this task?")) deleteCanonicalTask(state.editingTaskId); });
+
+  var projectForm = document.getElementById("projectForm");
+  if (projectForm) projectForm.addEventListener("submit", function (e) { e.preventDefault(); createProject(e.currentTarget); });
+  els = document.querySelectorAll(".filter-project-btn");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { state.projectFilter = e.currentTarget.getAttribute("data-id"); state.taskView = "all"; state.taskFiltersExpanded = true; state.taskListExpanded = false; state.openSections.projects = false; render(); });
+  els = document.querySelectorAll(".rename-project-btn");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { var id = e.currentTarget.getAttribute("data-id"); var project = state.projects.find(function (item) { return item.id === id; }); var name = window.prompt("Rename project", project ? project.name : ""); if (project && name && name.trim()) sb.from("focusos_projects").update({ name: name.trim(), updated_at: new Date().toISOString() }).eq("id", id).then(function (result) { if (result.error) throw result.error; return refreshCanonicalData("Project renamed."); }).catch(function (error) { showToast(error.message || "Could not rename project."); }); });
+  els = document.querySelectorAll(".delete-project-btn");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { var id = e.currentTarget.getAttribute("data-id"); if (!window.confirm("Delete this project? Its tasks will move to No Project / Inbox.")) return; sb.from("focusos_projects").delete().eq("id", id).then(function (result) { if (result.error) throw result.error; if (state.projectFilter === id) state.projectFilter = "all"; return refreshCanonicalData("Project deleted. Tasks moved to Inbox."); }).catch(function (error) { showToast(error.message || "Could not delete project."); }); });
+
+  var askFocusBtn = document.getElementById("askFocusBtn");
+  if (askFocusBtn) askFocusBtn.addEventListener("click", function () { state.view = "assistant"; render(); });
+  var agentOpenConnections = document.getElementById("agentOpenConnections");
+  if (agentOpenConnections) agentOpenConnections.addEventListener("click", function () { state.settingsOpen = true; render(); });
+  els = document.querySelectorAll(".switch-view-btn");
+  for (i = 0; i < els.length; i++) {
+    els[i].addEventListener("click", function (e) {
+      state.view = e.currentTarget.getAttribute("data-view");
+      state.dashboardPanel = null;
+      state.editingTaskId = null;
+      if (e.currentTarget.getAttribute("data-mobile") === "1") state.mobileOpen = false;
+      render();
+    });
+  }
+
+  var openNav = document.getElementById("openMobileNav");
+  if (openNav) openNav.addEventListener("click", function () { state.mobileOpen = true; render(); });
+  var closeNav = document.getElementById("closeMobileNav");
+  if (closeNav) closeNav.addEventListener("click", function () { state.mobileOpen = false; render(); });
+  var backdrop = document.getElementById("mobileBackdrop");
+  if (backdrop) backdrop.addEventListener("click", function () { state.mobileOpen = false; render(); });
+
+  ["openSettingsDesktop", "openSettingsFromDrawer", "openSettingsMobile"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener("click", function () { state.settingsOpen = true; state.mobileOpen = false; render(); });
+  });
+  var closeSettingsBtn = document.getElementById("closeSettingsBtn");
+  if (closeSettingsBtn) closeSettingsBtn.addEventListener("click", function () { state.settingsOpen = false; render(); });
+  var settingsOverlay = document.getElementById("settingsOverlay");
+  if (settingsOverlay) settingsOverlay.addEventListener("click", function (e) { if (e.target === settingsOverlay) { state.settingsOpen = false; render(); } });
+
+  var connectGoogleBtn = document.getElementById("connectGoogleBtn");
+  if (connectGoogleBtn) connectGoogleBtn.addEventListener("click", connectGoogleWorkspace);
+  var disconnectGoogleBtn = document.getElementById("disconnectGoogleBtn");
+  if (disconnectGoogleBtn) disconnectGoogleBtn.addEventListener("click", disconnectGoogleWorkspace);
+  var refreshGoogleConnectionBtn = document.getElementById("refreshGoogleConnectionBtn");
+  if (refreshGoogleConnectionBtn) refreshGoogleConnectionBtn.addEventListener("click", function () { loadGoogleWorkspaceData(true); });
+  var refreshGoogleBtn = document.getElementById("refreshGoogleBtn");
+  if (refreshGoogleBtn) refreshGoogleBtn.addEventListener("click", function () { loadGoogleWorkspaceData(true); });
+
+  ["signOutDesktop", "signOutMobile"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener("click", signOut);
+  });
+
+  var pomoFocus = document.getElementById("pomoFocusBtn");
+  var pomoBreak = document.getElementById("pomoBreakBtn");
+  var pomoToggle = document.getElementById("pomoToggleBtn");
+  var pomoReset = document.getElementById("pomoResetBtn");
+  if (pomoFocus) pomoFocus.addEventListener("click", function () { switchPomodoroMode("focus"); });
+  if (pomoBreak) pomoBreak.addEventListener("click", function () { switchPomodoroMode("break"); });
+  if (pomoToggle) pomoToggle.addEventListener("click", togglePomodoro);
+  if (pomoReset) pomoReset.addEventListener("click", resetPomodoro);
+
+  els = document.querySelectorAll(".flow-btn");
+  for (i = 0; i < els.length; i++) {
+    els[i].addEventListener("click", function (e) { state.flowTaskId = e.currentTarget.getAttribute("data-flow-task"); render(); });
+  }
+  var exitFlow = document.getElementById("exitFlowBtn");
+  if (exitFlow) exitFlow.addEventListener("click", function () { state.flowTaskId = null; render(); });
+  var editFlowTaskBtn = document.getElementById("editFlowTaskBtn");
+  if (editFlowTaskBtn) editFlowTaskBtn.addEventListener("click", function () { state.editingTaskId = state.flowTaskId; state.flowTaskId = null; render(); });
+  var saveFlowTaskBtn = document.getElementById("saveFlowTaskBtn");
+  if (saveFlowTaskBtn) saveFlowTaskBtn.addEventListener("click", function () {
+    var task = findTaskById(state.flowTaskId);
+    var title = document.getElementById("flowTaskLabel").value.trim();
+    var priority = document.getElementById("flowTaskPriority").value;
+    if (!task || !title) return;
+    var tagIds = selectedTagIds(document.getElementById("flowTaskTags"));
+    updateCanonicalTask(task.id, { title: title, priority: priority || null, project_id: document.getElementById("flowTaskProject").value || null, scheduled_date: document.getElementById("flowTaskDate").value || null, scheduled_time: document.getElementById("flowTaskTime").value || null, is_daily_anchor: document.getElementById("flowTaskAnchor").checked, recurrence: document.getElementById("flowTaskAnchor").checked ? "daily" : "none" }, null, tagIds);
+  });
+  var completeFlowTaskBtn = document.getElementById("completeFlowTaskBtn");
+  if (completeFlowTaskBtn) completeFlowTaskBtn.addEventListener("click", function () { toggleCanonicalTask(state.flowTaskId); });
+  var deleteFlowTaskBtn = document.getElementById("deleteFlowTaskBtn");
+  if (deleteFlowTaskBtn) deleteFlowTaskBtn.addEventListener("click", function () {
+    if (window.confirm("Delete this task?")) deleteCanonicalTask(state.flowTaskId);
+  });
+  var flowPomoToggle = document.getElementById("flowPomoToggle");
+  if (flowPomoToggle) flowPomoToggle.addEventListener("click", function () { togglePomodoro(); render(); });
+  var flowPomoReset = document.getElementById("flowPomoReset");
+  if (flowPomoReset) flowPomoReset.addEventListener("click", resetPomodoro);
+  els = document.querySelectorAll('.flow-mode-btn');
+  for (i = 0; i < els.length; i++) els[i].addEventListener('click', function(e){ switchPomodoroMode(e.currentTarget.getAttribute('data-flow-mode')); });
+  var flowCustomMinutes = document.getElementById('flowCustomMinutes');
+  if (flowCustomMinutes) flowCustomMinutes.addEventListener('change', function(){ state.pomodoro.customMinutes=Math.max(1,Math.min(180,Number(flowCustomMinutes.value)||25)); state.pomodoro.secondsLeft=state.pomodoro.customMinutes*60; render(); });
+  var changeFlowTaskBtn = document.getElementById('changeFlowTaskBtn');
+  if (changeFlowTaskBtn) changeFlowTaskBtn.addEventListener('click', function(){ state.pomodoro.running=false; state.flowTaskId=null; state.view='tasks'; render(); });
+
+  els = document.querySelectorAll(".checklist-btn");
+  for (i = 0; i < els.length; i++) {
+    els[i].addEventListener("click", function (e) {
+      var idx = Number(e.currentTarget.getAttribute("data-checklist-idx"));
+      state.checklistChecked[idx] = !state.checklistChecked[idx];
+      render();
+    });
+  }
+  var resetChecklistBtn = document.getElementById("resetChecklistBtn");
+  if (resetChecklistBtn) resetChecklistBtn.addEventListener("click", function () {
+    state.checklistChecked = CHECKLIST_DEFAULTS.map(function () { return false; });
+    render();
+  });
+
+  var brainDump = document.getElementById("brainDump");
+  if (brainDump) brainDump.addEventListener("input", function () {
+    var countEl = document.getElementById("dumpCharCount");
+    if (countEl) countEl.textContent = brainDump.value.length + " characters";
+  });
+  var exportDumpBtn = document.getElementById("exportDumpBtn");
+  if (exportDumpBtn) exportDumpBtn.addEventListener("click", function () {
+    var text = (document.getElementById("brainDump").value || "").trim();
+    if (!text) { showToast("Nothing to export yet."); return; }
+    var title = text.split("\n")[0].slice(0, 40) || "Untitled note";
+    state.cloud.docs.unshift({ id: Date.now(), name: title + ".txt", tag: "Brain dump", date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }), size: (text.length / 1024).toFixed(1) + " KB" });
+    scheduleCloudSave();
+    state.view = "vault";
+    render();
+    showToast("Saved to Second Brain Vault");
+  });
+
+  var vaultSearch = document.getElementById("vaultSearch");
+  if (vaultSearch) {
+    vaultSearch.addEventListener("input", function () {
+      state.vaultQuery = vaultSearch.value;
+      var grid = document.getElementById("docGrid");
+      if (grid) { grid.innerHTML = renderVaultDocsOnly(); attachVaultDocHandlers(); }
+    });
+  }
+  attachVaultDocHandlers();
+
+  els = document.querySelectorAll(".inbox-msg-btn");
+  for (i = 0; i < els.length; i++) {
+    els[i].addEventListener("click", function (e) {
+      var idx = Number(e.currentTarget.getAttribute("data-inbox-idx"));
+      var msg = getInboxItems()[idx];
+      state.assistantRaw = msg.preview || "";
+      var ta = document.getElementById("chaoticInput");
+      if (ta) ta.value = state.assistantRaw;
+    });
+  }
+  var runCleanupBtn = document.getElementById("runCleanupBtn");
+  if (runCleanupBtn) runCleanupBtn.addEventListener("click", runCleanup);
+  var copyDraftBtn = document.getElementById("copyDraftBtn");
+  if (copyDraftBtn) copyDraftBtn.addEventListener("click", copyDraft);
+
+  els = document.querySelectorAll("[data-conn-field]");
+  for (i = 0; i < els.length; i++) {
+    els[i].addEventListener("input", function (e) {
+      var parts = e.currentTarget.getAttribute("data-conn-field").split(":");
+      var key = parts[0], field = parts[1];
+      var current = state.cloud.connections[key] || {};
+      current[field] = e.currentTarget.value;
+      state.cloud.connections[key] = current;
+      scheduleCloudSave();
+    });
+  }
+  els = document.querySelectorAll(".test-conn-btn");
+  for (i = 0; i < els.length; i++) {
+    els[i].addEventListener("click", function (e) { testConnection(e.currentTarget.getAttribute("data-test-conn")); });
+  }
+}
+
+function attachVaultDocHandlers() {
+  var upload = document.getElementById("vaultUploadInput");
+  if (upload) upload.addEventListener("change", function () { var file = upload.files && upload.files[0]; if (file) uploadVaultFile(file); });
+  var connectDrive = document.getElementById("connectVaultDrive");
+  if (connectDrive) connectDrive.addEventListener("click", connectGoogleWorkspace);
+  var projectFilter = document.getElementById("vaultProjectFilter");
+  if (projectFilter) projectFilter.addEventListener("change", function () { state.vaultProjectFilter = projectFilter.value; render(); });
+  var projectSelectors = document.querySelectorAll("[data-doc-project]");
+  for (var p = 0; p < projectSelectors.length; p++) projectSelectors[p].addEventListener("change", function (e) { setVaultDocProject(e.currentTarget.getAttribute("data-doc-project"), e.currentTarget.getAttribute("data-drive-doc") === "1", e.currentTarget.value || null); });
+  var openers = document.querySelectorAll(".open-doc-btn");
+  for (var o = 0; o < openers.length; o++) openers[o].addEventListener("click", function (e) { openVaultDoc(e.currentTarget.getAttribute("data-id")); });
+  var els = document.querySelectorAll(".edit-doc-btn");
+  for (var i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) {
+    var id = e.currentTarget.getAttribute("data-id");
+    var doc = state.cloud.docs.find(function (item) { return String(item.id) === id; });
+    if (!doc) return;
+    var name = window.prompt("Rename document", doc.name);
+    if (name && name.trim()) { doc.name = name.trim(); scheduleCloudSave(); render(); }
+  });
+  els = document.querySelectorAll(".delete-doc-btn");
+  for (var j = 0; j < els.length; j++) els[j].addEventListener("click", function (e) {
+    var id = e.currentTarget.getAttribute("data-id");
+    if (!window.confirm("Delete this Vault item?")) return;
+    var doc = state.cloud.docs.find(function (item) { return String(item.id) === id; });
+    var removal = doc && doc.storage_path ? sb.storage.from("focusos-documents").remove([doc.storage_path]) : Promise.resolve({ error: null });
+    removal.then(function (result) { if (result.error) throw result.error; state.cloud.docs = state.cloud.docs.filter(function (item) { return String(item.id) !== id; }); scheduleCloudSave(); render(); }).catch(function (error) { showToast(error.message || "Could not delete document."); });
+  });
+}
+
+function uploadVaultFile(file) {
+  if (state.vaultUploading || !state.session) return;
+  if (file.size > 50 * 1024 * 1024) { showToast("Choose a file smaller than 50 MB."); return; }
+  state.vaultUploading = true; showToast("Uploading document...");
+  var safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-");
+  var path = state.session.user.id + "/" + Date.now() + "-" + safeName;
+  sb.storage.from("focusos-documents").upload(path, file, { upsert: false, contentType: file.type || "application/octet-stream" }).then(function (result) {
+    if (result.error) throw result.error;
+    state.cloud.docs.unshift({ id: Date.now(), name: file.name, tag: "Uploaded", date: new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}), size: file.size < 1024 * 1024 ? Math.max(1,Math.round(file.size/1024)) + " KB" : (file.size/1024/1024).toFixed(1) + " MB", storage_path: path, project_id: state.vaultProjectFilter !== "all" && state.vaultProjectFilter !== "none" ? state.vaultProjectFilter : null });
+    scheduleCloudSave(); state.vaultUploading = false; render(); showToast("Document added to Vault.");
+  }).catch(function (error) { state.vaultUploading = false; showToast(error.message || "Upload failed."); });
+}
+
+function setVaultDocProject(id, isDrive, projectId) {
+  if (isDrive) {
+    state.cloud.connections = state.cloud.connections || {};
+    state.cloud.connections.vaultProjectMap = state.cloud.connections.vaultProjectMap || {};
+    if (projectId) state.cloud.connections.vaultProjectMap[id] = projectId;
+    else delete state.cloud.connections.vaultProjectMap[id];
+  } else {
+    var doc = state.cloud.docs.find(function (item) { return String(item.id) === String(id); });
+    if (!doc) return;
+    doc.project_id = projectId || null;
+  }
+  scheduleCloudSave();
+  render();
+  showToast("Document project updated.");
+}
+
+function openVaultDoc(id) {
+  var doc = state.cloud.docs.find(function (item) { return String(item.id) === String(id); });
+  if (!doc || !doc.storage_path) return;
+  var target = window.open("", "_blank");
+  sb.storage.from("focusos-documents").createSignedUrl(doc.storage_path, 60).then(function (result) { if (result.error) throw result.error; if (target) target.location = result.data.signedUrl; else window.location.assign(result.data.signedUrl); }).catch(function (error) { if (target) target.close(); showToast(error.message || "Could not open document."); });
+}
+
+function renderVaultDocsOnly() {
+  var docs = getFilteredDocs();
+  if (docs.length === 0) return state.vaultQuery.trim()
+    ? '<p class="text-slate-500 text-sm text-center py-16">Nothing matches that search. Try a different keyword.</p>'
+    : '<div class="text-center py-16"><p class="theme-text text-sm font-semibold">Your vault is empty</p><p class="muted-text text-xs mt-2">Save a brain dump or connect Google Drive to add real documents.</p></div>';
+  function renderDocCard(doc) {
+    var localDoc = !doc.drive && state.cloud.docs.some(function (item) { return String(item.id) === String(doc.id); });
+    return '<div class="doc-card rounded-xl p-4" style="background:var(--panel-2);border:1px solid var(--line)"><div class="flex items-start justify-between mb-3"><span class="text-xl">\ud83d\udcc4</span><span class="tag-chip">' + escapeHtml(doc.tag || (doc.drive ? 'Drive' : 'Document')) + '</span></div>' +
+      (doc.drive ? '<a class="text-sm theme-text font-semibold leading-snug mb-1 block" href="' + escapeHtml(safeExternalUrl(doc.link)) + '" target="_blank" rel="noopener">' + (doc.starred ? '★ ' : '') + escapeHtml(doc.name) + '</a>' : '<p class="text-sm theme-text font-semibold leading-snug mb-1">' + escapeHtml(doc.name) + '</p>') +
+      '<p class="muted-text text-xs">' + escapeHtml(doc.date || '') + (doc.size ? ' · ' + escapeHtml(doc.size) : '') + '</p><label class="muted-text text-[11px] block mt-3">Project<select data-doc-project="' + escapeHtml(String(doc.id)) + '" data-drive-doc="' + (doc.drive ? '1' : '0') + '" class="w-full rounded-lg px-2 min-h-[42px] mt-1">' + projectOptions(doc.project_id || '') + '</select></label>' +
+      (localDoc ? '<div class="flex flex-wrap gap-2 mt-3">' + (doc.storage_path ? '<button class="open-doc-btn btn-primary rounded-lg px-3 min-h-[40px] text-xs" data-id="' + escapeHtml(String(doc.id)) + '">Open</button>' : '') + '<button class="edit-doc-btn btn-ghost rounded-lg px-3 min-h-[40px] text-xs" data-id="' + escapeHtml(String(doc.id)) + '">Rename</button><button class="delete-doc-btn btn-ghost rounded-lg px-3 min-h-[40px] text-xs" style="color:var(--danger)" data-id="' + escapeHtml(String(doc.id)) + '">Delete</button></div>' : '<p class="muted-text text-[10px] mt-3">Read-only from Google Drive</p>') + '</div>';
+  }
+  var groups = state.projects.map(function (project) { return { id: project.id, name: project.name, colour: projectColour(project.id), docs: docs.filter(function (doc) { return doc.project_id === project.id; }) }; }).filter(function (group) { return group.docs.length; });
+  var unassigned = docs.filter(function (doc) { return !doc.project_id; });
+  if (unassigned.length) groups.push({ id: 'none', name: 'No project', colour: 'var(--muted)', docs: unassigned });
+  return '<div class="space-y-4">' + groups.map(function (group) { return '<section class="vault-group"><div class="vault-group-header flex items-center gap-3"><span style="color:' + group.colour + '">▣</span><strong class="theme-text flex-1">' + escapeHtml(group.name) + '</strong><span class="muted-text text-xs">' + group.docs.length + '</span></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3">' + group.docs.map(renderDocCard).join('') + '</div></section>'; }).join('') + '</div>';
+}
+
+function spawnXpFloater(amount) {
+  var zone = document.getElementById("xpFloaterZone");
+  if (!zone) return;
+  var span = document.createElement("span");
+  span.className = "xp-float font-bold text-sm";
+  span.style.color = "#34d399";
+  span.textContent = "+" + amount + " XP";
+  zone.appendChild(span);
+  setTimeout(function () { span.remove(); }, 1300);
+}
+
+/* ============================================================
+   POMODORO
+============================================================ */
+var pomodoroInterval = null;
+function startPomodoroTicker() {
+  clearInterval(pomodoroInterval);
+  pomodoroInterval = setInterval(function () {
+    if (!state.pomodoro.running) return;
+    state.pomodoro.secondsLeft -= 1;
+    if (state.pomodoro.secondsLeft <= 0) {
+      state.pomodoro.secondsLeft = 0;
+      state.pomodoro.running = false;
+      playBeep();
+      flashTitle();
+    }
+    var el = document.getElementById("pomoDisplay");
+    if (el) {
+      var mm = String(Math.floor(state.pomodoro.secondsLeft / 60)).padStart(2, "0");
+      var ss = String(state.pomodoro.secondsLeft % 60).padStart(2, "0");
+      el.textContent = mm + ":" + ss;
+    }
+    var flowEl = document.getElementById("flowPomoDisplay");
+    if (flowEl) {
+      var flowMm = String(Math.floor(state.pomodoro.secondsLeft / 60)).padStart(2, "0");
+      var flowSs = String(state.pomodoro.secondsLeft % 60).padStart(2, "0");
+      flowEl.textContent = flowMm + ":" + flowSs;
+    }
+    var toggleBtn = document.getElementById("pomoToggleBtn");
+    if (toggleBtn && !state.pomodoro.running) toggleBtn.textContent = "\u25b6";
+  }, 1000);
+}
+function togglePomodoro() {
+  state.pomodoro.running = !state.pomodoro.running;
+  var btn = document.getElementById("pomoToggleBtn");
+  if (btn) btn.textContent = state.pomodoro.running ? "\u23f8" : "\u25b6";
+}
+function resetPomodoro() {
+  state.pomodoro.running = false;
+  state.pomodoro.secondsLeft = pomodoroSecondsForMode(state.pomodoro.mode);
+  clearInterval(state.pomodoro.titleTimerId);
+  document.title = ORIGINAL_TITLE;
+  render();
+}
+function switchPomodoroMode(mode) {
+  state.pomodoro.mode = mode;
+  state.pomodoro.running = false;
+  state.pomodoro.secondsLeft = pomodoroSecondsForMode(mode);
+  clearInterval(state.pomodoro.titleTimerId);
+  document.title = ORIGINAL_TITLE;
+  render();
+}
+function pomodoroSecondsForMode(mode) {
+  if (mode === 'long') return 15 * 60;
+  if (mode === 'custom') return Math.max(1,Math.min(180,Number(state.pomodoro.customMinutes)||25)) * 60;
+  return mode === 'focus' ? FOCUS_SECONDS : BREAK_SECONDS;
+}
+function playBeep() {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = ctx.createOscillator(); var gain = ctx.createGain();
+    osc.type = "sine"; osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    osc.connect(gain).connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.35);
+  } catch (e) {}
+}
+function flashTitle() {
+  var flip = false;
+  clearInterval(state.pomodoro.titleTimerId);
+  state.pomodoro.titleTimerId = setInterval(function () { document.title = flip ? ORIGINAL_TITLE : "\u26a0\ufe0f TIMES UP!"; flip = !flip; }, 900);
+  setTimeout(function () { clearInterval(state.pomodoro.titleTimerId); document.title = ORIGINAL_TITLE; }, 8000);
+}
+
+/* ============================================================
+   ASSISTANT LOGIC
+============================================================ */
+function runCleanup() {
+  var raw = (document.getElementById("chaoticInput").value || "").trim();
+  var draftOutput = document.getElementById("draftOutput");
+  var safetyOutput = document.getElementById("safetyOutput");
+  if (!raw) { showToast("Type something in first."); return; }
+
+  var lower = raw.toLowerCase();
+  var hasDeadline = /\b(today|tomorrow|by \w+|deadline|due|end of day|eod|\d{1,2}\/\d{1,2}|monday|tuesday|wednesday|thursday|friday|saturday|sunday|thurs)\b/.test(lower);
+  var hasAmount = /\$\d|\d+\s?(dollars|usd)/.test(lower);
+  var hasAttachment = /\battach(ed|ment)?\b/.test(lower);
+  var hasCC = /\bcc\b/.test(lower);
+
+  var sentences = raw.replace(/\s+/g, " ").split(/(?<=[.?!])\s+|(?=\bhey\b)|(?=\balso\b)/i).map(function (s) { return s.trim(); }).filter(Boolean);
+  var bodyLines = sentences.map(function (s) {
+    var clean = s.replace(/^(hey|hi|hello)\b[,]?\s*/i, "").replace(/\bu\b/gi, "you").replace(/\basap\b/gi, "as soon as possible")
+      .replace(/\bi think\?*/gi, "").replace(/\bnot 100% sure\b/gi, "").replace(/\bcan u\b/gi, "could you").trim();
+    if (!clean) return null;
+    clean = clean.charAt(0).toUpperCase() + clean.slice(1);
+    if (!/[.?!]$/.test(clean)) clean += ".";
+    return clean;
+  }).filter(Boolean);
+
+  var draft = "Hi there,\n\n" + bodyLines.join(" ") + "\n\nPlease let me know if you have any questions.\n\nBest regards";
+  draftOutput.textContent = draft;
+  draftOutput.classList.remove("fade-line");
+  draftOutput.classList.add("text-slate-100");
+
+  var alerts = [];
+  if (!hasDeadline) alerts.push("No definitive completion date detected - check your calendar before sending.");
+  if (!hasAmount && /invoice|payment|budget|cost|price|deposit/.test(lower)) alerts.push("Money is referenced but no specific amount was found - confirm the figure.");
+  if (!hasAttachment && /attach|file|document|pdf|deck|agreement/.test(lower)) alerts.push("A file is mentioned but attachment status wasn't confirmed.");
+  if (!hasCC && /accountant|lawyer|manager|team|client/.test(lower)) alerts.push("Another party is mentioned - confirm whether they need to be CC'd.");
+  if (raw.length < 25) alerts.push("This message is very short - make sure nothing essential was left out.");
+  if (alerts.length === 0) alerts.push("Nothing obvious is missing - still worth a final read before sending.");
+
+  safetyOutput.innerHTML = alerts.map(function (msg) {
+    return '<div class="rounded-lg px-3 py-2.5 text-sm flex items-start gap-2 mb-2" style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:#fde68a;"><span>\ud83d\udee1\ufe0f</span><span>' + escapeHtml(msg) + '</span></div>';
+  }).join("");
+}
+function copyDraft() {
+  var text = document.getElementById("draftOutput").textContent;
+  if (!text || text.indexOf("Run cleanup to see") !== -1) { showToast("Nothing to copy yet."); return; }
+  navigator.clipboard.writeText(text).then(function () {
+    var btn = document.getElementById("copyDraftBtn");
+    var original = btn.textContent;
+    btn.textContent = "Copied \u2713";
+    setTimeout(function () { btn.textContent = original; }, 1500);
+  }).catch(function () { showToast("Could not copy - select the text manually."); });
+}
+
+/* ============================================================
+   CONNECTIONS TEST
+============================================================ */
+function testConnection(key) {
+  var conn = state.cloud.connections[key] || {};
+  if (!conn.url) {
+    conn.status = "error: missing endpoint URL";
+    state.cloud.connections[key] = conn;
+    scheduleCloudSave();
+    render();
+    return;
+  }
+  var headers = conn.token ? { Authorization: "Bearer " + conn.token } : {};
+  fetch(conn.url, { headers: headers }).then(function (res) {
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return res.json().catch(function () { return null; });
+  }).then(function (json) {
+    conn.status = "connected";
+    state.cloud.connections[key] = conn;
+    state.liveData[key] = json;
+    scheduleCloudSave();
+    render();
+  }).catch(function (err) {
+    conn.status = "error: " + (err.message || "network/CORS blocked");
+    state.cloud.connections[key] = conn;
+    scheduleCloudSave();
+    render();
+  });
+}
+
+/* ============================================================
+   BOOTSTRAP
+============================================================ */
+document.addEventListener("keydown", function (event) {
+  if (event.key === "Escape") { if (closeTopOverlay()) event.preventDefault(); return; }
+  trapDialogFocus(event);
+});
+document.addEventListener("visibilitychange", function () {
+  var orb = document.getElementById("breathingOrb");
+  if (orb) orb.classList.toggle("paused", document.hidden);
+});
+render();
+initAuth();
+</script>
+</body>
+</html>
