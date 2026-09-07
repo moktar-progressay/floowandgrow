@@ -79,15 +79,34 @@
   .orb-label{min-height:24px;color:var(--accent);font-size:.8rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
   .focus-home{min-height:calc(100dvh - 196px);display:flex;flex-direction:column}
   .focus-widget{border-color:rgba(37,185,244,.30)!important}
-  .fab{position:fixed;right:22px;bottom:calc(98px + env(safe-area-inset-bottom));z-index:38;min-width:112px;height:58px;padding:0 22px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:#02101c;font-size:1rem;font-weight:800;line-height:1;box-shadow:0 12px 32px rgba(37,185,244,.30)}
-  .home-welcome{padding:20px 2px 4px}.home-orb-wrap{padding:14px 0 22px;text-align:center}
-  .today-summary{max-width:576px;width:100%;margin:0 auto;border:1px solid rgba(37,185,244,.28);border-radius:22px;background:var(--panel);overflow:hidden}
-  .today-summary-row{width:100%;min-height:50px;display:flex;align-items:center;gap:10px;padding:8px 16px;text-align:left;border-top:1px solid var(--line)}
+  .fab{position:fixed;right:22px;bottom:calc(98px + env(safe-area-inset-bottom));z-index:38;width:62px;height:62px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(145deg,var(--accent-2),#a855f7);color:#fff;font-size:1.5rem;font-weight:500;line-height:.8;box-shadow:0 12px 34px rgba(119,100,246,.42)}
+  .fab small{font-size:.62rem;line-height:1;margin-top:5px;font-weight:700}
+  .home-welcome{padding:20px 2px 4px}.home-orb-wrap{padding:10px 0 16px;text-align:center}
+  .home-flow{max-width:576px;width:100%;margin:0 auto}
+  .home-open-section{border-top:1px solid var(--line);padding:10px 0}
+  .home-section-head{width:100%;min-height:46px;display:flex;align-items:center;gap:10px;text-align:left}
+  .home-section-head .chevron{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;color:var(--accent)}
+  .home-calendar-days{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;padding:2px 0 10px}
+  .home-calendar-day{min-height:58px;border-radius:999px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);font-size:.68rem}
+  .home-calendar-day strong{font-size:1rem;color:var(--text);margin-top:2px}
+  .home-calendar-day.selected{background:radial-gradient(circle at 32% 22%,rgba(255,255,255,.34),transparent 24%),linear-gradient(145deg,var(--accent-2),#9333ea);color:#fff;box-shadow:0 0 26px rgba(119,100,246,.40)}
+  .home-calendar-day.selected strong{color:#fff}
+  .home-anchor-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:3px 0 8px}
+  .home-anchor{min-height:58px;display:flex;align-items:center;gap:9px;text-align:left;min-width:0}
+  .home-anchor-icon{font-size:1.35rem;color:#e879f9;flex:0 0 auto}
+  .home-task-row{width:100%;min-height:64px;display:flex;align-items:center;gap:10px;text-align:left;border-bottom:1px solid var(--line)}
+  .home-task-row.featured{padding:4px 10px;border:1px solid rgba(37,185,244,.32);border-radius:17px;background:linear-gradient(90deg,rgba(37,185,244,.07),rgba(119,100,246,.08))}
+  .home-complete{min-width:44px;min-height:44px;border-radius:50%;font-size:1.65rem;display:inline-flex;align-items:center;justify-content:center;color:var(--text)}
+  .home-play{min-width:46px;min-height:46px;border:2px solid var(--accent);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 0 18px rgba(37,185,244,.28)}
+  .home-more{width:100%;min-height:46px;color:var(--accent);font-size:.86rem;font-weight:700}
+  .home-collapsed-row{border-top:1px solid var(--line);min-height:60px;display:flex;align-items:center;gap:12px}
+  .today-summary{max-width:576px;width:100%;margin:0 auto;overflow:hidden}
+  .today-summary-row{width:100%;min-height:50px;display:flex;align-items:center;gap:10px;padding:8px 0;text-align:left;border-top:1px solid var(--line)}
   .today-summary-dot{width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:var(--task-colour,var(--accent))}
-  .recap-card{max-width:576px;width:100%;margin:12px auto 0;border:1px solid var(--line);border-radius:20px;background:var(--panel);overflow:hidden}
+  .recap-card{max-width:576px;width:100%;margin:4px auto 0;border-top:1px solid var(--line);overflow:hidden}
   .recap-content{padding:0 16px 16px;border-top:1px solid var(--line);animation:fadeIn .2s ease}
   .recap-stat{padding:12px;border-radius:14px;background:var(--panel-2);border:1px solid var(--line)}
-  .tasks-view-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:5px;border:1px solid var(--line);border-radius:16px;background:var(--panel-2)}
+  .tasks-view-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:5px;border:1px solid var(--line);border-radius:16px;background:var(--panel-2)}
   .tasks-view-tab{min-height:46px;border-radius:12px;color:var(--muted);font-size:.875rem;font-weight:700;transition:background .15s ease,color .15s ease,box-shadow .15s ease}
   .tasks-view-tab.active{background:var(--panel);color:var(--accent);box-shadow:var(--shadow)}
   .sheet-backdrop{position:fixed;inset:0;z-index:70;background:rgba(0,5,15,.66);backdrop-filter:blur(6px)}
@@ -105,7 +124,7 @@
   .focus-mode .desktop-sidebar,.focus-mode .mobile-bottom-nav,.focus-mode .mobile-top-nav{display:none!important}.focus-mode .app-main{padding-top:0}.focus-mode .safe-bottom:after{display:none}
   .capture-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.capture-tool{min-width:44px;min-height:44px;border:1px solid var(--line);border-radius:12px;color:var(--muted);background:var(--panel-2)}.capture-tool.active{color:var(--accent);border-color:var(--accent)}
   .quick-task-text{min-height:112px;resize:vertical;line-height:1.5;padding-top:14px;padding-bottom:14px}
-  .task-action{min-width:44px;min-height:44px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;color:var(--accent)}
+  .task-action{min-width:44px;min-height:44px;border:2px solid var(--accent);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:var(--accent);position:relative;z-index:2}
   .vault-group{border:1px solid var(--line);border-radius:20px;background:var(--panel);overflow:hidden}.vault-group-header{min-height:58px;padding:12px 16px;border-bottom:1px solid var(--line)}
   .upcoming-button{width:100%;max-width:576px;margin:10px auto 0;min-height:58px;border:1px solid rgba(37,185,244,.35);border-radius:18px;background:rgba(37,185,244,.07);color:var(--text)}
   .progress-bars{height:132px;display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:end}.progress-bar{min-height:4px;border-radius:8px 8px 3px 3px;background:var(--accent)}
@@ -227,6 +246,7 @@ var state = {
   liveData: { gmail: null, calendar: null, drive: null, googleTasks: null, whatsapp: null, zoho: null, jotform: null },
   tasks: [],
   projects: [],
+  goals: [],
   tags: [],
   taskTags: [],
   taskView: "today",
@@ -250,8 +270,18 @@ var state = {
   dashboardPanel: null,
   calendarCursor: new Date(),
   calendarSelectedDate: localDay(),
+  homeSelectedDate: localDay(),
+  homeCalendarOpen: true,
+  homeAnchorsOpen: true,
+  homeAgendaOpen: true,
+  homeAgendaExpanded: false,
   tagManagerOpen: false,
   projectExpanded: {},
+  selectedProjectId: null,
+  selectedGoalId: null,
+  goalEditorOpen: false,
+  editingGoalId: null,
+  pendingGoalId: null,
   nextTaskIndex: 0,
   breathingActive: false,
   breathingPhase: "",
@@ -552,20 +582,24 @@ function loadCloudData() {
 }
 
 function loadCanonicalData() {
+  var userId = state.session && state.session.user ? state.session.user.id : '';
   return Promise.all([
-    sb.from("focusos_tasks").select("id,title,priority,status,project_id,scheduled_date,scheduled_time,is_daily_anchor,recurrence,sort_order,source,completed_at,created_at,updated_at").order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
-    sb.from("focusos_projects").select("id,name,colour,status,created_at,updated_at").eq("status", "active").order("created_at", { ascending: true }),
-    sb.from("focusos_tags").select("id,name,colour,created_at,updated_at").order("name", { ascending: true }),
-    sb.from("focusos_task_tags").select("task_id,tag_id")
+    sb.from("focusos_tasks").select("id,title,priority,status,project_id,goal_id,scheduled_date,scheduled_time,is_daily_anchor,recurrence,sort_order,source,completed_at,created_at,updated_at").eq("user_id", userId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
+    sb.from("focusos_projects").select("id,name,colour,status,created_at,updated_at").eq("user_id", userId).eq("status", "active").order("created_at", { ascending: true }),
+    sb.from("focusos_goals").select("id,project_id,title,why_this_matters,status,sort_order,created_at,updated_at").eq("user_id", userId).eq("status", "active").order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
+    sb.from("focusos_tags").select("id,name,colour,created_at,updated_at").eq("user_id", userId).order("name", { ascending: true }),
+    sb.from("focusos_task_tags").select("task_id,tag_id").eq("user_id", userId)
   ]).then(function (results) {
     if (results[0].error) throw results[0].error;
     if (results[1].error) throw results[1].error;
     if (results[2].error) throw results[2].error;
     if (results[3].error) throw results[3].error;
+    if (results[4].error) throw results[4].error;
     state.tasks = results[0].data || [];
     state.projects = results[1].data || [];
-    state.tags = results[2].data || [];
-    state.taskTags = results[3].data || [];
+    state.goals = results[2].data || [];
+    state.tags = results[3].data || [];
+    state.taskTags = results[4].data || [];
     state.projects.forEach(function (project) { if (state.projectExpanded[project.id] === undefined) state.projectExpanded[project.id] = true; });
     if (state.projectExpanded.none === undefined) state.projectExpanded.none = true;
   });
@@ -745,9 +779,9 @@ function renderConsole() {
       '</div>' +
     '</main>' +
     '<nav class="mobile-bottom-nav" aria-label="Primary">' +
-      renderMobileNavButton("dashboard","⌂","Home") + renderMobileNavButton("tasks","☑","Tasks") + renderMobileNavButton("vault","□","Vault") + renderMobileNavButton("more","•••","More") +
+      renderMobileNavButton("dashboard","⌂","Home") + renderMobileNavButton("tasks","☑","Tasks") + renderMobileProjectsNavButton() + renderMobileNavButton("more","•••","More") +
     '</nav>' +
-    (state.view === "dashboard" && !state.dashboardPanel && !state.editingTaskId ? '<button id="floatingAddTask" class="fab" aria-label="Add task">+ Task</button>' : '') +
+    (state.view === "dashboard" && !state.dashboardPanel && !state.editingTaskId ? '<button id="floatingAddTask" class="fab" aria-label="Add task">+<small>Task</small></button>' : '') +
     (state.openSections.add ? renderTaskCreateSheet() : "") +
     (state.tagManagerOpen ? renderTagManager() : "") +
     (state.settingsOpen ? renderConnectionsModal() : "") +
@@ -755,8 +789,13 @@ function renderConsole() {
 }
 
 function renderMobileNavButton(view, icon, label) {
-  var active = state.view === view;
+  var active = state.view === view && !(view === 'tasks' && state.tasksScreenView === 'projects');
   return '<button data-view="' + view + '" data-mobile="1" class="switch-view-btn min-h-[58px] rounded-2xl flex flex-col items-center justify-center gap-1 text-xs font-medium" style="color:' + (active ? 'var(--accent)' : 'var(--muted)') + ';background:' + (active ? 'rgba(37,185,244,.10)' : 'transparent') + '"><span class="text-xl" aria-hidden="true">' + icon + '</span>' + label + '</button>';
+}
+
+function renderMobileProjectsNavButton() {
+  var active = state.view === 'tasks' && state.tasksScreenView === 'projects';
+  return '<button data-view="tasks" data-open-projects="1" data-mobile="1" class="switch-view-btn min-h-[58px] rounded-2xl flex flex-col items-center justify-center gap-1 text-xs font-medium" style="color:' + (active ? 'var(--accent)' : 'var(--muted)') + ';background:' + (active ? 'rgba(37,185,244,.10)' : 'transparent') + '"><span class="text-xl" aria-hidden="true">□</span>Projects</button>';
 }
 
 function renderSidebarInner(isMobile) {
@@ -809,16 +848,22 @@ function renderPomodoroWidget() {
    DASHBOARD VIEW
 ============================================================ */
 function renderDashboardView() {
-  var todayTasks = state.tasks.filter(function (task) { return task.status === 'open' && task.scheduled_date === localDay(); }).sort(function (a,b) { if (a.priority === b.priority) return Number(a.sort_order || 0) - Number(b.sort_order || 0); return a.priority === 'red' ? -1 : 1; });
-  var todayEvents = state.google.connected ? (state.liveData.calendar || []).filter(function (event) { return event.start && localDay(new Date(event.start)) === localDay(); }) : [];
   if (state.dashboardPanel) return renderDashboardPanel(state.dashboardPanel);
+  var selectedKey = state.homeSelectedDate || localDay();
+  var selectedDate = new Date(selectedKey + 'T12:00:00');
+  var anchors = state.tasks.filter(function (task) {
+    return task.is_daily_anchor && task.status !== 'archived' && (task.recurrence === 'daily' || task.scheduled_date === selectedKey);
+  }).sort(homeTaskSort);
+  var agenda = state.tasks.filter(function (task) {
+    return !task.is_daily_anchor && task.status !== 'archived' && task.scheduled_date === selectedKey;
+  }).sort(homeTaskSort);
   return '<section class="max-w-3xl mx-auto focus-home">' +
-    '<header class="home-welcome"><p class="hud text-[10px] mb-1" style="color:var(--accent)">Today</p><h1 class="theme-text text-2xl sm:text-3xl font-bold">' + escapeHtml(homeWelcomeMessage()) + '</h1></header>' +
+    '<header class="home-welcome"><h1 class="theme-text text-2xl sm:text-3xl font-bold">' + escapeHtml(homeWelcomeMessage()) + '</h1><p class="muted-text text-sm mt-1">Let’s make today feel lighter.</p></header>' +
     '<div class="home-orb-wrap">' +
-      '<span id="homeOrbStage" class="orb-stage"><button id="breathingOrb" class="orb" aria-label="Open Relax breathing mode" style="width:clamp(150px,40vw,210px);height:clamp(150px,40vw,210px)"></button></span>' +
+      '<span id="homeOrbStage" class="orb-stage"><button id="breathingOrb" class="orb" aria-label="Open Relax breathing mode" style="width:clamp(180px,48vw,245px);height:clamp(180px,48vw,245px)"></button></span>' +
       '<p class="muted-text text-xs mt-10">Tap the orb to relax</p>' +
     '</div>' +
-    renderTodaySummary(todayTasks, todayEvents) +
+    '<div class="home-flow">' + renderHomeCalendar(selectedDate) + renderHomeAnchors(anchors) + renderHomeAgenda(agenda) + '</div>' +
     renderRecapCard() +
   '</section>';
 }
@@ -832,18 +877,60 @@ function homeWelcomeMessage() {
   var metadata = user.user_metadata || {};
   var raw = metadata.first_name || metadata.full_name || metadata.name || String(user.email || '').split('@')[0] || '';
   var first = String(raw).trim().split(/\s+/)[0];
-  if (!first) return 'Welcome back';
-  return 'Welcome back, ' + first.charAt(0).toUpperCase() + first.slice(1);
+  var hour = new Date().getHours();
+  var greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  if (!first) return greeting;
+  return greeting + ', ' + first.charAt(0).toUpperCase() + first.slice(1);
 }
 
-function renderTodaySummary(tasks, events) {
-  var taskRows = tasks.slice(0,3).map(function (task) {
-    var time = task.scheduled_time ? String(task.scheduled_time).slice(0,5) : 'Any time';
-    return '<button data-edit-task="' + task.id + '" class="today-summary-row" aria-label="Open ' + escapeHtml(task.title) + '"><span class="today-summary-dot" style="--task-colour:' + projectColour(task.project_id,task.priority) + '"></span><span class="muted-text text-xs w-14 shrink-0">' + escapeHtml(time) + '</span><strong class="theme-text text-sm flex-1 truncate">' + escapeHtml(task.title) + '</strong><span style="color:var(--accent)">›</span></button>';
+function homeTaskSort(a, b) {
+  if (a.status !== b.status) return a.status === 'completed' ? 1 : -1;
+  var at = a.scheduled_time ? String(a.scheduled_time).slice(0,5) : '99:99';
+  var bt = b.scheduled_time ? String(b.scheduled_time).slice(0,5) : '99:99';
+  return at.localeCompare(bt) || Number(a.sort_order || 0) - Number(b.sort_order || 0);
+}
+
+function renderHomeCalendar(selectedDate) {
+  var key = localDay(selectedDate);
+  if (!state.homeCalendarOpen) {
+    return '<button id="homeCalendarToggle" class="home-collapsed-row w-full text-left" aria-expanded="false"><span class="text-xl" aria-hidden="true">▣</span><strong class="theme-text flex-1">' + selectedDate.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'long'}) + '</strong><span class="chevron">⌄</span></button>';
+  }
+  var days = [];
+  for (var offset = -2; offset <= 2; offset++) {
+    var day = new Date(selectedDate); day.setDate(day.getDate() + offset);
+    var dayKey = localDay(day);
+    days.push('<button data-home-date="' + dayKey + '" class="home-calendar-day ' + (dayKey === key ? 'selected' : '') + '" aria-label="Show ' + day.toLocaleDateString('en-GB') + '" aria-pressed="' + (dayKey === key) + '"><span>' + day.toLocaleDateString('en-GB',{weekday:'short'}) + '</span><strong>' + day.getDate() + '</strong></button>');
+  }
+  return '<section class="home-open-section" aria-label="Calendar strip"><div class="home-section-head"><button id="homeDatePrevious" class="chevron" aria-label="Previous day">‹</button><strong class="theme-text text-sm flex-1 text-center">' + selectedDate.toLocaleDateString('en-GB',{month:'long'}) + '</strong><button id="homeCalendarToggle" class="chevron" aria-label="Collapse calendar" aria-expanded="true">⌃</button><button id="homeDateNext" class="chevron" aria-label="Next day">›</button></div><div class="home-calendar-days">' + days.join('') + '</div></section>';
+}
+
+function renderHomeAnchors(anchors) {
+  var completed = anchors.filter(function (task) { return task.status === 'completed'; }).length;
+  var summary = completed + ' of ' + anchors.length + ' done';
+  if (!state.homeAnchorsOpen) return '<button id="homeAnchorsToggle" class="home-collapsed-row w-full text-left" aria-expanded="false"><span class="home-anchor-icon" aria-hidden="true">⚓</span><strong class="theme-text flex-1">Daily Anchors</strong><small class="muted-text">' + summary + '</small><span class="chevron">⌄</span></button>';
+  var rows = anchors.slice(0,2).map(function (task) {
+    var done = task.status === 'completed';
+    return '<div class="home-anchor"><span class="home-anchor-icon" aria-hidden="true">⚓</span><button data-edit-task="' + task.id + '" class="min-w-0 flex-1 text-left min-h-[44px]"><strong class="theme-text text-xs block truncate ' + (done ? 'checked-item' : '') + '">' + escapeHtml(task.title) + '</strong><small class="muted-text">' + escapeHtml(task.scheduled_time ? String(task.scheduled_time).slice(0,5) : 'Any time') + '</small></button><button data-complete-task="' + task.id + '" class="home-complete complete-task-btn" style="color:' + (done ? 'var(--emerald)' : 'var(--text)') + '" aria-label="' + (done ? 'Reopen ' : 'Complete ') + escapeHtml(task.title) + '">' + (done ? '✓' : '○') + '</button>' + (!done ? '<button data-flow-task="' + task.id + '" class="home-play" aria-label="Start focus on ' + escapeHtml(task.title) + '">▶</button>' : '') + '</div>';
   }).join('');
-  var totalLabel = tasks.length + ' task' + (tasks.length === 1 ? '' : 's') + (state.google.connected ? ' · ' + events.length + ' calendar event' + (events.length === 1 ? '' : 's') : '');
-  var footer = tasks.length > 3 || events.length ? '<button data-dashboard-panel="upcoming" class="today-summary-row justify-center text-sm font-semibold" style="color:var(--accent)">Open today’s agenda</button>' : '';
-  return '<section class="today-summary" aria-labelledby="todaySummaryTitle"><div class="flex items-center justify-between gap-3 p-4"><div><h2 id="todaySummaryTitle" class="theme-text font-bold">Today’s tasks</h2><p class="muted-text text-xs mt-1">' + totalLabel + '</p></div><time class="theme-text text-sm">' + new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + '</time></div>' + (taskRows || '<p class="muted-text text-sm px-4 pb-4">Nothing is due today.</p>') + footer + '</section>';
+  return '<section class="home-open-section"><div class="home-section-head"><strong class="theme-text flex-1">Daily Anchors</strong><small class="muted-text">' + summary + '</small><button id="viewAllAnchors" class="min-h-[44px] px-2 text-xs" style="color:var(--accent)">View all</button><button id="homeAnchorsToggle" class="chevron" aria-label="Collapse Daily Anchors" aria-expanded="true">⌃</button></div>' + (rows ? '<div class="home-anchor-strip">' + rows + '</div>' : '<p class="muted-text text-sm pb-3">No Daily Anchors yet.</p>') + '</section>';
+}
+
+function renderHomeTaskRow(task, featured) {
+  var done = task.status === 'completed';
+  var project = state.projects.find(function (item) { return item.id === task.project_id; });
+  var time = task.scheduled_time ? String(task.scheduled_time).slice(0,5) : 'No time';
+  return '<div class="home-task-row ' + (featured ? 'featured' : '') + '"><button data-complete-task="' + task.id + '" class="home-complete complete-task-btn" style="color:' + (done ? 'var(--emerald)' : 'var(--text)') + '" aria-label="' + (done ? 'Reopen ' : 'Complete ') + escapeHtml(task.title) + '">' + (done ? '✓' : '○') + '</button><button data-edit-task="' + task.id + '" class="min-w-0 flex-1 text-left min-h-[44px]"><strong class="theme-text text-sm block truncate ' + (done ? 'checked-item' : '') + '">' + escapeHtml(task.title) + '</strong><small class="muted-text">' + escapeHtml(project ? project.name : 'Inbox') + '</small></button><time class="muted-text text-xs">' + escapeHtml(time) + '</time>' + (!done ? '<button data-flow-task="' + task.id + '" class="home-play" aria-label="Start focus on ' + escapeHtml(task.title) + '">▶</button>' : '') + '</div>';
+}
+
+function renderHomeAgenda(tasks) {
+  var completed = tasks.filter(function (task) { return task.status === 'completed'; }).length;
+  var summary = completed + ' of ' + tasks.length + ' done';
+  if (!state.homeAgendaOpen) return '<button id="homeAgendaToggle" class="home-collapsed-row w-full text-left" aria-expanded="false"><span class="text-xl" aria-hidden="true">☷</span><strong class="theme-text flex-1">Today’s agenda</strong><small class="muted-text">' + summary + '</small><span class="chevron">⌄</span></button>';
+  var visible = state.homeAgendaExpanded ? tasks : tasks.slice(0,1);
+  var rows = visible.map(function (task, index) { return renderHomeTaskRow(task, !state.homeAgendaExpanded && index === 0); }).join('');
+  var remaining = Math.max(0, tasks.length - 1);
+  var more = remaining ? '<button id="homeAgendaMore" class="home-more">' + (state.homeAgendaExpanded ? '⌃ Show fewer' : '⌄ See ' + remaining + ' more task' + (remaining === 1 ? '' : 's')) + '</button>' : '';
+  return '<section class="home-open-section"><div class="home-section-head"><strong class="theme-text flex-1">' + (state.homeAgendaExpanded ? 'Today’s agenda' : 'Up next') + '</strong><small class="muted-text">' + summary + '</small><button id="homeAgendaToggle" class="chevron" aria-label="Collapse Today’s agenda" aria-expanded="true">⌃</button></div>' + (rows || '<p class="muted-text text-sm pb-3">Nothing is scheduled for this day.</p>') + more + '</section>';
 }
 
 function completedDate(task) {
@@ -978,6 +1065,10 @@ function projectOptions(selected) {
   return '<option value="">No Project / Inbox</option>' + state.projects.map(function (project) { return '<option value="' + project.id + '" ' + (selected === project.id ? 'selected' : '') + '>' + escapeHtml(project.name) + '</option>'; }).join('');
 }
 
+function goalOptions(projectId, selected) {
+  return '<option value="">No goal</option>' + state.goals.filter(function (goal) { return goal.project_id === projectId; }).map(function (goal) { return '<option value="' + goal.id + '" ' + (selected === goal.id ? 'selected' : '') + '>' + escapeHtml(goal.title) + '</option>'; }).join('');
+}
+
 function tagsForTask(taskId) {
   var ids = state.taskTags.filter(function (link) { return link.task_id === taskId; }).map(function (link) { return link.tag_id; });
   return state.tags.filter(function (tag) { return ids.indexOf(tag.id) !== -1; });
@@ -1045,7 +1136,8 @@ function renderCanonicalTaskList(tasks) {
   if (!tasks.length) return '<div class="rounded-xl p-5 text-center" style="background:var(--panel-2);border:1px solid var(--line)"><p class="theme-text text-sm font-semibold">Nothing in this view</p><p class="muted-text text-xs mt-1">Tasks appear here from the same master list.</p></div>';
   return tasks.map(function (task, index) {
     var meta = [task.scheduled_date || '', task.scheduled_time ? String(task.scheduled_time).slice(0,5) : ''].filter(Boolean).join(' · ');
-    return '<div class="task-card flex items-center gap-2 px-3 py-3 mb-2" style="border-left:4px solid ' + projectColour(task.project_id,task.priority) + '"><button data-complete-task="' + task.id + '" class="complete-task-btn theme-text p-2" aria-label="' + (task.status === 'completed' ? 'Reopen task' : 'Complete task') + '">' + (task.status === 'completed' ? '✓' : '○') + '</button><button data-edit-task="' + task.id + '" class="flex-1 text-left min-h-[44px]" aria-label="Open and edit ' + escapeHtml(task.title) + '"><p class="theme-text text-sm font-semibold ' + (task.status === 'completed' ? 'checked-item' : '') + '">' + escapeHtml(task.title) + '</p><div class="flex flex-wrap items-center gap-2 mt-2">' + renderProjectChip(task) + '<span class="tag-chip" style="--tag-colour:' + projectColour(null,task.priority) + '">' + (task.priority === 'red' ? 'PRIORITY' : 'NOT PRIORITY') + '</span>' + renderTaskTags(task.id) + (meta ? '<span class="muted-text text-xs">' + escapeHtml(meta) + '</span>' : '') + '</div></button><button data-flow-task="' + task.id + '" class="task-action" aria-label="Start focus on ' + escapeHtml(task.title) + '" title="Start focus">▶</button><button data-order-task="' + task.id + ':-1" class="order-task-btn muted-text p-2" ' + (index === 0 ? 'disabled' : '') + '>↑</button><button data-order-task="' + task.id + ':1" class="order-task-btn muted-text p-2" ' + (index === tasks.length - 1 ? 'disabled' : '') + '>↓</button></div>';
+    var done = task.status === 'completed';
+    return '<div class="task-card flex items-center gap-2 px-3 py-3 mb-2" style="border-left:4px solid ' + projectColour(task.project_id,task.priority) + '"><button data-complete-task="' + task.id + '" class="complete-task-btn p-2" style="color:' + (done ? 'var(--emerald)' : 'var(--text)') + '" aria-label="' + (done ? 'Reopen task' : 'Complete task') + '">' + (done ? '✓' : '○') + '</button><button data-edit-task="' + task.id + '" class="flex-1 text-left min-h-[44px]" aria-label="Open and edit ' + escapeHtml(task.title) + '"><p class="theme-text text-sm font-semibold ' + (done ? 'checked-item' : '') + '">' + escapeHtml(task.title) + '</p><div class="flex flex-wrap items-center gap-2 mt-2">' + renderProjectChip(task) + '<span class="tag-chip" style="--tag-colour:' + projectColour(null,task.priority) + '">' + (task.priority === 'red' ? 'PRIORITY' : 'NOT PRIORITY') + '</span>' + renderTaskTags(task.id) + (meta ? '<span class="muted-text text-xs">' + escapeHtml(meta) + '</span>' : '') + '</div></button>' + (!done ? '<button data-flow-task="' + task.id + '" class="task-action" aria-label="Start focus on ' + escapeHtml(task.title) + '" title="Start focus">▶</button>' : '') + '<button data-order-task="' + task.id + ':-1" class="order-task-btn muted-text p-2" ' + (index === 0 ? 'disabled' : '') + '>↑</button><button data-order-task="' + task.id + ':1" class="order-task-btn muted-text p-2" ' + (index === tasks.length - 1 ? 'disabled' : '') + '>↓</button></div>';
   }).join('');
 }
 
@@ -1055,18 +1147,50 @@ function renderProjectManager() {
 }
 
 function renderNestedProjects() {
+  if (state.selectedGoalId) return renderSelectedGoal();
+  if (state.selectedProjectId) return renderProjectGoals();
   var query = state.projectQuery.toLowerCase().trim();
-  function taskMatchesSearch(task) { return !query || task.title.toLowerCase().indexOf(query) !== -1 || tagsForTask(task.id).some(function (tag) { return tag.name.toLowerCase().indexOf(query) !== -1; }); }
-  var groups = state.projects.map(function (project) { var all = state.tasks.filter(function (task) { return task.status === 'open' && task.project_id === project.id && (state.tagFilter === 'all' || state.taskTags.some(function (link) { return link.task_id === task.id && link.tag_id === state.tagFilter; })); }); return { id: project.id, name: project.name, colour: project.colour, icon: '□', tasks: !query || project.name.toLowerCase().indexOf(query) !== -1 ? all : all.filter(taskMatchesSearch) }; }).filter(function (group) { return !query || group.name.toLowerCase().indexOf(query) !== -1 || group.tasks.length; });
-  var unassigned = state.tasks.filter(function (task) { return task.status === 'open' && !task.project_id && taskMatchesSearch(task) && (state.tagFilter === 'all' || state.taskTags.some(function (link) { return link.task_id === task.id && link.tag_id === state.tagFilter; })); });
-  if (!query || unassigned.length || 'no project'.indexOf(query) !== -1) groups.push({ id: 'none', name: 'No project', icon: '▱', tasks: unassigned });
-  var rows = groups.map(function (group) {
-    var expanded = state.projectExpanded[group.id] !== false;
-    var taskRows = expanded ? '<div class="nested-line">' + renderCanonicalTaskList(group.tasks) + '<button data-add-to-project="' + group.id + '" class="min-h-[44px] px-2 text-sm" style="color:var(--accent)">+ Add task</button></div>' : '';
-    var colour = /^#[0-9a-f]{6}$/i.test(group.colour || '') ? group.colour : 'var(--accent)';
-    return '<div class="py-3 border-b" style="border-color:var(--line)"><div class="flex items-center gap-3"><button data-toggle-project="' + group.id + '" class="project-toggle flex-1 min-h-[58px] flex items-center text-left gap-3"><span class="text-xl" style="color:' + colour + '">' + group.icon + '</span><span class="flex-1"><strong class="theme-text block">' + escapeHtml(group.name) + '</strong><small class="muted-text">' + group.tasks.length + ' task' + (group.tasks.length === 1 ? '' : 's') + '</small></span><span style="color:' + colour + '">' + (expanded ? '⌄' : '›') + '</span></button>' + (group.id !== 'none' ? '<input data-project-colour="' + group.id + '" type="color" value="' + (/^#[0-9a-f]{6}$/i.test(group.colour || '') ? group.colour : '#35c2ff') + '" class="w-10 h-10 rounded-lg p-1" aria-label="Project colour"><button data-rename-project="' + group.id + '" class="muted-text min-w-[44px] min-h-[44px]" aria-label="Rename project">✎</button>' : '') + '</div>' + taskRows + '</div>';
+  var projects = state.projects.filter(function (project) { return !query || project.name.toLowerCase().indexOf(query) !== -1; });
+  var rows = projects.map(function (project) {
+    var tasks = state.tasks.filter(function (task) { return task.project_id === project.id && task.status !== 'archived'; });
+    var completed = tasks.filter(function (task) { return task.status === 'completed'; }).length;
+    var open = tasks.filter(function (task) { return task.status === 'open'; }).sort(homeTaskSort);
+    var percent = tasks.length ? Math.round(completed / tasks.length * 100) : 0;
+    var colour = /^#[0-9a-f]{6}$/i.test(project.colour || '') ? project.colour : 'var(--accent)';
+    return '<button data-open-project="' + project.id + '" class="w-full py-4 flex items-center gap-3 text-left border-b" style="border-color:var(--line)"><span class="w-3 h-3 rounded-full shrink-0" style="background:' + colour + '"></span><span class="flex-1 min-w-0"><span class="flex items-center justify-between gap-3"><strong class="theme-text">' + escapeHtml(project.name) + '</strong><b class="theme-text text-sm">' + percent + '%</b></span><small class="muted-text block mt-1">' + completed + ' of ' + tasks.length + ' tasks complete</small><span class="block h-1 rounded-full mt-2 overflow-hidden" style="background:var(--soft)"><span class="block h-full rounded-full" style="width:' + percent + '%;background:' + colour + '"></span></span>' + (open[0] ? '<small class="muted-text block mt-2 truncate">Next: ' + escapeHtml(open[0].title) + '</small>' : '') + '</span><span style="color:' + colour + '">›</span></button>';
   }).join('');
-  return '<input id="projectSearch" value="' + escapeHtml(state.projectQuery) + '" class="w-full rounded-xl px-4 min-h-[50px] mb-4" placeholder="Search projects, tasks and tags"><div class="mb-4 flex gap-2"><button id="openTagManager" class="btn-ghost rounded-xl min-h-[46px] px-4">Manage tags</button></div><form id="projectQuickForm" class="flex gap-2 mb-4"><input name="name" required maxlength="60" class="rounded-xl px-3 min-h-[48px] flex-1" placeholder="New project"><input name="colour" type="color" value="#35c2ff" class="rounded-xl w-12 min-h-[48px] p-1" aria-label="Project colour"><button class="btn-primary rounded-xl px-4">Add</button></form><div class="card px-4">' + (rows || '<p class="muted-text text-sm py-6 text-center">Nothing matches your search.</p>') + '</div>';
+  return '<div class="flex gap-2 mb-5"><input id="projectSearch" value="' + escapeHtml(state.projectQuery) + '" class="min-w-0 flex-1 rounded-xl px-4 min-h-[48px]" placeholder="Search projects"><button id="toggleProjectCreate" class="btn-primary rounded-xl min-h-[48px] px-4">+ Project</button></div>' + (state.openSections.projects ? '<form id="projectQuickForm" class="flex gap-2 mb-4"><input name="name" required maxlength="60" class="rounded-xl px-3 min-h-[48px] flex-1" placeholder="Project name"><input name="colour" type="color" value="#7764f6" class="rounded-xl w-12 min-h-[48px] p-1" aria-label="Project colour"><button class="btn-primary rounded-xl px-4">Save</button></form>' : '') + '<div>' + (rows || '<p class="muted-text text-sm py-8 text-center">No projects match your search.</p>') + '</div>';
+}
+
+function renderProjectGoals() {
+  var project = state.projects.find(function (item) { return item.id === state.selectedProjectId; });
+  if (!project) { state.selectedProjectId = null; return renderNestedProjects(); }
+  var tasks = state.tasks.filter(function (task) { return task.project_id === project.id && task.status !== 'archived'; });
+  var completed = tasks.filter(function (task) { return task.status === 'completed'; }).length;
+  var percent = tasks.length ? Math.round(completed / tasks.length * 100) : 0;
+  var goals = state.goals.filter(function (goal) { return goal.project_id === project.id; });
+  var editingGoal = state.editingGoalId ? state.goals.find(function (goal) { return goal.id === state.editingGoalId; }) : null;
+  var rows = goals.map(function (goal) {
+    var goalTasks = tasks.filter(function (task) { return task.goal_id === goal.id; });
+    var goalCompleted = goalTasks.filter(function (task) { return task.status === 'completed'; }).length;
+    return '<button data-open-goal="' + goal.id + '" class="w-full min-h-[72px] py-3 flex items-center gap-3 text-left border-b" style="border-color:var(--line)"><span class="w-3 h-3 rounded-full" style="background:var(--accent-2)"></span><span class="flex-1 min-w-0"><strong class="theme-text block">' + escapeHtml(goal.title) + '</strong><small class="muted-text block truncate mt-1">' + escapeHtml(goal.why_this_matters || 'Add why this goal matters') + '</small></span><small class="theme-text">' + goalCompleted + ' of ' + goalTasks.length + '</small><span style="color:var(--accent)">›</span></button>';
+  }).join('');
+  var withoutGoal = tasks.filter(function (task) { return !task.goal_id; }).length;
+  var form = state.goalEditorOpen ? '<form id="goalForm" class="mt-4 p-4 rounded-2xl" style="background:var(--panel-2)"><label class="muted-text text-xs block">Goal<input name="title" required maxlength="120" value="' + escapeHtml(editingGoal ? editingGoal.title : '') + '" class="w-full rounded-xl px-3 min-h-[48px] mt-1" placeholder="What do you want to achieve?"></label><label class="muted-text text-xs block mt-3">Why this matters<textarea name="why" rows="3" class="w-full rounded-xl px-3 py-3 mt-1" placeholder="Why is this important?">' + escapeHtml(editingGoal ? editingGoal.why_this_matters || '' : '') + '</textarea></label><div class="flex gap-2 mt-3"><button class="btn-primary rounded-xl min-h-[48px] px-4 flex-1">' + (editingGoal ? 'Save changes' : 'Save goal') + '</button><button type="button" id="cancelGoalForm" class="btn-ghost rounded-xl min-h-[48px] px-4">Cancel</button></div></form>' : '';
+  return '<div class="flex items-center gap-3 mb-5"><button id="backToProjects" class="min-w-[44px] min-h-[44px] text-2xl" aria-label="Back to Projects">‹</button><div class="flex-1"><h2 class="theme-text text-2xl font-bold">' + escapeHtml(project.name) + '</h2><p class="muted-text text-sm">' + completed + ' of ' + tasks.length + ' tasks complete</p></div><strong class="theme-text text-xl">' + percent + '%</strong></div><div class="h-2 rounded-full overflow-hidden mb-5" style="background:var(--soft)"><div class="h-full rounded-full" style="width:' + percent + '%;background:linear-gradient(90deg,var(--accent),var(--accent-2))"></div></div><button id="openGoalForm" class="btn-primary w-full min-h-[50px] rounded-xl">+ Add goal</button>' + form + '<h3 class="theme-text font-bold mt-6 mb-2">Goals</h3><div>' + (rows || '<p class="muted-text text-sm py-4">No goals yet. Add one to explain what this project is working towards.</p>') + '</div><button data-open-goal="none" class="w-full min-h-[62px] flex items-center gap-3 text-left border-t" style="border-color:var(--line)"><span aria-hidden="true">☷</span><strong class="theme-text flex-1">Tasks without a goal</strong><small class="muted-text">' + withoutGoal + '</small><span style="color:var(--accent)">›</span></button>';
+}
+
+function renderSelectedGoal() {
+  var project = state.projects.find(function (item) { return item.id === state.selectedProjectId; });
+  var noGoal = state.selectedGoalId === 'none';
+  var goal = noGoal ? null : state.goals.find(function (item) { return item.id === state.selectedGoalId; });
+  if (!project || (!noGoal && !goal)) { state.selectedGoalId = null; return renderProjectGoals(); }
+  var tasks = state.tasks.filter(function (task) { return task.project_id === project.id && task.status !== 'archived' && (noGoal ? !task.goal_id : task.goal_id === goal.id); }).sort(homeTaskSort);
+  var completed = tasks.filter(function (task) { return task.status === 'completed'; }).length;
+  var percent = tasks.length ? Math.round(completed / tasks.length * 100) : 0;
+  var taskRows = tasks.map(function (task) { return renderHomeTaskRow(task, false); }).join('');
+  var why = noGoal ? '' : '<section class="py-4 border-y" style="border-color:var(--line)"><h3 class="theme-text font-bold">Why this matters</h3><p class="muted-text text-sm mt-2 leading-relaxed">' + escapeHtml(goal.why_this_matters || 'No explanation added yet.') + '</p></section>';
+  return '<div class="flex items-center gap-3 mb-5"><button id="backToProjectGoals" class="min-w-[44px] min-h-[44px] text-2xl" aria-label="Back to project">‹</button><div class="flex-1"><p class="muted-text text-xs">' + escapeHtml(project.name) + '</p><h2 class="theme-text text-2xl font-bold">' + escapeHtml(noGoal ? 'Tasks without a goal' : goal.title) + '</h2><p class="muted-text text-sm">' + completed + ' of ' + tasks.length + ' tasks complete</p></div><strong class="theme-text text-xl">' + percent + '%</strong></div>' + why + '<div class="mt-5"><h3 class="theme-text font-bold mb-2">Tasks</h3>' + (taskRows || '<p class="muted-text text-sm py-4">No tasks here yet.</p>') + '</div><button data-add-to-goal="' + (noGoal ? '' : goal.id) + '" class="btn-primary w-full min-h-[50px] rounded-xl mt-4">+ Add task</button>' + (!noGoal ? '<button id="editGoalBtn" class="btn-ghost w-full min-h-[48px] rounded-xl mt-3">Edit goal</button>' : '');
 }
 
 function renderTagManager() {
@@ -1109,11 +1233,12 @@ function renderCalendarAgenda() {
 function renderQuickTaskForm(id, label, inCard) {
   var prefix = id.replace(/[^a-z0-9]/gi, '');
   var selectedProject = state.projectFilter !== 'all' && state.projectFilter !== 'none' ? state.projectFilter : '';
+  if (state.pendingGoalId) { var pendingGoal = state.goals.find(function (goal) { return goal.id === state.pendingGoalId; }); if (pendingGoal) selectedProject = pendingGoal.project_id; }
   return '<form id="' + id + '" class="' + (inCard ? 'card p-4 sm:p-5' : '') + '">' +
     '<label class="theme-text text-sm font-semibold block mb-2">' + escapeHtml(label) + '</label>' +
     '<textarea name="title" required rows="5" class="quick-task-text w-full rounded-xl px-4 text-base" placeholder="Add a task, thought, reminder or idea..."></textarea>' +
     '<button class="btn-primary w-full rounded-xl min-h-[50px] mt-3">Save</button>' +
-    '<details class="mt-3"><summary class="btn-ghost rounded-xl min-h-[46px] px-4 flex items-center cursor-pointer">Add details</summary><div class="grid sm:grid-cols-2 gap-3 mt-3"><label class="muted-text text-xs">Date<input name="scheduled_date" type="date" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label><label class="muted-text text-xs">Time<input name="scheduled_time" type="time" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label><label class="muted-text text-xs">Project<span class="flex gap-2 mt-1"><select name="project_id" class="w-full rounded-xl px-3 min-h-[48px]">' + projectOptions(selectedProject) + '</select><button type="button" class="btn-ghost rounded-xl px-3 min-h-[48px]" data-create-project-inline="1">+ New</button></span></label><label class="muted-text text-xs">Priority<select name="priority" class="w-full rounded-xl px-3 min-h-[48px] mt-1"><option value="">Blue · Not priority</option><option value="red">Red · Priority</option></select></label></div>' +
+    '<details class="mt-3" ' + (state.pendingGoalId ? 'open' : '') + '><summary class="btn-ghost rounded-xl min-h-[46px] px-4 flex items-center cursor-pointer">Add details</summary><div class="grid sm:grid-cols-2 gap-3 mt-3"><label class="muted-text text-xs">Date<input name="scheduled_date" type="date" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label><label class="muted-text text-xs">Time<input name="scheduled_time" type="time" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label><label class="muted-text text-xs">Project<span class="flex gap-2 mt-1"><select name="project_id" class="w-full rounded-xl px-3 min-h-[48px]">' + projectOptions(selectedProject) + '</select><button type="button" class="btn-ghost rounded-xl px-3 min-h-[48px]" data-create-project-inline="1">+ New</button></span></label><label class="muted-text text-xs">Goal<select name="goal_id" class="w-full rounded-xl px-3 min-h-[48px] mt-1">' + goalOptions(selectedProject, state.pendingGoalId || '') + '</select></label><label class="muted-text text-xs">Priority<select name="priority" class="w-full rounded-xl px-3 min-h-[48px] mt-1"><option value="">Blue · Not priority</option><option value="red">Red · Priority</option></select></label></div>' +
     (state.tags.length ? '<label class="muted-text text-xs block mt-3">Tags<select name="tag_ids" multiple class="w-full rounded-xl px-3 py-2 mt-1 min-h-[76px]">' + renderTagOptions([]) + '</select></label>' : '<button type="button" class="btn-ghost w-full rounded-xl min-h-[46px] mt-3" data-open-tags-inline="1">Create your first tag</button>') + '<label class="theme-text flex items-center gap-3 min-h-[44px] text-sm mt-3"><input name="is_daily_anchor" type="checkbox"> Daily anchor</label></details>' +
     '<button type="button" class="brain-dump-toggle w-full text-left min-h-[58px] mt-3 px-3 rounded-xl" style="background:var(--panel-2);border:1px solid transparent"><strong class="theme-text block text-sm">Brain dump mode</strong><small class="muted-text">Enter one thought per line. We will save them to Inbox.</small></button>' +
   '</form>';
@@ -1125,13 +1250,16 @@ function renderMoreView() {
 
 function renderTasksView() {
   var calendarActive = state.tasksScreenView === 'calendar';
+  var listActive = state.tasksScreenView === 'list';
+  var projectsActive = state.tasksScreenView === 'projects';
   return '<section class="secondary-page">' +
     '<div class="flex items-center justify-between gap-3 mb-4"><div><p class="hud text-[10px] mb-1" style="color:var(--accent)">Organise</p><h1 class="theme-text text-2xl font-bold">Tasks</h1></div><button id="openTasksAddTask" class="btn-primary rounded-xl min-h-[46px] px-4">+ Add task</button></div>' +
     '<div class="tasks-view-tabs mb-5" role="tablist" aria-label="Task views">' +
       '<button data-tasks-screen-view="calendar" class="tasks-view-tab ' + (calendarActive ? 'active' : '') + '" role="tab" aria-selected="' + calendarActive + '">Calendar</button>' +
-      '<button data-tasks-screen-view="projects" class="tasks-view-tab ' + (!calendarActive ? 'active' : '') + '" role="tab" aria-selected="' + (!calendarActive) + '">Projects</button>' +
+      '<button data-tasks-screen-view="list" class="tasks-view-tab ' + (listActive ? 'active' : '') + '" role="tab" aria-selected="' + listActive + '">List</button>' +
+      '<button data-tasks-screen-view="projects" class="tasks-view-tab ' + (projectsActive ? 'active' : '') + '" role="tab" aria-selected="' + projectsActive + '">Projects</button>' +
     '</div>' +
-    '<div role="tabpanel">' + (calendarActive ? renderCalendarTimelinePanel() : renderNestedProjects()) + '</div>' +
+    '<div role="tabpanel">' + (calendarActive ? renderCalendarTimelinePanel() : (listActive ? renderTaskWorkspace() : renderNestedProjects())) + '</div>' +
   '</section>';
 }
 
@@ -1245,7 +1373,7 @@ function renderTaskEditorPage() {
   var selectedTags = tagsForTask(task.id).map(function (tag) { return tag.id; });
   return '<section class="secondary-page"><div class="secondary-page-header"><button id="closeTaskEditor" class="theme-text min-w-[44px] min-h-[44px] text-2xl" aria-label="Back">‹</button><h1 class="theme-text text-2xl font-bold">Task</h1><button id="deleteEditedTask" class="min-w-[44px] min-h-[44px]" style="color:var(--danger)" aria-label="Delete task">×</button></div>' +
     '<form id="taskEditorForm" class="card p-5 sm:p-7"><label class="muted-text text-xs block">Task title<textarea name="title" required rows="3" class="quick-task-text w-full rounded-xl px-4 mt-2">' + escapeHtml(task.title) + '</textarea></label>' +
-    '<div class="grid sm:grid-cols-2 gap-3 mt-4"><label class="muted-text text-xs">Priority<select name="priority" class="w-full rounded-xl px-3 min-h-[48px] mt-1"><option value="" ' + (task.priority !== 'red' ? 'selected' : '') + '>Blue · Not priority</option><option value="red" ' + (task.priority === 'red' ? 'selected' : '') + '>Red · Priority</option></select></label><label class="muted-text text-xs">Move project<select name="project_id" class="w-full rounded-xl px-3 min-h-[48px] mt-1">' + projectOptions(task.project_id || '') + '</select></label><label class="muted-text text-xs">Due date<input name="scheduled_date" type="date" value="' + escapeHtml(task.scheduled_date || '') + '" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label><label class="muted-text text-xs">Time<input name="scheduled_time" type="time" value="' + escapeHtml(task.scheduled_time ? String(task.scheduled_time).slice(0,5) : '') + '" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label></div>' +
+    '<div class="grid sm:grid-cols-2 gap-3 mt-4"><label class="muted-text text-xs">Priority<select name="priority" class="w-full rounded-xl px-3 min-h-[48px] mt-1"><option value="" ' + (task.priority !== 'red' ? 'selected' : '') + '>Blue · Not priority</option><option value="red" ' + (task.priority === 'red' ? 'selected' : '') + '>Red · Priority</option></select></label><label class="muted-text text-xs">Move project<select name="project_id" class="w-full rounded-xl px-3 min-h-[48px] mt-1">' + projectOptions(task.project_id || '') + '</select></label><label class="muted-text text-xs">Goal<select name="goal_id" class="w-full rounded-xl px-3 min-h-[48px] mt-1">' + goalOptions(task.project_id || '', task.goal_id || '') + '</select></label><label class="muted-text text-xs">Due date<input name="scheduled_date" type="date" value="' + escapeHtml(task.scheduled_date || '') + '" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label><label class="muted-text text-xs">Time<input name="scheduled_time" type="time" value="' + escapeHtml(task.scheduled_time ? String(task.scheduled_time).slice(0,5) : '') + '" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label></div>' +
     (state.tags.length ? '<label class="muted-text text-xs block mt-4">Tags<select name="tag_ids" multiple class="w-full rounded-xl px-3 py-2 mt-1 min-h-[84px]">' + renderTagOptions(selectedTags) + '</select></label>' : '<button type="button" data-open-tags-inline="1" class="btn-ghost w-full rounded-xl min-h-[46px] mt-4">Create your first tag</button>') +
     '<label class="theme-text flex items-center gap-3 text-sm mt-4 min-h-[44px]"><input name="is_daily_anchor" type="checkbox" ' + (task.is_daily_anchor ? 'checked' : '') + '> Daily anchor</label>' +
     '<div class="grid sm:grid-cols-2 gap-3 mt-5"><button class="btn-primary rounded-xl min-h-[52px]">Save changes</button><button type="button" id="startEditedTask" class="btn-ghost rounded-xl min-h-[52px]">Start focus</button></div><button type="button" id="completeEditedTask" class="btn-ghost w-full rounded-xl min-h-[48px] mt-3">' + (task.status === 'completed' ? 'Reopen task' : 'Mark complete') + '</button></form></section>';
@@ -1309,11 +1437,16 @@ function refreshCanonicalData(message) {
 
 function canonicalTaskPayload(form) {
   var data = new FormData(form);
+  var projectId = data.get("project_id") || null;
+  var goalId = data.get("goal_id") || null;
+  var goal = state.goals.find(function (item) { return item.id === goalId; });
+  if (!goal || goal.project_id !== projectId) goalId = null;
   return {
     user_id: state.session.user.id,
     title: String(data.get("title") || "").trim(),
     priority: data.get("priority") === "red" ? "red" : null,
-    project_id: data.get("project_id") || null,
+    project_id: projectId,
+    goal_id: goalId,
     scheduled_date: data.get("scheduled_date") || null,
     scheduled_time: data.get("scheduled_time") || null,
     is_daily_anchor: data.get("is_daily_anchor") === "on",
@@ -1343,10 +1476,10 @@ function createCanonicalTask(form) {
   state.taskSaving = true; state.syncStatus = "saving"; updateSyncPill();
   var titles = form.dataset.brainDump === 'true' ? payload.title.split(/\n+/).map(function(title){ return title.trim(); }).filter(Boolean) : [payload.title];
   if (titles.length > 1) {
-    sb.from("focusos_tasks").insert(titles.map(function(title,index){ var item = Object.assign({},payload); item.title = title; item.project_id = null; item.sort_order = payload.sort_order + index; return item; })).then(function(result){ if(result.error) throw result.error; state.openSections.add = false; return refreshCanonicalData(titles.length + " tasks captured to Inbox."); }).catch(function(error){ state.taskSaving=false; state.syncStatus="error"; updateSyncPill(); showToast(error.message || "Could not save brain dump."); });
+    sb.from("focusos_tasks").insert(titles.map(function(title,index){ var item = Object.assign({},payload); item.title = title; item.project_id = null; item.goal_id = null; item.sort_order = payload.sort_order + index; return item; })).then(function(result){ if(result.error) throw result.error; state.openSections.add = false; state.pendingGoalId = null; return refreshCanonicalData(titles.length + " tasks captured to Inbox."); }).catch(function(error){ state.taskSaving=false; state.syncStatus="error"; updateSyncPill(); showToast(error.message || "Could not save brain dump."); });
     return;
   }
-  sb.from("focusos_tasks").insert(payload).select("id").single().then(function (result) { if (result.error) throw result.error; return replaceTaskTags(result.data.id, tagIds); }).then(function () { state.openSections.add = false; return refreshCanonicalData("Task added."); }).catch(function (error) { state.taskSaving = false; state.syncStatus = "error"; updateSyncPill(); showToast(error.message || "Could not add task."); });
+  sb.from("focusos_tasks").insert(payload).select("id").single().then(function (result) { if (result.error) throw result.error; return replaceTaskTags(result.data.id, tagIds); }).then(function () { state.openSections.add = false; state.pendingGoalId = null; return refreshCanonicalData("Task added."); }).catch(function (error) { state.taskSaving = false; state.syncStatus = "error"; updateSyncPill(); showToast(error.message || "Could not add task."); });
 }
 
 function updateCanonicalTask(id, patch, message, tagIds) {
@@ -1389,6 +1522,18 @@ function createProjectNamed(name) {
   name = String(name || "").trim();
   if (!name) return Promise.resolve();
   return sb.from("focusos_projects").insert({ user_id: state.session.user.id, name: name, colour: "#35c2ff", status: "active" }).then(function (result) { if (result.error) throw result.error; return refreshCanonicalData("Project created."); }).catch(function (error) { showToast(error.message || "Could not create project."); });
+}
+
+function saveGoal(form) {
+  var data = new FormData(form);
+  var title = String(data.get('title') || '').trim();
+  var why = String(data.get('why') || '').trim();
+  if (!title || !state.selectedProjectId) return;
+  var payload = { title: title, why_this_matters: why || null, updated_at: new Date().toISOString() };
+  var request;
+  if (state.editingGoalId) request = sb.from('focusos_goals').update(payload).eq('id', state.editingGoalId).eq('user_id', state.session.user.id);
+  else { payload.user_id = state.session.user.id; payload.project_id = state.selectedProjectId; payload.status = 'active'; payload.sort_order = state.goals.filter(function (goal) { return goal.project_id === state.selectedProjectId; }).length + 1; request = sb.from('focusos_goals').insert(payload); }
+  request.then(function (result) { if (result.error) throw result.error; state.goalEditorOpen = false; state.editingGoalId = null; return refreshCanonicalData('Goal saved.'); }).catch(function (error) { showToast(error.message || 'Could not save goal.'); });
 }
 
 function createTag(form) {
@@ -1464,7 +1609,7 @@ function attachConsoleHandlers() {
   var i, els;
 
   els = document.querySelectorAll("[data-tasks-screen-view]");
-  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { state.tasksScreenView = e.currentTarget.getAttribute("data-tasks-screen-view"); render(); });
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { state.tasksScreenView = e.currentTarget.getAttribute("data-tasks-screen-view"); state.selectedProjectId = null; state.selectedGoalId = null; render(); });
   var openTasksAddTask = document.getElementById("openTasksAddTask");
   if (openTasksAddTask) openTasksAddTask.addEventListener("click", function () { state.openSections.add = true; state.projectFilter = "all"; render(); });
 
@@ -1491,6 +1636,22 @@ function attachConsoleHandlers() {
   if (seeMoreBtn) seeMoreBtn.addEventListener("click", function () { state.moreOpen = !state.moreOpen; render(); setTimeout(function () { var button = document.getElementById("seeMoreBtn"); if (button) button.focus(); }, 0); });
   var recapToggle = document.getElementById("recapToggle");
   if (recapToggle) recapToggle.addEventListener("click", function () { state.recapOpen = !state.recapOpen; render(); setTimeout(function () { var button = document.getElementById("recapToggle"); if (button) button.focus(); }, 0); });
+  var homeCalendarToggle = document.getElementById("homeCalendarToggle");
+  if (homeCalendarToggle) homeCalendarToggle.addEventListener("click", function () { state.homeCalendarOpen = !state.homeCalendarOpen; render(); });
+  var homeAnchorsToggle = document.getElementById("homeAnchorsToggle");
+  if (homeAnchorsToggle) homeAnchorsToggle.addEventListener("click", function () { state.homeAnchorsOpen = !state.homeAnchorsOpen; render(); });
+  var homeAgendaToggle = document.getElementById("homeAgendaToggle");
+  if (homeAgendaToggle) homeAgendaToggle.addEventListener("click", function () { state.homeAgendaOpen = !state.homeAgendaOpen; render(); });
+  var homeAgendaMore = document.getElementById("homeAgendaMore");
+  if (homeAgendaMore) homeAgendaMore.addEventListener("click", function () { state.homeAgendaExpanded = !state.homeAgendaExpanded; render(); });
+  var homeDatePrevious = document.getElementById("homeDatePrevious");
+  if (homeDatePrevious) homeDatePrevious.addEventListener("click", function () { var d = new Date((state.homeSelectedDate || localDay()) + 'T12:00:00'); d.setDate(d.getDate() - 1); state.homeSelectedDate = localDay(d); state.homeAgendaExpanded = false; render(); });
+  var homeDateNext = document.getElementById("homeDateNext");
+  if (homeDateNext) homeDateNext.addEventListener("click", function () { var d = new Date((state.homeSelectedDate || localDay()) + 'T12:00:00'); d.setDate(d.getDate() + 1); state.homeSelectedDate = localDay(d); state.homeAgendaExpanded = false; render(); });
+  els = document.querySelectorAll("[data-home-date]");
+  for (i = 0; i < els.length; i++) els[i].addEventListener("click", function (e) { state.homeSelectedDate = e.currentTarget.getAttribute("data-home-date"); state.homeAgendaExpanded = false; render(); });
+  var viewAllAnchors = document.getElementById("viewAllAnchors");
+  if (viewAllAnchors) viewAllAnchors.addEventListener("click", function () { state.view = 'tasks'; state.tasksScreenView = 'list'; state.taskView = 'anchors'; state.taskFiltersExpanded = true; render(); });
   var chooseNextTask = document.getElementById("chooseNextTask");
   if (chooseNextTask) chooseNextTask.addEventListener("click", function () { var count = nextTaskCandidates().length; state.nextTaskIndex = count ? (state.nextTaskIndex + 1) % count : 0; render(); });
   var closeMoreBtn = document.getElementById("closeMoreBtn");
@@ -1517,7 +1678,7 @@ function attachConsoleHandlers() {
   if (addOnSelectedDay) addOnSelectedDay.addEventListener('click', function(){ state.openSections.add=true; render(); setTimeout(function(){ var input=document.querySelector('#floatingTaskForm [name="scheduled_date"]'); if(input) input.value=state.calendarSelectedDate; },0); });
   ["floatingAddTask", "emptyAddTask"].forEach(function (id) { var button = document.getElementById(id); if (button) button.addEventListener("click", function () { state.openSections.add = true; render(); }); });
   var taskCreateBackdrop = document.getElementById("taskCreateBackdrop");
-  if (taskCreateBackdrop) taskCreateBackdrop.addEventListener("click", function (e) { if (e.target === taskCreateBackdrop) { state.openSections.add = false; render(); } });
+  if (taskCreateBackdrop) taskCreateBackdrop.addEventListener("click", function (e) { if (e.target === taskCreateBackdrop) { state.openSections.add = false; state.pendingGoalId = null; render(); } });
   var manageTagsFromTask = document.getElementById("manageTagsFromTask");
   if (manageTagsFromTask) manageTagsFromTask.addEventListener("click", function () { state.openSections.add = false; state.tagManagerOpen = true; render(); });
   var openTagManager = document.getElementById("openTagManager");
@@ -1552,6 +1713,26 @@ function attachConsoleHandlers() {
   if (tagFilter) tagFilter.addEventListener("change", function () { state.tagFilter = tagFilter.value; render(); });
   var projectSearch = document.getElementById("projectSearch");
   if (projectSearch) projectSearch.addEventListener("input", function () { state.projectQuery = projectSearch.value; render(); setTimeout(function () { var input = document.getElementById("projectSearch"); if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); } }, 0); });
+  var toggleProjectCreate = document.getElementById('toggleProjectCreate');
+  if (toggleProjectCreate) toggleProjectCreate.addEventListener('click', function () { state.openSections.projects = !state.openSections.projects; render(); });
+  els = document.querySelectorAll('[data-open-project]');
+  for (i = 0; i < els.length; i++) els[i].addEventListener('click', function (e) { state.selectedProjectId = e.currentTarget.getAttribute('data-open-project'); state.selectedGoalId = null; state.goalEditorOpen = false; render(); });
+  var backToProjects = document.getElementById('backToProjects');
+  if (backToProjects) backToProjects.addEventListener('click', function () { state.selectedProjectId = null; state.selectedGoalId = null; state.goalEditorOpen = false; render(); });
+  var openGoalForm = document.getElementById('openGoalForm');
+  if (openGoalForm) openGoalForm.addEventListener('click', function () { state.goalEditorOpen = true; state.editingGoalId = null; render(); });
+  var cancelGoalForm = document.getElementById('cancelGoalForm');
+  if (cancelGoalForm) cancelGoalForm.addEventListener('click', function () { state.goalEditorOpen = false; state.editingGoalId = null; render(); });
+  var goalForm = document.getElementById('goalForm');
+  if (goalForm) goalForm.addEventListener('submit', function (e) { e.preventDefault(); saveGoal(e.currentTarget); });
+  els = document.querySelectorAll('[data-open-goal]');
+  for (i = 0; i < els.length; i++) els[i].addEventListener('click', function (e) { state.selectedGoalId = e.currentTarget.getAttribute('data-open-goal'); render(); });
+  var backToProjectGoals = document.getElementById('backToProjectGoals');
+  if (backToProjectGoals) backToProjectGoals.addEventListener('click', function () { state.selectedGoalId = null; render(); });
+  els = document.querySelectorAll('[data-add-to-goal]');
+  for (i = 0; i < els.length; i++) els[i].addEventListener('click', function (e) { state.pendingGoalId = e.currentTarget.getAttribute('data-add-to-goal') || null; state.projectFilter = state.selectedProjectId || 'all'; state.openSections.add = true; render(); });
+  var editGoalBtn = document.getElementById('editGoalBtn');
+  if (editGoalBtn) editGoalBtn.addEventListener('click', function () { state.editingGoalId = state.selectedGoalId; state.selectedGoalId = null; state.goalEditorOpen = true; render(); });
 
   enableSheetSwipe("moreSheet");
   enableSheetSwipe("taskCreateSheet");
@@ -1569,7 +1750,7 @@ function attachConsoleHandlers() {
   var openDashboardAddTask = document.getElementById("openDashboardAddTask");
   if (openDashboardAddTask) openDashboardAddTask.addEventListener("click", function () { state.openSections.add = true; render(); });
   var closeDashboardAddTask = document.getElementById("closeDashboardAddTask");
-  if (closeDashboardAddTask) closeDashboardAddTask.addEventListener("click", function () { state.openSections.add = false; render(); });
+  if (closeDashboardAddTask) closeDashboardAddTask.addEventListener("click", function () { state.openSections.add = false; state.pendingGoalId = null; render(); });
 
   ["floatingTaskForm"].forEach(function (id) {
     var form = document.getElementById(id);
@@ -1602,7 +1783,7 @@ function attachConsoleHandlers() {
   var closeTaskEditor = document.getElementById("closeTaskEditor");
   if (closeTaskEditor) closeTaskEditor.addEventListener("click", function () { state.editingTaskId = null; render(); });
   var taskEditorForm = document.getElementById("taskEditorForm");
-  if (taskEditorForm) taskEditorForm.addEventListener("submit", function (e) { e.preventDefault(); var data = new FormData(e.currentTarget); var title = String(data.get("title") || "").trim(); if (!title) return; updateCanonicalTask(state.editingTaskId, { title: title, priority: data.get("priority") === "red" ? "red" : null, project_id: data.get("project_id") || null, scheduled_date: data.get("scheduled_date") || null, scheduled_time: data.get("scheduled_time") || null, is_daily_anchor: data.get("is_daily_anchor") === "on", recurrence: data.get("is_daily_anchor") === "on" ? "daily" : "none" }, "Task updated.", selectedTagIds(e.currentTarget.querySelector('[name="tag_ids"]'))); });
+  if (taskEditorForm) taskEditorForm.addEventListener("submit", function (e) { e.preventDefault(); var data = new FormData(e.currentTarget); var title = String(data.get("title") || "").trim(); if (!title) return; var projectId = data.get("project_id") || null; var goalId = data.get("goal_id") || null; var goal = state.goals.find(function (item) { return item.id === goalId; }); if (!goal || goal.project_id !== projectId) goalId = null; updateCanonicalTask(state.editingTaskId, { title: title, priority: data.get("priority") === "red" ? "red" : null, project_id: projectId, goal_id: goalId, scheduled_date: data.get("scheduled_date") || null, scheduled_time: data.get("scheduled_time") || null, is_daily_anchor: data.get("is_daily_anchor") === "on", recurrence: data.get("is_daily_anchor") === "on" ? "daily" : "none" }, "Task updated.", selectedTagIds(e.currentTarget.querySelector('[name="tag_ids"]'))); });
   var startEditedTask = document.getElementById("startEditedTask");
   if (startEditedTask) startEditedTask.addEventListener("click", function () { state.flowTaskId = state.editingTaskId; state.editingTaskId = null; render(); });
   var completeEditedTask = document.getElementById("completeEditedTask");
@@ -1627,6 +1808,8 @@ function attachConsoleHandlers() {
   for (i = 0; i < els.length; i++) {
     els[i].addEventListener("click", function (e) {
       state.view = e.currentTarget.getAttribute("data-view");
+      if (e.currentTarget.getAttribute('data-open-projects') === '1') state.tasksScreenView = 'projects';
+      else if (state.view === 'tasks') state.tasksScreenView = 'calendar';
       state.dashboardPanel = null;
       state.editingTaskId = null;
       if (e.currentTarget.getAttribute("data-mobile") === "1") state.mobileOpen = false;
@@ -1673,9 +1856,9 @@ function attachConsoleHandlers() {
   if (pomoToggle) pomoToggle.addEventListener("click", togglePomodoro);
   if (pomoReset) pomoReset.addEventListener("click", resetPomodoro);
 
-  els = document.querySelectorAll(".flow-btn");
+  els = document.querySelectorAll("[data-flow-task]");
   for (i = 0; i < els.length; i++) {
-    els[i].addEventListener("click", function (e) { state.flowTaskId = e.currentTarget.getAttribute("data-flow-task"); render(); });
+    els[i].addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); var taskId = e.currentTarget.getAttribute("data-flow-task"); if (!findTaskById(taskId)) { showToast('Could not open this task.'); return; } state.flowTaskId = taskId; state.editingTaskId = null; render(); });
   }
   var exitFlow = document.getElementById("exitFlowBtn");
   if (exitFlow) exitFlow.addEventListener("click", function () { state.flowTaskId = null; render(); });
