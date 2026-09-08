@@ -276,6 +276,7 @@ var state = {
   taskListExpanded: false,
   taskSaving: false,
   google: { status: "checking", connected: false, email: "moktar@progressay.com", unread: 0, error: "" },
+  cockpitBusy: false,
   googleLoading: false,
   vaultUploading: false,
   flowTaskId: null,
@@ -611,7 +612,7 @@ function loadCloudData() {
 function loadCanonicalData() {
   var userId = state.session && state.session.user ? state.session.user.id : '';
   return Promise.all([
-    sb.from("focusos_tasks").select("id,title,priority,status,project_id,goal_id,scheduled_date,scheduled_time,is_daily_anchor,recurrence,sort_order,source,completed_at,created_at,updated_at").eq("user_id", userId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
+    sb.from("focusos_tasks").select("id,legacy_key,title,priority,status,project_id,goal_id,scheduled_date,scheduled_time,is_daily_anchor,recurrence,sort_order,source,completed_at,created_at,updated_at").eq("user_id", userId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
     sb.from("focusos_projects").select("id,name,colour,status,created_at,updated_at").eq("user_id", userId).eq("status", "active").order("created_at", { ascending: true }),
     sb.from("focusos_goals").select("id,project_id,title,why_this_matters,status,sort_order,created_at,updated_at").eq("user_id", userId).eq("status", "active").order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
     sb.from("focusos_tags").select("id,name,colour,created_at,updated_at").eq("user_id", userId).order("name", { ascending: true }),
@@ -644,17 +645,58 @@ function enterConsole() {
 /* ============================================================
    GOOGLE WORKSPACE - SECURE OAUTH VIA SUPABASE EDGE FUNCTION
 ============================================================ */
-function googleRequest(path, method) {
+function googleRequest(path, method, body) {
   if (!state.session || !state.session.access_token) return Promise.reject(new Error("Sign in required."));
   return fetch(GOOGLE_WORKSPACE_FUNCTION + path, {
     method: method || "GET",
-    headers: { Authorization: "Bearer " + state.session.access_token, "Content-Type": "application/json" }
+    headers: { Authorization: "Bearer " + state.session.access_token, "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body)
   }).then(function (response) {
     return response.json().catch(function () { return {}; }).then(function (body) {
       if (!response.ok) throw new Error(body.error || "Google Workspace request failed.");
       return body;
     });
   });
+}
+
+function googleTaskKey(item) { return "google_tasks:" + item.externalTaskListId + ":" + item.externalTaskId; }
+function parseGoogleTaskKey(value) { var parts = String(value || "").split(":"); return parts.length === 3 && parts[0] === "google_tasks" ? { listId: parts[1], taskId: parts[2] } : null; }
+function importGoogleTask(item) {
+  var legacyKey = googleTaskKey(item);
+  var existing = state.tasks.find(function (task) { return task.legacy_key === legacyKey; });
+  if (existing) { state.editingTaskId = existing.id; render(); return; }
+  state.cockpitBusy = true; render();
+  sb.from("focusos_tasks").insert({ user_id: state.session.user.id, legacy_key: legacyKey, title: item.title, status: item.status === "completed" ? "completed" : "open", scheduled_date: item.due ? String(item.due).slice(0,10) : null, recurrence: "none", is_daily_anchor: false, source: "google_tasks", sort_order: state.tasks.length + 1 }).then(function (result) {
+    if (result.error) throw result.error; return refreshCanonicalData("Google Task added to FocusOS.");
+  }).catch(function (error) { showToast(error.message || "Could not import Google Task."); }).finally(function () { state.cockpitBusy = false; });
+}
+function syncGoogleLinkedTask(task, patch) {
+  var link = parseGoogleTaskKey(task && task.legacy_key); if (!link || !state.google.connected) return Promise.resolve();
+  var next = Object.assign({}, task, patch || {});
+  return googleRequest("/google-task", "POST", { action: "update", listId: link.listId, taskId: link.taskId, title: next.title, due: next.scheduled_date ? next.scheduled_date + "T00:00:00.000Z" : null, completed: next.status === "completed" });
+}
+function sendTaskToGoogle(task) {
+  if (!task || !state.google.connected) return showToast("Connect Google Workspace first.");
+  state.cockpitBusy = true; render();
+  googleRequest("/google-task", "POST", { action: "create", title: task.title, due: task.scheduled_date ? task.scheduled_date + "T00:00:00.000Z" : null, completed: task.status === "completed" }).then(function (data) {
+    if (!data.task || !data.task.id) throw new Error("Google did not return the task.");
+    return sb.from("focusos_tasks").update({ legacy_key: "google_tasks:@default:" + data.task.id, source: "google_tasks", updated_at: new Date().toISOString() }).eq("id", task.id);
+  }).then(function (result) { if (result && result.error) throw result.error; return refreshCanonicalData("Task synced to Google Tasks."); }).catch(function (error) { showToast(error.message || "Could not sync task."); }).finally(function () { state.cockpitBusy = false; });
+}
+function gmailAction(id, action) {
+  state.cockpitBusy = true; render();
+  googleRequest("/gmail-action", "POST", { messageId: id, action: action }).then(function () { showToast(action === "archive" ? "Email archived." : "Email updated."); loadGoogleWorkspaceData(true); }).catch(function (error) { showToast(error.message); }).finally(function () { state.cockpitBusy = false; });
+}
+function gmailToTask(message) {
+  var key = "gmail:" + message.id;
+  var existing = state.tasks.find(function (task) { return task.legacy_key === key; });
+  if (existing) { state.editingTaskId = existing.id; render(); return; }
+  sb.from("focusos_tasks").insert({ user_id: state.session.user.id, legacy_key: key, title: message.subject, status: "open", recurrence: "none", is_daily_anchor: false, source: "gmail", sort_order: state.tasks.length + 1 }).then(function (result) { if (result.error) throw result.error; return refreshCanonicalData("Email added as a task."); }).catch(function (error) { showToast(error.message || "Could not create task."); });
+}
+function replyToGmail(message) {
+  var text = window.prompt("Reply to " + message.from, ""); if (!text || !text.trim()) return;
+  if (!window.confirm("Send this reply now?\n\n" + text.trim())) return;
+  googleRequest("/gmail-reply", "POST", { confirm: true, to: message.replyTo || message.from, subject: /^re:/i.test(message.subject) ? message.subject : "Re: " + message.subject, message: text.trim(), threadId: message.threadId }).then(function () { showToast("Reply sent."); }).catch(function (error) { showToast(error.message || "Could not send reply."); });
 }
 
 function loadGoogleWorkspaceData(force) {
@@ -1308,9 +1350,18 @@ function renderQuickTaskForm(id, label, inCard) {
   '</form>';
 }
 
+function renderCockpit() {
+  if (!state.google.connected) return '<section class="card p-5 mb-5"><p class="hud text-[10px] mb-2" style="color:var(--accent)">Command centre</p><h2 class="theme-text text-xl font-bold">Bring work into one place</h2><p class="muted-text text-sm mt-2 mb-4">Connect Google to manage email and tasks beside your FocusOS plan.</p><button id="connectCockpitGoogle" class="btn-primary rounded-xl min-h-[48px] px-5">Connect Google Workspace</button></section>';
+  var mail = (state.liveData.gmail || []).slice(0,5), tasks = (state.liveData.googleTasks || []).slice(0,5), events = (state.liveData.calendar || []).slice(0,3);
+  var mailRows = mail.map(function (message) { return '<div class="py-3 border-b" style="border-color:var(--line)"><div class="flex gap-3"><div class="min-w-0 flex-1"><strong class="theme-text text-sm block truncate">' + escapeHtml(message.subject) + '</strong><small class="muted-text block truncate mt-1">' + escapeHtml(message.from) + '</small></div><a href="' + escapeHtml(safeExternalUrl(message.link)) + '" target="_blank" rel="noopener" class="min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Open email">↗</a></div><div class="flex flex-wrap gap-2 mt-2"><button data-gmail-task="' + message.id + '" class="btn-ghost rounded-lg min-h-[40px] px-3 text-xs">+ Task</button><button data-gmail-reply="' + message.id + '" class="btn-ghost rounded-lg min-h-[40px] px-3 text-xs">Reply</button><button data-gmail-archive="' + message.id + '" class="btn-ghost rounded-lg min-h-[40px] px-3 text-xs">Archive</button></div></div>'; }).join('');
+  var taskRows = tasks.map(function (item) { var linked = state.tasks.some(function (task) { return task.legacy_key === googleTaskKey(item); }); return '<div class="more-row"><span style="color:var(--accent)">○</span><span class="flex-1 min-w-0"><strong class="theme-text text-sm block truncate">' + escapeHtml(item.title) + '</strong><small class="muted-text">' + escapeHtml(item.taskListTitle || 'Google Tasks') + '</small></span><button data-import-google-task="' + item.externalTaskId + '" class="btn-ghost rounded-lg min-h-[40px] px-3 text-xs">' + (linked ? 'Open' : 'Import') + '</button></div>'; }).join('');
+  var eventRows = events.map(function (event) { var date = event.start ? new Date(event.start) : null; return '<a class="more-row" href="' + escapeHtml(safeExternalUrl(event.link)) + '" target="_blank" rel="noopener"><span style="color:var(--accent-2)">●</span><span class="flex-1 min-w-0"><strong class="theme-text text-sm block truncate">' + escapeHtml(event.title) + '</strong><small class="muted-text">' + (date && !isNaN(date.getTime()) ? date.toLocaleString('en-GB',{weekday:'short',hour:'2-digit',minute:'2-digit'}) : 'All day') + '</small></span><span>↗</span></a>'; }).join('');
+  return '<section class="mb-5"><div class="flex items-end justify-between gap-3 mb-3"><div><p class="hud text-[10px] mb-1" style="color:var(--accent)">Command centre</p><h2 class="theme-text text-xl font-bold">Your cockpit</h2></div><button id="refreshCockpit" class="btn-ghost rounded-xl min-h-[44px] px-3 text-sm" ' + (state.cockpitBusy ? 'disabled' : '') + '>↻ Sync</button></div><div class="grid sm:grid-cols-4 grid-cols-2 gap-2 mb-4"><div class="card p-3"><small class="muted-text">Unread</small><strong class="theme-text text-2xl block">' + state.google.unread + '</strong></div><div class="card p-3"><small class="muted-text">Google tasks</small><strong class="theme-text text-2xl block">' + tasks.length + '</strong></div><div class="card p-3"><small class="muted-text">Events</small><strong class="theme-text text-2xl block">' + events.length + '</strong></div><div class="card p-3"><small class="muted-text">Drive files</small><strong class="theme-text text-2xl block">' + (state.liveData.drive || []).length + '</strong></div></div><details class="card px-4 mb-3" open><summary class="theme-text font-semibold min-h-[54px] flex items-center cursor-pointer">Gmail inbox <span class="muted-text ml-auto">' + mail.length + '</span></summary>' + (mailRows || '<p class="muted-text text-sm pb-4">Inbox is clear.</p>') + '</details><details class="card px-4 mb-3"><summary class="theme-text font-semibold min-h-[54px] flex items-center cursor-pointer">Google Tasks <span class="muted-text ml-auto">' + tasks.length + '</span></summary>' + (taskRows || '<p class="muted-text text-sm pb-4">No open Google Tasks.</p>') + '</details><details class="card px-4"><summary class="theme-text font-semibold min-h-[54px] flex items-center cursor-pointer">Upcoming calendar <span class="muted-text ml-auto">' + events.length + '</span></summary>' + (eventRows || '<p class="muted-text text-sm pb-4">No upcoming events.</p>') + '</details></section>';
+}
+
 function renderMoreView() {
   var email = state.session && state.session.user ? state.session.user.email : '';
-  return '<section class="secondary-page"><div class="mb-6"><p class="hud text-[10px] mb-1" style="color:var(--accent)">FlowOS</p><h1 class="theme-text text-2xl font-bold">More</h1></div><div class="card px-4"><button id="openMoreConnections" class="more-row"><span class="text-xl">G</span><span class="flex-1"><strong class="theme-text block">Google Workspace</strong><small class="muted-text">Calendar · Gmail · Tasks · Drive</small></span>' + renderGoogleStatusPill() + '</button><button id="openRelaxMode" class="more-row"><span class="text-xl" style="color:var(--accent-2)">◉</span><span class="flex-1"><strong class="theme-text block">Relax</strong><small class="muted-text">Watch the orb and breathe</small></span><span>›</span></button><button data-view="vault" class="switch-view-btn more-row"><span class="text-xl">□</span><span class="flex-1"><strong class="theme-text block">Vault</strong><small class="muted-text">Files organised by project</small></span><span>›</span></button></div><div class="card px-4 mt-5"><div class="more-row"><span class="text-xl">●</span><span class="flex-1 min-w-0"><strong class="theme-text block">Account</strong><small class="muted-text block truncate">' + escapeHtml(email) + '</small></span>' + renderSyncPill() + '</div><button id="signOutMore" class="more-row" style="color:var(--danger)"><span class="text-xl">↪</span><strong class="flex-1 text-left">Sign out</strong></button></div></section>';
+  return '<section class="secondary-page"><div class="mb-6"><p class="hud text-[10px] mb-1" style="color:var(--accent)">FlowOS</p><h1 class="theme-text text-2xl font-bold">More</h1></div>' + renderCockpit() + '<div class="card px-4"><button id="openMoreConnections" class="more-row"><span class="text-xl">G</span><span class="flex-1"><strong class="theme-text block">Google Workspace</strong><small class="muted-text">Permissions and connection health</small></span>' + renderGoogleStatusPill() + '</button><button id="openRelaxMode" class="more-row"><span class="text-xl" style="color:var(--accent-2)">◉</span><span class="flex-1"><strong class="theme-text block">Relax</strong><small class="muted-text">Watch the orb and breathe</small></span><span>›</span></button><button data-view="vault" class="switch-view-btn more-row"><span class="text-xl">□</span><span class="flex-1"><strong class="theme-text block">Vault</strong><small class="muted-text">Files organised by project</small></span><span>›</span></button></div><div class="card px-4 mt-5"><div class="more-row"><span class="text-xl">●</span><span class="flex-1 min-w-0"><strong class="theme-text block">Account</strong><small class="muted-text block truncate">' + escapeHtml(email) + '</small></span>' + renderSyncPill() + '</div><button id="signOutMore" class="more-row" style="color:var(--danger)"><span class="text-xl">↪</span><strong class="flex-1 text-left">Sign out</strong></button></div></section>';
 }
 
 function renderTasksView() {
@@ -1386,7 +1437,7 @@ function renderConnectionsModal() {
     : '<button id="connectGoogleBtn" class="btn-primary text-xs px-4 py-2.5 rounded-lg" ' + (google.status === "checking" ? "disabled" : "") + '>' + (google.status === "checking" ? "Checking..." : "Connect Google Workspace") + '</button>';
   var googleHtml = '<div class="rounded-xl p-5" style="border:1px solid rgba(37,185,244,.3);background:rgba(37,185,244,.05)">' +
     '<div class="flex items-start justify-between gap-3 mb-3"><div><p class="theme-text text-sm font-semibold">Google Workspace</p><p class="muted-text text-xs mt-1">Gmail + Calendar + Tasks + Drive</p></div>' + renderGoogleStatusPill() + '</div>' +
-    '<p class="muted-text text-xs leading-relaxed mb-4">Connect <strong class="theme-text">moktar@progressay.com</strong>. FocusOS requests read-only access to unread email details, upcoming calendar events, Google Tasks and Drive file metadata.</p>' +
+    '<p class="muted-text text-xs leading-relaxed mb-4">Connect <strong class="theme-text">moktar@progressay.com</strong>. FocusOS can manage Gmail and Google Tasks, while Calendar and Drive remain read-only. Sending email always asks for confirmation.</p>' +
     (google.error ? '<div class="rounded-lg px-3 py-2.5 text-xs mb-4" style="background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.22);color:#fca5a5">' + escapeHtml(google.error) + '</div>' : '') +
     googleAction + '</div>';
   var servicesHtml = CONNECTION_SERVICES.map(function (svc) {
@@ -1441,7 +1492,7 @@ function renderTaskEditorPage() {
     '<div class="grid sm:grid-cols-2 gap-3 mt-4"><label class="muted-text text-xs">Priority<select name="priority" class="w-full rounded-xl px-3 min-h-[48px] mt-1"><option value="" ' + (task.priority !== 'red' ? 'selected' : '') + '>Blue · Not priority</option><option value="red" ' + (task.priority === 'red' ? 'selected' : '') + '>Red · Priority</option></select></label><label class="muted-text text-xs">Move project<select name="project_id" class="w-full rounded-xl px-3 min-h-[48px] mt-1">' + projectOptions(task.project_id || '') + '</select></label><label class="muted-text text-xs">Goal<select name="goal_id" class="w-full rounded-xl px-3 min-h-[48px] mt-1">' + goalOptions(task.project_id || '', task.goal_id || '') + '</select></label><label class="muted-text text-xs">Due date<input name="scheduled_date" type="date" value="' + escapeHtml(task.scheduled_date || '') + '" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label><label class="muted-text text-xs">Time<input name="scheduled_time" type="time" value="' + escapeHtml(task.scheduled_time ? String(task.scheduled_time).slice(0,5) : '') + '" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label></div>' +
     (state.tags.length ? '<label class="muted-text text-xs block mt-4">Tags<select name="tag_ids" multiple class="w-full rounded-xl px-3 py-2 mt-1 min-h-[84px]">' + renderTagOptions(selectedTags) + '</select></label>' : '<button type="button" data-open-tags-inline="1" class="btn-ghost w-full rounded-xl min-h-[46px] mt-4">Create your first tag</button>') +
     '<label class="theme-text flex items-center gap-3 text-sm mt-4 min-h-[44px]"><input name="is_daily_anchor" type="checkbox" ' + (task.is_daily_anchor ? 'checked' : '') + '> Daily anchor</label>' +
-    '<div class="grid sm:grid-cols-2 gap-3 mt-5"><button class="btn-primary rounded-xl min-h-[52px]">Save changes</button><button type="button" id="startEditedTask" class="btn-ghost rounded-xl min-h-[52px]">Start focus</button></div><button type="button" id="completeEditedTask" class="btn-ghost w-full rounded-xl min-h-[48px] mt-3">' + (task.status === 'completed' ? 'Reopen task' : 'Mark complete') + '</button></form></section>';
+    '<div class="grid sm:grid-cols-2 gap-3 mt-5"><button class="btn-primary rounded-xl min-h-[52px]">Save changes</button><button type="button" id="startEditedTask" class="btn-ghost rounded-xl min-h-[52px]">Start focus</button></div><button type="button" id="completeEditedTask" class="btn-ghost w-full rounded-xl min-h-[48px] mt-3">' + (task.status === 'completed' ? 'Reopen task' : 'Mark complete') + '</button>' + (state.google.connected ? '<button type="button" id="syncEditedTaskGoogle" class="btn-ghost w-full rounded-xl min-h-[48px] mt-3">' + (parseGoogleTaskKey(task.legacy_key) ? 'Synced with Google Tasks' : 'Send to Google Tasks') + '</button>' : '') + '</form></section>';
 }
 
 function renderFlowPage() {
@@ -1548,9 +1599,10 @@ function createCanonicalTask(form) {
 }
 
 function updateCanonicalTask(id, patch, message, tagIds) {
+  var originalTask = findTaskById(id);
   state.taskSaving = true; state.syncStatus = "saving"; updateSyncPill();
   patch.updated_at = new Date().toISOString();
-  return sb.from("focusos_tasks").update(patch).eq("id", id).then(function (result) { if (result.error) throw result.error; return Array.isArray(tagIds) ? replaceTaskTags(id, tagIds) : null; }).then(function () { return refreshCanonicalData(message || "Task updated."); }).catch(function (error) { state.taskSaving = false; state.syncStatus = "error"; updateSyncPill(); showToast(error.message || "Could not update task."); });
+  return sb.from("focusos_tasks").update(patch).eq("id", id).then(function (result) { if (result.error) throw result.error; return Array.isArray(tagIds) ? replaceTaskTags(id, tagIds) : null; }).then(function () { return syncGoogleLinkedTask(originalTask, patch).catch(function () { showToast("Saved in FocusOS; Google sync needs attention."); }); }).then(function () { return refreshCanonicalData(message || "Task updated."); }).catch(function (error) { state.taskSaving = false; state.syncStatus = "error"; updateSyncPill(); showToast(error.message || "Could not update task."); });
 }
 
 function deleteCanonicalTask(id) {
@@ -1769,6 +1821,18 @@ function attachConsoleHandlers() {
   if (brainDumpToggle) brainDumpToggle.addEventListener('click', function(){ var form=brainDumpToggle.closest('form'); var enabled=form.dataset.brainDump !== 'true'; form.dataset.brainDump=enabled?'true':'false'; var area=form.querySelector('[name="title"]'); area.placeholder=enabled?'One thought per line…':'Add a task, thought, reminder or idea...'; area.rows=enabled?8:5; brainDumpToggle.style.borderColor=enabled?'var(--accent)':'transparent'; area.focus(); });
   var openMoreConnections = document.getElementById('openMoreConnections');
   if (openMoreConnections) openMoreConnections.addEventListener('click', function(){ state.settingsOpen=true; render(); });
+  var connectCockpitGoogle = document.getElementById('connectCockpitGoogle');
+  if (connectCockpitGoogle) connectCockpitGoogle.addEventListener('click', connectGoogleWorkspace);
+  var refreshCockpit = document.getElementById('refreshCockpit');
+  if (refreshCockpit) refreshCockpit.addEventListener('click', function(){ loadGoogleWorkspaceData(true); });
+  els = document.querySelectorAll('[data-import-google-task]');
+  for (i = 0; i < els.length; i++) els[i].addEventListener('click', function(e){ var id=e.currentTarget.getAttribute('data-import-google-task'); var item=(state.liveData.googleTasks||[]).find(function(task){return task.externalTaskId===id;}); if(item) importGoogleTask(item); });
+  els = document.querySelectorAll('[data-gmail-task]');
+  for (i = 0; i < els.length; i++) els[i].addEventListener('click', function(e){ var id=e.currentTarget.getAttribute('data-gmail-task'); var item=(state.liveData.gmail||[]).find(function(message){return message.id===id;}); if(item) gmailToTask(item); });
+  els = document.querySelectorAll('[data-gmail-archive]');
+  for (i = 0; i < els.length; i++) els[i].addEventListener('click', function(e){ gmailAction(e.currentTarget.getAttribute('data-gmail-archive'),'archive'); });
+  els = document.querySelectorAll('[data-gmail-reply]');
+  for (i = 0; i < els.length; i++) els[i].addEventListener('click', function(e){ var id=e.currentTarget.getAttribute('data-gmail-reply'); var item=(state.liveData.gmail||[]).find(function(message){return message.id===id;}); if(!item)return; var reply=window.prompt('Reply to ' + item.from); if(!reply||!reply.trim())return; if(!window.confirm('Send this reply now?'))return; googleRequest('/gmail-reply','POST',{to:item.replyTo,subject:/^re:/i.test(item.subject)?item.subject:'Re: '+item.subject,message:reply.trim(),threadId:item.threadId,confirm:true}).then(function(){showToast('Reply sent.'); gmailAction(item.id,'read');}).catch(function(error){showToast(error.message);}); });
   var openRelaxMode = document.getElementById('openRelaxMode');
   if (openRelaxMode) openRelaxMode.addEventListener('click', function(){ state.relaxMode=true; render(); });
   els = document.querySelectorAll("[data-toggle-project]");
@@ -1862,6 +1926,8 @@ function attachConsoleHandlers() {
   if (startEditedTask) startEditedTask.addEventListener("click", function () { state.flowTaskId = state.editingTaskId; state.editingTaskId = null; render(); });
   var completeEditedTask = document.getElementById("completeEditedTask");
   if (completeEditedTask) completeEditedTask.addEventListener("click", function () { toggleCanonicalTask(state.editingTaskId); });
+  var syncEditedTaskGoogle = document.getElementById("syncEditedTaskGoogle");
+  if (syncEditedTaskGoogle) syncEditedTaskGoogle.addEventListener("click", function () { var task=findTaskById(state.editingTaskId); if (task && !parseGoogleTaskKey(task.legacy_key)) sendTaskToGoogle(task); });
   var deleteEditedTask = document.getElementById("deleteEditedTask");
   if (deleteEditedTask) deleteEditedTask.addEventListener("click", function () { if (window.confirm("Delete this task?")) deleteCanonicalTask(state.editingTaskId); });
 
