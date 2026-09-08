@@ -55,7 +55,8 @@
   .glass{background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);}
   .task-card{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;}
   .nav-tab{transition:background .15s ease,color .15s ease;border:1px solid transparent;}
-  .nav-tab.active{background:rgba(16,185,129,.1);color:#fff;border-color:rgba(16,185,129,.3);}
+  .nav-tab{color:var(--muted)}
+  .nav-tab.active{background:rgba(16,185,129,.1);color:var(--text);border-color:rgba(16,185,129,.3);}
   .nav-tab:not(.active):hover{background:rgba(148,163,184,.08);}
   input[type=text],input[type=password],input[type=email],input[type=date],input[type=time],textarea,select{background:var(--panel-2);border:1px solid var(--line);color:var(--text);}
   input:focus,textarea:focus,select:focus{outline:none;border-color:var(--emerald);box-shadow:0 0 0 3px rgba(16,185,129,.15);}
@@ -127,6 +128,10 @@
   .tag-chip{display:inline-flex;align-items:center;min-height:24px;padding:2px 9px;border:1px solid var(--tag-colour,var(--line));border-radius:999px;color:var(--tag-colour,var(--muted));font-size:11px}
   .secondary-page{max-width:760px;margin:0 auto}.secondary-page-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
   .calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}.calendar-day{min-height:88px;padding:8px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}.calendar-day.outside{opacity:.38}.calendar-day.today{border-color:var(--accent)}.calendar-day.selected{box-shadow:0 0 0 2px var(--accent);border-color:var(--accent)}.calendar-day-pick{min-width:32px;min-height:32px;border-radius:9px}.calendar-item{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:3px solid var(--item-colour,var(--accent));padding:3px 5px;margin-top:4px;border-radius:4px;background:var(--panel-2);font-size:10px;color:var(--text)}
+  .calendar-view-switch{display:grid;grid-template-columns:repeat(3,1fr);padding:4px;background:var(--soft);border-radius:14px}.calendar-view-switch button{min-height:42px;border-radius:11px;color:var(--muted);font-weight:700;font-size:.82rem}.calendar-view-switch button.active{background:var(--panel);color:var(--accent);box-shadow:var(--shadow)}
+  .time-grid-scroll{overflow:auto;max-height:62dvh;border:1px solid var(--line);border-radius:16px;background:var(--panel)}.time-grid{position:relative;min-width:620px}.time-grid.day{min-width:0}.time-grid-head{position:sticky;top:0;z-index:5;display:grid;background:color-mix(in srgb,var(--panel) 94%,transparent);border-bottom:1px solid var(--line)}.time-grid-body{position:relative;display:grid}.time-label{font-size:10px;color:var(--muted);padding:4px 7px;text-align:right;border-right:1px solid var(--line)}.time-slot{height:64px;border-bottom:1px solid var(--line);border-right:1px solid var(--line)}.time-event{position:absolute;z-index:2;overflow:hidden;border-left:4px solid var(--item-colour,var(--accent));border-radius:8px;padding:5px 7px;background:color-mix(in srgb,var(--item-colour,var(--accent)) 18%,var(--panel));color:var(--text);font-size:11px;text-align:left}.time-event strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.calendar-month-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--item-colour,var(--accent));margin:2px}
+  .mobile-drawer-backdrop{position:fixed;inset:0;z-index:79;background:rgba(0,5,15,.62)}.mobile-drawer{position:fixed;inset:0 auto 0 0;z-index:80;width:min(86vw,340px);display:flex;flex-direction:column;background:var(--panel);color:var(--text);border-right:1px solid var(--line);box-shadow:24px 0 60px rgba(0,0,0,.35);overflow-y:auto}
+  :root[data-theme="light"] .mobile-drawer{background:#fff}:root[data-theme="light"] .mobile-drawer .nav-tab{color:#40516c}:root[data-theme="light"] .mobile-drawer .nav-tab.active{color:#10213f;background:#e8faf5}:root[data-theme="light"] .mobile-drawer .pomo-track{background:#e8edf5!important}
   .focus-page{min-height:calc(100dvh - 32px);max-width:720px;margin:0 auto;display:flex;flex-direction:column}.focus-page-task{flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center;padding:12px 0}
   .focus-page .orb:before{inset:-16px}.focus-page .orb:after{inset:-32px}
   .relax-page{min-height:100dvh;display:flex;align-items:center;justify-content:center;text-align:center;position:relative}.relax-page .orb{width:clamp(205px,56vw,320px);height:clamp(205px,56vw,320px)}
@@ -152,6 +157,7 @@
   .order-task-btn{display:none}
   .section-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left;min-height:52px}
   @media(min-width:768px){.app-shell{height:100dvh;overflow:hidden}.app-main{height:100dvh;overflow-y:auto;padding-top:0}.mobile-bottom-nav{display:none}.safe-bottom::after{display:none}.desktop-sidebar{display:flex!important;position:sticky;top:0;height:100dvh}.task-workspace-card{background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);padding:1.25rem!important}.order-task-btn{display:inline-flex}.fab{right:36px;bottom:30px}.bottom-sheet{left:50%;right:auto;bottom:24px;width:min(620px,calc(100% - 48px));transform:translateX(-50%);border-bottom:1px solid var(--line);border-radius:28px}.focus-home{min-height:calc(100dvh - 130px)}}
+  @media(max-width:640px){.calendar-grid{gap:3px}.calendar-day{min-height:58px;padding:4px;border-radius:9px}.calendar-day .calendar-item{display:none}.calendar-day-pick{min-width:28px;min-height:28px}.calendar-day .muted-text.text-\[9px\]{font-size:9px}.time-grid-scroll{max-height:68dvh}}
   @media(max-width:560px){.calendar-grid{gap:3px}.calendar-day{min-height:68px;padding:5px;border-radius:9px}.calendar-item{font-size:8px;padding:2px 3px}.calendar-weekday{font-size:9px}}
   @media(max-width:560px){.focus-page-task{justify-content:flex-start;padding-top:28px}.focus-page .flow-mode-btn{padding-left:10px;padding-right:10px}.focus-page-controls{margin-top:16px}.home-section-head{gap:6px}}
   @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
@@ -282,6 +288,7 @@ var state = {
   dashboardPanel: null,
   calendarCursor: new Date(),
   calendarSelectedDate: localDay(),
+  calendarView: "month",
   homeSelectedDate: localDay(),
   homeCalendarOpen: true,
   homeAnchorsOpen: true,
@@ -766,7 +773,7 @@ function renderConsole() {
     '<aside class="desktop-sidebar hidden md:flex w-72 shrink-0 flex-col" style="background:var(--panel);backdrop-filter:blur(10px);border-right:1px solid var(--line);">' + renderSidebarInner(false) + '</aside>' +
     '<main class="app-main flex-1 w-full min-w-0">' +
       '<div class="mobile-top-nav md:hidden px-4 py-2.5 grid grid-cols-[76px_1fr_76px] items-center">' +
-        '<span aria-hidden="true"></span>' +
+        '<button id="openMobileNav" class="theme-text min-w-[44px] min-h-[44px] text-xl text-left" aria-label="Open menu" aria-expanded="' + state.mobileOpen + '">☰</button>' +
         '<button id="mobileHomeLogo" class="theme-text font-semibold text-base text-center min-h-[44px]" aria-label="Go to Home">Focus<span style="color:var(--accent-2)">OS</span></button>' +
         renderThemeToggle("consoleThemeToggle") +
       '</div>' +
@@ -794,6 +801,7 @@ function renderConsole() {
         '<div id="view-assistant" class="view ' + (state.view === "assistant" ? "active" : "") + '">' + renderAssistantView() + '</div>') +
       '</div>' +
     '</main>' +
+    (state.mobileOpen ? '<div id="mobileBackdrop" class="mobile-drawer-backdrop md:hidden" aria-hidden="true"></div><aside class="mobile-drawer md:hidden" role="dialog" aria-modal="true" aria-label="Main menu">' + renderSidebarInner(true) + '</aside>' : '') +
     '<nav class="mobile-bottom-nav" aria-label="Primary">' +
       renderMobileNavButton("dashboard","⌂","Home") + renderMobileNavButton("tasks","☑","Tasks") + renderMobileProjectsNavButton() + renderMobileNavButton("more","•••","More") +
     '</nav>' +
@@ -827,12 +835,12 @@ function renderSidebarInner(isMobile) {
       '<span>' + t.emoji + '</span><span class="font-medium">' + t.label + '</span></button>';
   }).join("");
 
-  return '<div class="px-6 py-7 border-b border-slate-800/60 flex items-center justify-between">' +
-      '<div><div class="flex items-center gap-2.5">' +
+  return '<div class="px-6 py-7 border-b flex items-center justify-between" style="border-color:var(--line)">' +
+      '<div><button data-sidebar-home="1" class="flex items-center gap-2.5 min-h-[44px] text-left" aria-label="Go to Home">' +
         '<div class="w-3 h-3 rounded-full pulse-dot" style="background:var(--emerald);"></div>' +
-        '<span class="text-xl font-semibold tracking-tight text-white">FocusOS</span></div>' +
-        '<p class="text-xs mt-2 text-slate-500 truncate" style="max-width:180px;" title="' + escapeHtml(email) + '">' + escapeHtml(email) + '</p></div>' +
-      (isMobile ? '<button id="closeMobileNav" class="text-slate-500 hover:text-white">\u2715</button>' : "") +
+        '<span class="text-xl font-semibold tracking-tight theme-text">FocusOS</span></button>' +
+        '<p class="text-xs mt-2 muted-text truncate" style="max-width:180px;" title="' + escapeHtml(email) + '">' + escapeHtml(email) + '</p></div>' +
+      (isMobile ? '<button id="closeMobileNav" class="theme-text min-w-[44px] min-h-[44px] text-xl" aria-label="Close menu">\u2715</button>' : "") +
     '</div>' +
     '<nav class="px-3 py-5 space-y-1">' + tabsHtml + '</nav>' +
     '<div class="px-4 pb-4">' + renderPomodoroWidget() + '</div>' +
@@ -849,11 +857,11 @@ function renderPomodoroWidget() {
   var mm = String(Math.floor(p.secondsLeft / 60)).padStart(2, "0");
   var ss = String(p.secondsLeft % 60).padStart(2, "0");
   return '<div class="rounded-2xl px-4 py-4" style="background:var(--panel-2);border:1px solid var(--line);">' +
-    '<div class="flex items-center gap-1.5 mb-3 rounded-full p-1" style="background:rgba(15,23,42,.7);">' +
+    '<div class="pomo-track flex items-center gap-1.5 mb-3 rounded-full p-1" style="background:var(--soft);">' +
       '<button id="pomoFocusBtn" class="flex-1 text-[11px] py-1.5 rounded-full transition-colors ' + (p.mode === "focus" ? "font-semibold" : "text-slate-400") + '" style="' + (p.mode === "focus" ? "background:var(--emerald);color:#022c22;" : "") + '">Focus Sprint</button>' +
       '<button id="pomoBreakBtn" class="flex-1 text-[11px] py-1.5 rounded-full transition-colors ' + (p.mode === "break" ? "font-semibold" : "text-slate-400") + '" style="' + (p.mode === "break" ? "background:#6366f1;color:#1e1b4b;" : "") + '">Dopamine Break</button>' +
     '</div>' +
-    '<div class="text-center mb-3"><span id="pomoDisplay" class="text-3xl font-bold tracking-tight text-white" style="font-variant-numeric: tabular-nums;">' + mm + ':' + ss + '</span></div>' +
+    '<div class="text-center mb-3"><span id="pomoDisplay" class="theme-text text-3xl font-bold tracking-tight" style="font-variant-numeric: tabular-nums;">' + mm + ':' + ss + '</span></div>' +
     '<div class="flex items-center justify-center gap-2">' +
       '<button id="pomoToggleBtn" class="rounded-full p-2.5" style="background:var(--emerald);color:#022c22;">' + (p.running ? "\u23f8" : "\u25b6") + '</button>' +
       '<button id="pomoResetBtn" class="rounded-full p-2.5 border border-slate-700 text-slate-300">\u21ba</button>' +
@@ -1025,7 +1033,47 @@ function renderAllTasksPanel() {
     (state.google.connected ? '<details class="card p-4 mt-6"><summary class="theme-text min-h-[44px] cursor-pointer font-semibold">Google Tasks <span class="muted-text text-sm font-normal">· ' + googleTasks.length + ' open · read-only</span></summary>' + (googleTasks.length ? '<a class="more-row" href="' + escapeHtml(safeExternalUrl(googleTasks[0].link)) + '" target="_blank" rel="noopener"><span class="muted-text">○</span><span class="flex-1"><strong class="theme-text block text-sm">' + escapeHtml(googleTasks[0].title) + '</strong><small class="muted-text">Next from ' + escapeHtml(googleTasks[0].taskListTitle || 'Google Tasks') + '</small></span><span style="color:var(--accent)">↗</span></a>' : '<p class="muted-text text-sm pt-3">No open Google Tasks found.</p>') + '</details>' : '');
 }
 
+function calendarViewControls() {
+  return '<div class="calendar-view-switch mb-4" role="tablist" aria-label="Calendar view">' + ['day','week','month'].map(function(view){ return '<button data-calendar-view="' + view + '" role="tab" aria-selected="' + (state.calendarView === view) + '" class="' + (state.calendarView === view ? 'active' : '') + '">' + view.charAt(0).toUpperCase() + view.slice(1) + '</button>'; }).join('') + '</div>';
+}
+
+function calendarNavigateLabel() {
+  var date = new Date(state.calendarSelectedDate + 'T12:00:00');
+  if (state.calendarView === 'day') return date.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  if (state.calendarView === 'week') { var start = new Date(date); start.setDate(date.getDate() - ((date.getDay()+6)%7)); var end = new Date(start); end.setDate(start.getDate()+6); return start.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + ' – ' + end.toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
+  return date.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+}
+
+function calendarDaysForView() {
+  var selected = new Date(state.calendarSelectedDate + 'T12:00:00');
+  if (state.calendarView === 'day') return [selected];
+  var start = new Date(selected); start.setDate(selected.getDate() - ((selected.getDay()+6)%7));
+  return Array.from({length:7},function(_,i){ var d=new Date(start); d.setDate(start.getDate()+i); return d; });
+}
+
+function renderTimeGridCalendar() {
+  var days = calendarDaysForView();
+  var startHour = 6, endHour = 23, hourHeight = 64;
+  var events = state.google.connected ? (state.liveData.calendar || []) : [];
+  var headings = '<div></div>' + days.map(function(day){ var key=localDay(day); return '<button data-calendar-day="' + key + '" class="py-2 text-sm px-1 ' + (key===localDay()?'font-bold':'') + '"><small class="muted-text block">' + day.toLocaleDateString('en-GB',{weekday:'short'}) + '</small><strong class="theme-text block font-semibold">' + day.getDate() + '</strong></button>'; }).join('');
+  var slots = '';
+  for (var hour=startHour; hour<endHour; hour++) { slots += '<div class="time-label" style="grid-row:' + (hour-startHour+1) + ';grid-column:1">' + String(hour).padStart(2,'0') + ':00</div>'; for(var col=0;col<days.length;col++) slots += '<div class="time-slot" style="grid-row:' + (hour-startHour+1) + ';grid-column:' + (col+2) + '"></div>'; }
+  var blocks = [];
+  days.forEach(function(day,dayIndex){
+    var key=localDay(day);
+    state.tasks.filter(function(task){return task.status==='open'&&task.scheduled_date===key&&task.scheduled_time;}).forEach(function(task){ var parts=String(task.scheduled_time).split(':'); var minutes=(Number(parts[0])-startHour)*60+Number(parts[1]||0); if(minutes<0||minutes>(endHour-startHour)*60)return; blocks.push({id:task.id,title:task.title,time:String(task.scheduled_time).slice(0,5),day:dayIndex,minutes:minutes,duration:55,colour:projectColour(task.project_id,task.priority),external:false}); });
+    events.filter(function(event){return event.start&&localDay(new Date(event.start))===key;}).forEach(function(event){ var start=new Date(event.start), finish=event.end?new Date(event.end):new Date(start.getTime()+3600000); var minutes=(start.getHours()-startHour)*60+start.getMinutes(); if(minutes<0||minutes>(endHour-startHour)*60)return; blocks.push({title:event.title,time:start.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),day:dayIndex,minutes:minutes,duration:Math.max(30,(finish-start)/60000),colour:'var(--accent-2)',external:true,link:event.link}); });
+  });
+  var blockHtml=blocks.map(function(item){ var left='calc(44px + (100% - 44px) / ' + days.length + ' * ' + item.day + ' + 3px)'; var width='calc((100% - 44px) / ' + days.length + ' - 6px)'; var top=(item.minutes/60*hourHeight)+'px'; var height=Math.max(38,item.duration/60*hourHeight)+'px'; var attrs=item.external?'href="'+escapeHtml(safeExternalUrl(item.link))+'" target="_blank" rel="noopener"':'data-edit-task="'+item.id+'"'; var tag=item.external?'a':'button'; return '<'+tag+' '+attrs+' class="time-event" style="left:'+left+';width:'+width+';top:'+top+';height:'+height+';--item-colour:'+item.colour+'"><strong>'+escapeHtml(item.title)+'</strong><span>'+escapeHtml(item.time)+'</span></'+tag+'>'; }).join('');
+  return '<div class="time-grid-scroll"><div class="time-grid ' + (state.calendarView==='day'?'day':'') + '"><div class="time-grid-head" style="grid-template-columns:44px repeat(' + days.length + ',minmax(0,1fr))">' + headings + '</div><div class="time-grid-body" style="height:' + ((endHour-startHour)*hourHeight) + 'px;grid-template-columns:44px repeat(' + days.length + ',minmax(0,1fr));grid-template-rows:repeat(' + (endHour-startHour) + ',' + hourHeight + 'px)">' + slots + blockHtml + '</div></div></div>';
+}
+
 function renderCalendarTimelinePanel() {
+  if (state.calendarView === 'day' || state.calendarView === 'week') return '<div id="calendarGestureRoot" class="card p-3 sm:p-5"><div class="flex items-center justify-between mb-3"><button id="calendarPrev" class="btn-ghost min-w-[44px] min-h-[44px] rounded-xl" aria-label="Previous period">‹</button><h2 class="theme-text text-base sm:text-lg font-bold text-center">' + calendarNavigateLabel() + '</h2><button id="calendarNext" class="btn-ghost min-w-[44px] min-h-[44px] rounded-xl" aria-label="Next period">›</button></div>' + calendarViewControls() + renderTimeGridCalendar() + '<p class="muted-text text-xs mt-3 text-center">Pinch to move between Day, Week and Month.</p></div>';
+  return renderMonthCalendarPanel();
+}
+
+function renderMonthCalendarPanel() {
   var cursor = new Date(state.calendarCursor); cursor.setDate(1); cursor.setHours(12,0,0,0);
   var gridStart = new Date(cursor); gridStart.setDate(1 - ((cursor.getDay() + 6) % 7));
   var monthKey = localDay(cursor).slice(0,7);
@@ -1050,7 +1098,7 @@ function renderCalendarTimelinePanel() {
   var selectedEvents = events.filter(function(event){ return event.start && localDay(new Date(event.start)) === state.calendarSelectedDate; });
   var selectedDate = new Date(state.calendarSelectedDate + 'T12:00:00');
   var agenda = '<section class="card p-4 sm:p-5 mt-4"><div class="flex items-center justify-between mb-3"><h3 class="theme-text font-bold">' + selectedDate.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}) + '</h3><button id="addOnSelectedDay" class="btn-ghost rounded-xl min-h-[44px] px-3">+ Task</button></div>' + (selectedTasks.length ? renderCanonicalTaskList(selectedTasks) : '<p class="muted-text text-sm py-2">No FocusOS tasks on this day.</p>') + selectedEvents.map(function(event){ return '<a class="more-row" href="' + escapeHtml(safeExternalUrl(event.link)) + '" target="_blank" rel="noopener"><span style="color:var(--accent-2)">●</span><span class="flex-1"><strong class="theme-text block text-sm">' + escapeHtml(event.title) + '</strong><small class="muted-text">Google Calendar</small></span><span>↗</span></a>'; }).join('') + '</section>';
-  return '<div class="card p-3 sm:p-5"><div class="flex items-center justify-between mb-4"><button id="calendarPrev" class="btn-ghost min-w-[44px] min-h-[44px] rounded-xl" aria-label="Previous month">‹</button><h2 class="theme-text text-lg font-bold">' + cursor.toLocaleDateString('en-GB',{month:'long',year:'numeric'}) + '</h2><button id="calendarNext" class="btn-ghost min-w-[44px] min-h-[44px] rounded-xl" aria-label="Next month">›</button></div><div class="calendar-grid mb-2">' + weekdays + cells.join('') + '</div><div class="flex flex-wrap gap-4 mt-4 text-xs muted-text"><span><b style="color:var(--accent)">●</b> FocusOS</span><span><b style="color:var(--accent-2)">●</b> Calendar</span><span><b style="color:var(--warning)">●</b> Google Tasks</span></div>' + (!state.google.connected ? '<button id="connectGoogleCalendar" class="btn-primary w-full min-h-[48px] rounded-xl mt-4">Connect Google Workspace</button>' : '') + '</div>' + agenda;
+  return '<div id="calendarGestureRoot"><div class="card p-3 sm:p-5"><div class="flex items-center justify-between mb-4"><button id="calendarPrev" class="btn-ghost min-w-[44px] min-h-[44px] rounded-xl" aria-label="Previous month">‹</button><h2 class="theme-text text-lg font-bold">' + cursor.toLocaleDateString('en-GB',{month:'long',year:'numeric'}) + '</h2><button id="calendarNext" class="btn-ghost min-w-[44px] min-h-[44px] rounded-xl" aria-label="Next month">›</button></div>' + calendarViewControls() + '<div class="calendar-grid mb-2">' + weekdays + cells.join('') + '</div><div class="flex flex-wrap gap-4 mt-4 text-xs muted-text"><span><b style="color:var(--accent)">●</b> FocusOS</span><span><b style="color:var(--accent-2)">●</b> Calendar</span><span><b style="color:var(--warning)">●</b> Google Tasks</span></div>' + (!state.google.connected ? '<button id="connectGoogleCalendar" class="btn-primary w-full min-h-[48px] rounded-xl mt-4">Connect Google Workspace</button>' : '') + '</div>' + agenda + '</div>';
 }
 
 function projectColour(projectId, priority) {
@@ -1548,9 +1596,9 @@ function saveGoal(form) {
   if (!title || !state.selectedProjectId) return;
   var payload = { title: title, why_this_matters: why || null, updated_at: new Date().toISOString() };
   var request;
-  if (state.editingGoalId) request = sb.from('focusos_goals').update(payload).eq('id', state.editingGoalId).eq('user_id', state.session.user.id);
-  else { payload.user_id = state.session.user.id; payload.project_id = state.selectedProjectId; payload.status = 'active'; payload.sort_order = state.goals.filter(function (goal) { return goal.project_id === state.selectedProjectId; }).length + 1; request = sb.from('focusos_goals').insert(payload); }
-  request.then(function (result) { if (result.error) throw result.error; state.goalEditorOpen = false; state.editingGoalId = null; return refreshCanonicalData('Goal saved.'); }).catch(function (error) { showToast(error.message || 'Could not save goal.'); });
+  if (state.editingGoalId) request = sb.from('focusos_goals').update(payload).eq('id', state.editingGoalId).eq('user_id', state.session.user.id).select('id,title,why_this_matters').single();
+  else { payload.user_id = state.session.user.id; payload.project_id = state.selectedProjectId; payload.status = 'active'; payload.sort_order = state.goals.filter(function (goal) { return goal.project_id === state.selectedProjectId; }).length + 1; request = sb.from('focusos_goals').insert(payload).select('id,title,why_this_matters').single(); }
+  request.then(function (result) { if (result.error) throw result.error; if (!result.data || !result.data.id) throw new Error('Goal was not saved.'); state.goalEditorOpen = false; state.editingGoalId = null; return refreshCanonicalData('Goal saved.'); }).catch(function (error) { showToast(error.message || 'Could not save goal.'); });
 }
 
 function createTag(form) {
@@ -1641,6 +1689,8 @@ function attachConsoleHandlers() {
   if (consoleThemeToggle) consoleThemeToggle.addEventListener("click", toggleTheme);
   var mobileHomeLogo = document.getElementById("mobileHomeLogo");
   if (mobileHomeLogo) mobileHomeLogo.addEventListener("click", function () { state.view = "dashboard"; state.dashboardPanel = null; state.editingTaskId = null; state.flowTaskId = null; state.relaxMode = false; state.mobileOpen = false; render(); resetAppScroll(); });
+  els = document.querySelectorAll('[data-sidebar-home]');
+  for (i = 0; i < els.length; i++) els[i].addEventListener('click', function () { state.view = 'dashboard'; state.dashboardPanel = null; state.editingTaskId = null; state.flowTaskId = null; state.relaxMode = false; state.mobileOpen = false; render(); resetAppScroll(); });
   var desktopThemeToggle = document.getElementById("desktopThemeToggle");
   if (desktopThemeToggle) desktopThemeToggle.addEventListener("click", toggleTheme);
   var drawerThemeToggle = document.getElementById("drawerThemeToggle");
@@ -1687,12 +1737,17 @@ function attachConsoleHandlers() {
   if (connectGoogleCalendar) connectGoogleCalendar.addEventListener("click", connectGoogleWorkspace);
   var connectGoogleUpcoming = document.getElementById("connectGoogleUpcoming");
   if (connectGoogleUpcoming) connectGoogleUpcoming.addEventListener("click", connectGoogleWorkspace);
+  function moveCalendarPeriod(direction) { var d = new Date(state.calendarSelectedDate + 'T12:00:00'); if (state.calendarView === 'day') d.setDate(d.getDate() + direction); else if (state.calendarView === 'week') d.setDate(d.getDate() + direction * 7); else d.setMonth(d.getMonth() + direction); state.calendarSelectedDate = localDay(d); state.calendarCursor = new Date(d); render(); }
   var calendarPrev = document.getElementById("calendarPrev");
-  if (calendarPrev) calendarPrev.addEventListener("click", function () { var d = new Date(state.calendarCursor); d.setMonth(d.getMonth() - 1); state.calendarCursor = d; render(); });
+  if (calendarPrev) calendarPrev.addEventListener("click", function () { moveCalendarPeriod(-1); });
   var calendarNext = document.getElementById("calendarNext");
-  if (calendarNext) calendarNext.addEventListener("click", function () { var d = new Date(state.calendarCursor); d.setMonth(d.getMonth() + 1); state.calendarCursor = d; render(); });
+  if (calendarNext) calendarNext.addEventListener("click", function () { moveCalendarPeriod(1); });
+  els = document.querySelectorAll('[data-calendar-view]');
+  for (i = 0; i < els.length; i++) els[i].addEventListener('click', function(e){ state.calendarView=e.currentTarget.getAttribute('data-calendar-view'); render(); resetAppScroll(); });
   els = document.querySelectorAll('[data-calendar-day]');
   for (i = 0; i < els.length; i++) els[i].addEventListener('click', function(e){ state.calendarSelectedDate = e.currentTarget.getAttribute('data-calendar-day'); state.calendarCursor = new Date(state.calendarSelectedDate + 'T12:00:00'); render(); });
+  var calendarGestureRoot = document.getElementById('calendarGestureRoot');
+  if (calendarGestureRoot) { var pinchStart = 0; calendarGestureRoot.addEventListener('touchstart',function(e){ if(e.touches.length===2) pinchStart=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); },{passive:true}); calendarGestureRoot.addEventListener('touchend',function(e){ if(!pinchStart||e.touches.length>0)return; var changed=e.changedTouches; if(changed.length<2){pinchStart=0;return;} var end=Math.hypot(changed[0].clientX-changed[1].clientX,changed[0].clientY-changed[1].clientY); var views=['month','week','day']; var index=views.indexOf(state.calendarView); if(end-pinchStart>38&&index<2)state.calendarView=views[index+1]; else if(pinchStart-end>38&&index>0)state.calendarView=views[index-1]; pinchStart=0; render(); },{passive:true}); }
   var addOnSelectedDay = document.getElementById('addOnSelectedDay');
   if (addOnSelectedDay) addOnSelectedDay.addEventListener('click', function(){ state.openSections.add=true; render(); setTimeout(function(){ var input=document.querySelector('#floatingTaskForm [name="scheduled_date"]'); if(input) input.value=state.calendarSelectedDate; },0); });
   ["floatingAddTask", "emptyAddTask"].forEach(function (id) { var button = document.getElementById(id); if (button) button.addEventListener("click", function () { state.openSections.add = true; render(); }); });
@@ -1751,7 +1806,7 @@ function attachConsoleHandlers() {
   els = document.querySelectorAll('[data-add-to-goal]');
   for (i = 0; i < els.length; i++) els[i].addEventListener('click', function (e) { state.pendingGoalId = e.currentTarget.getAttribute('data-add-to-goal') || null; state.projectFilter = state.selectedProjectId || 'all'; state.openSections.add = true; render(); });
   var editGoalBtn = document.getElementById('editGoalBtn');
-  if (editGoalBtn) editGoalBtn.addEventListener('click', function () { state.editingGoalId = state.selectedGoalId; state.selectedGoalId = null; state.goalEditorOpen = true; render(); });
+  if (editGoalBtn) editGoalBtn.addEventListener('click', function () { state.editingGoalId = state.selectedGoalId; state.selectedGoalId = null; state.goalEditorOpen = true; render(); resetAppScroll(); setTimeout(function () { var field = document.querySelector('#goalForm [name="title"]'); if (field) { field.focus(); field.select(); } }, 0); });
 
   enableSheetSwipe("moreSheet");
   enableSheetSwipe("taskCreateSheet");
