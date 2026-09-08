@@ -267,6 +267,7 @@ var state = {
   goals: [],
   tags: [],
   taskTags: [],
+  externalLinks: [],
   taskView: "today",
   tasksScreenView: "calendar",
   projectFilter: "all",
@@ -277,6 +278,8 @@ var state = {
   taskSaving: false,
   google: { status: "checking", connected: false, email: "moktar@progressay.com", unread: 0, error: "" },
   cockpitBusy: false,
+  cockpitTaskQuery: "",
+  cockpitTaskLimit: 5,
   googleLoading: false,
   vaultUploading: false,
   flowTaskId: null,
@@ -616,18 +619,21 @@ function loadCanonicalData() {
     sb.from("focusos_projects").select("id,name,colour,status,created_at,updated_at").eq("user_id", userId).eq("status", "active").order("created_at", { ascending: true }),
     sb.from("focusos_goals").select("id,project_id,title,why_this_matters,status,sort_order,created_at,updated_at").eq("user_id", userId).eq("status", "active").order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
     sb.from("focusos_tags").select("id,name,colour,created_at,updated_at").eq("user_id", userId).order("name", { ascending: true }),
-    sb.from("focusos_task_tags").select("task_id,tag_id").eq("user_id", userId)
+    sb.from("focusos_task_tags").select("task_id,tag_id").eq("user_id", userId),
+    sb.from("focusos_external_links").select("task_id,provider,external_id,external_container_id,sync_status,last_synced_at").eq("user_id", userId)
   ]).then(function (results) {
     if (results[0].error) throw results[0].error;
     if (results[1].error) throw results[1].error;
     if (results[2].error) throw results[2].error;
     if (results[3].error) throw results[3].error;
     if (results[4].error) throw results[4].error;
+    if (results[5].error) throw results[5].error;
     state.tasks = results[0].data || [];
     state.projects = results[1].data || [];
     state.goals = results[2].data || [];
     state.tags = results[3].data || [];
     state.taskTags = results[4].data || [];
+    state.externalLinks = results[5].data || [];
     state.projects.forEach(function (project) { if (state.projectExpanded[project.id] === undefined) state.projectExpanded[project.id] = true; });
     if (state.projectExpanded.none === undefined) state.projectExpanded.none = true;
   });
@@ -661,13 +667,24 @@ function googleRequest(path, method, body) {
 
 function googleTaskKey(item) { return "google_tasks:" + item.externalTaskListId + ":" + item.externalTaskId; }
 function parseGoogleTaskKey(value) { var parts = String(value || "").split(":"); return parts.length === 3 && parts[0] === "google_tasks" ? { listId: parts[1], taskId: parts[2] } : null; }
+function isTaskGoogleLinked(taskId) { return state.externalLinks.some(function(link){ return link.task_id === taskId && link.provider === "google_tasks"; }); }
+function findGoogleTaskLink(item) { return state.externalLinks.find(function(link){ return link.provider === "google_tasks" && link.external_id === item.externalTaskId && link.external_container_id === item.externalTaskListId; }); }
+function syncFocusTask(taskId, quiet) {
+  if (!state.google.connected || !taskId) return Promise.resolve();
+  return googleRequest("/sync-focus-task", "POST", { taskId: taskId }).then(function(){ if(!quiet) showToast("Synced with Google Tasks and Calendar."); }).catch(function(error){ if(!quiet) showToast(error.message || "Google sync needs attention."); throw error; });
+}
 function importGoogleTask(item) {
   var legacyKey = googleTaskKey(item);
+  var existingLink = findGoogleTaskLink(item);
+  if (existingLink) { state.editingTaskId = existingLink.task_id; render(); return; }
   var existing = state.tasks.find(function (task) { return task.legacy_key === legacyKey; });
   if (existing) { state.editingTaskId = existing.id; render(); return; }
   state.cockpitBusy = true; render();
-  sb.from("focusos_tasks").insert({ user_id: state.session.user.id, legacy_key: legacyKey, title: item.title, status: item.status === "completed" ? "completed" : "open", scheduled_date: item.due ? String(item.due).slice(0,10) : null, recurrence: "none", is_daily_anchor: false, source: "google_tasks", sort_order: state.tasks.length + 1 }).then(function (result) {
-    if (result.error) throw result.error; return refreshCanonicalData("Google Task added to FocusOS.");
+  sb.from("focusos_tasks").insert({ user_id: state.session.user.id, legacy_key: legacyKey, title: item.title, status: item.status === "completed" ? "completed" : "open", scheduled_date: item.due ? String(item.due).slice(0,10) : null, recurrence: "none", is_daily_anchor: false, source: "google_tasks", sort_order: state.tasks.length + 1 }).select("id").single().then(function (result) {
+    if (result.error) throw result.error;
+    return sb.from("focusos_external_links").insert({ user_id: state.session.user.id, task_id: result.data.id, provider: "google_tasks", external_container_id: item.externalTaskListId, external_id: item.externalTaskId, sync_status: "synced", last_synced_at: new Date().toISOString() });
+  }).then(function (result) {
+    if (result && result.error) throw result.error; return refreshCanonicalData("Google Task added to FocusOS.");
   }).catch(function (error) { showToast(error.message || "Could not import Google Task."); }).finally(function () { state.cockpitBusy = false; });
 }
 function syncGoogleLinkedTask(task, patch) {
@@ -678,10 +695,7 @@ function syncGoogleLinkedTask(task, patch) {
 function sendTaskToGoogle(task) {
   if (!task || !state.google.connected) return showToast("Connect Google Workspace first.");
   state.cockpitBusy = true; render();
-  googleRequest("/google-task", "POST", { action: "create", title: task.title, due: task.scheduled_date ? task.scheduled_date + "T00:00:00.000Z" : null, completed: task.status === "completed" }).then(function (data) {
-    if (!data.task || !data.task.id) throw new Error("Google did not return the task.");
-    return sb.from("focusos_tasks").update({ legacy_key: "google_tasks:@default:" + data.task.id, source: "google_tasks", updated_at: new Date().toISOString() }).eq("id", task.id);
-  }).then(function (result) { if (result && result.error) throw result.error; return refreshCanonicalData("Task synced to Google Tasks."); }).catch(function (error) { showToast(error.message || "Could not sync task."); }).finally(function () { state.cockpitBusy = false; });
+  syncFocusTask(task.id, false).then(function () { return refreshCanonicalData(); }).catch(function () {}).finally(function () { state.cockpitBusy = false; });
 }
 function gmailAction(id, action) {
   state.cockpitBusy = true; render();
@@ -719,6 +733,7 @@ function loadGoogleWorkspaceData(force) {
       return { id: file.id, name: file.name, tag: type, date: file.modifiedTime ? new Date(file.modifiedTime).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "", size: size, link: file.link, starred: !!file.starred, drive: true };
     }) : [];
     recordInboxZeroDay();
+    return loadCanonicalData();
   }).catch(function (error) {
     state.google.connected = false;
     state.google.status = error.message.indexOf("setup is incomplete") !== -1 ? "setup" : "error";
@@ -1352,11 +1367,15 @@ function renderQuickTaskForm(id, label, inCard) {
 
 function renderCockpit() {
   if (!state.google.connected) return '<section class="card p-5 mb-5"><p class="hud text-[10px] mb-2" style="color:var(--accent)">Command centre</p><h2 class="theme-text text-xl font-bold">Bring work into one place</h2><p class="muted-text text-sm mt-2 mb-4">Connect Google to manage email and tasks beside your FocusOS plan.</p><button id="connectCockpitGoogle" class="btn-primary rounded-xl min-h-[48px] px-5">Connect Google Workspace</button></section>';
-  var mail = (state.liveData.gmail || []).slice(0,5), tasks = (state.liveData.googleTasks || []).slice(0,5), events = (state.liveData.calendar || []).slice(0,3);
+  var allMail = state.liveData.gmail || [], allTasks = state.liveData.googleTasks || [], allEvents = state.liveData.calendar || [];
+  var mail = allMail.slice(0,5), visibleEvents = allEvents.slice(0,3);
+  var query = state.cockpitTaskQuery.trim().toLowerCase();
+  var matchingTasks = query ? allTasks.filter(function(item){ return (item.title + ' ' + (item.taskListTitle || '')).toLowerCase().indexOf(query) !== -1; }) : allTasks;
+  var tasks = allTasks, visibleTasks = matchingTasks.slice(0,state.cockpitTaskLimit);
   var mailRows = mail.map(function (message) { return '<div class="py-3 border-b" style="border-color:var(--line)"><div class="flex gap-3"><div class="min-w-0 flex-1"><strong class="theme-text text-sm block truncate">' + escapeHtml(message.subject) + '</strong><small class="muted-text block truncate mt-1">' + escapeHtml(message.from) + '</small></div><a href="' + escapeHtml(safeExternalUrl(message.link)) + '" target="_blank" rel="noopener" class="min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Open email">↗</a></div><div class="flex flex-wrap gap-2 mt-2"><button data-gmail-task="' + message.id + '" class="btn-ghost rounded-lg min-h-[40px] px-3 text-xs">+ Task</button><button data-gmail-reply="' + message.id + '" class="btn-ghost rounded-lg min-h-[40px] px-3 text-xs">Reply</button><button data-gmail-archive="' + message.id + '" class="btn-ghost rounded-lg min-h-[40px] px-3 text-xs">Archive</button></div></div>'; }).join('');
-  var taskRows = tasks.map(function (item) { var linked = state.tasks.some(function (task) { return task.legacy_key === googleTaskKey(item); }); return '<div class="more-row"><span style="color:var(--accent)">○</span><span class="flex-1 min-w-0"><strong class="theme-text text-sm block truncate">' + escapeHtml(item.title) + '</strong><small class="muted-text">' + escapeHtml(item.taskListTitle || 'Google Tasks') + '</small></span><button data-import-google-task="' + item.externalTaskId + '" class="btn-ghost rounded-lg min-h-[40px] px-3 text-xs">' + (linked ? 'Open' : 'Import') + '</button></div>'; }).join('');
-  var eventRows = events.map(function (event) { var date = event.start ? new Date(event.start) : null; return '<a class="more-row" href="' + escapeHtml(safeExternalUrl(event.link)) + '" target="_blank" rel="noopener"><span style="color:var(--accent-2)">●</span><span class="flex-1 min-w-0"><strong class="theme-text text-sm block truncate">' + escapeHtml(event.title) + '</strong><small class="muted-text">' + (date && !isNaN(date.getTime()) ? date.toLocaleString('en-GB',{weekday:'short',hour:'2-digit',minute:'2-digit'}) : 'All day') + '</small></span><span>↗</span></a>'; }).join('');
-  return '<section class="mb-5"><div class="flex items-end justify-between gap-3 mb-3"><div><p class="hud text-[10px] mb-1" style="color:var(--accent)">Command centre</p><h2 class="theme-text text-xl font-bold">Your cockpit</h2></div><button id="refreshCockpit" class="btn-ghost rounded-xl min-h-[44px] px-3 text-sm" ' + (state.cockpitBusy ? 'disabled' : '') + '>↻ Sync</button></div><div class="grid sm:grid-cols-4 grid-cols-2 gap-2 mb-4"><div class="card p-3"><small class="muted-text">Unread</small><strong class="theme-text text-2xl block">' + state.google.unread + '</strong></div><div class="card p-3"><small class="muted-text">Google tasks</small><strong class="theme-text text-2xl block">' + tasks.length + '</strong></div><div class="card p-3"><small class="muted-text">Events</small><strong class="theme-text text-2xl block">' + events.length + '</strong></div><div class="card p-3"><small class="muted-text">Drive files</small><strong class="theme-text text-2xl block">' + (state.liveData.drive || []).length + '</strong></div></div><details class="card px-4 mb-3" open><summary class="theme-text font-semibold min-h-[54px] flex items-center cursor-pointer">Gmail inbox <span class="muted-text ml-auto">' + mail.length + '</span></summary>' + (mailRows || '<p class="muted-text text-sm pb-4">Inbox is clear.</p>') + '</details><details class="card px-4 mb-3"><summary class="theme-text font-semibold min-h-[54px] flex items-center cursor-pointer">Google Tasks <span class="muted-text ml-auto">' + tasks.length + '</span></summary>' + (taskRows || '<p class="muted-text text-sm pb-4">No open Google Tasks.</p>') + '</details><details class="card px-4"><summary class="theme-text font-semibold min-h-[54px] flex items-center cursor-pointer">Upcoming calendar <span class="muted-text ml-auto">' + events.length + '</span></summary>' + (eventRows || '<p class="muted-text text-sm pb-4">No upcoming events.</p>') + '</details></section>';
+  var taskRows = '<label class="muted-text text-xs block py-3">Search Google Tasks<input id="cockpitTaskSearch" value="' + escapeHtml(state.cockpitTaskQuery) + '" class="w-full rounded-xl px-3 min-h-[44px] mt-1" placeholder="Search titles or lists"></label>' + visibleTasks.map(function (item) { var linked = !!findGoogleTaskLink(item); return '<div class="more-row"><span style="color:var(--accent)">○</span><span class="flex-1 min-w-0"><strong class="theme-text text-sm block truncate">' + escapeHtml(item.title) + '</strong><small class="muted-text">' + escapeHtml(item.taskListTitle || 'Google Tasks') + '</small></span><button data-import-google-task="' + escapeHtml(item.externalTaskId) + '" data-google-task-list="' + escapeHtml(item.externalTaskListId) + '" class="btn-ghost rounded-lg min-h-[40px] px-3 text-xs">' + (linked ? 'Open' : 'Import') + '</button></div>'; }).join('') + (visibleTasks.length < matchingTasks.length ? '<button id="loadMoreGoogleTasks" class="btn-ghost w-full rounded-xl min-h-[46px] my-3">Load more · ' + (matchingTasks.length - visibleTasks.length) + ' remaining</button>' : '');
+  var eventRows = visibleEvents.map(function (event) { var date = event.start ? new Date(event.start) : null; return '<a class="more-row" href="' + escapeHtml(safeExternalUrl(event.link)) + '" target="_blank" rel="noopener"><span style="color:var(--accent-2)">●</span><span class="flex-1 min-w-0"><strong class="theme-text text-sm block truncate">' + escapeHtml(event.title) + '</strong><small class="muted-text">' + (date && !isNaN(date.getTime()) ? date.toLocaleString('en-GB',{weekday:'short',hour:'2-digit',minute:'2-digit'}) : 'All day') + '</small></span><span>↗</span></a>'; }).join('');
+  return '<section class="mb-5"><div class="flex items-end justify-between gap-3 mb-3"><div><p class="hud text-[10px] mb-1" style="color:var(--accent)">Command centre</p><h2 class="theme-text text-xl font-bold">Your cockpit</h2></div><button id="refreshCockpit" class="btn-ghost rounded-xl min-h-[44px] px-3 text-sm" ' + (state.cockpitBusy ? 'disabled' : '') + '>↻ Sync</button></div><div class="grid sm:grid-cols-4 grid-cols-2 gap-2 mb-4"><div class="card p-3"><small class="muted-text">Unread</small><strong class="theme-text text-2xl block">' + state.google.unread + '</strong></div><div class="card p-3"><small class="muted-text">Google tasks</small><strong class="theme-text text-2xl block">' + tasks.length + '</strong></div><div class="card p-3"><small class="muted-text">Events</small><strong class="theme-text text-2xl block">' + allEvents.length + '</strong></div><div class="card p-3"><small class="muted-text">Drive files</small><strong class="theme-text text-2xl block">' + (state.liveData.drive || []).length + '</strong></div></div><details class="card px-4 mb-3" open><summary class="theme-text font-semibold min-h-[54px] flex items-center cursor-pointer">Gmail inbox <span class="muted-text ml-auto">' + state.google.unread + '</span></summary>' + (mailRows || '<p class="muted-text text-sm pb-4">Inbox is clear.</p>') + '</details><details class="card px-4 mb-3"><summary class="theme-text font-semibold min-h-[54px] flex items-center cursor-pointer">Google Tasks <span class="muted-text ml-auto">' + tasks.length + '</span></summary>' + (taskRows || '<p class="muted-text text-sm pb-4">No open Google Tasks.</p>') + '</details><details class="card px-4"><summary class="theme-text font-semibold min-h-[54px] flex items-center cursor-pointer">Upcoming calendar <span class="muted-text ml-auto">' + allEvents.length + '</span></summary>' + (eventRows || '<p class="muted-text text-sm pb-4">No upcoming events.</p>') + '</details></section>';
 }
 
 function renderMoreView() {
@@ -1492,7 +1511,7 @@ function renderTaskEditorPage() {
     '<div class="grid sm:grid-cols-2 gap-3 mt-4"><label class="muted-text text-xs">Priority<select name="priority" class="w-full rounded-xl px-3 min-h-[48px] mt-1"><option value="" ' + (task.priority !== 'red' ? 'selected' : '') + '>Blue · Not priority</option><option value="red" ' + (task.priority === 'red' ? 'selected' : '') + '>Red · Priority</option></select></label><label class="muted-text text-xs">Move project<select name="project_id" class="w-full rounded-xl px-3 min-h-[48px] mt-1">' + projectOptions(task.project_id || '') + '</select></label><label class="muted-text text-xs">Goal<select name="goal_id" class="w-full rounded-xl px-3 min-h-[48px] mt-1">' + goalOptions(task.project_id || '', task.goal_id || '') + '</select></label><label class="muted-text text-xs">Due date<input name="scheduled_date" type="date" value="' + escapeHtml(task.scheduled_date || '') + '" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label><label class="muted-text text-xs">Time<input name="scheduled_time" type="time" value="' + escapeHtml(task.scheduled_time ? String(task.scheduled_time).slice(0,5) : '') + '" class="w-full rounded-xl px-3 min-h-[48px] mt-1"></label></div>' +
     (state.tags.length ? '<label class="muted-text text-xs block mt-4">Tags<select name="tag_ids" multiple class="w-full rounded-xl px-3 py-2 mt-1 min-h-[84px]">' + renderTagOptions(selectedTags) + '</select></label>' : '<button type="button" data-open-tags-inline="1" class="btn-ghost w-full rounded-xl min-h-[46px] mt-4">Create your first tag</button>') +
     '<label class="theme-text flex items-center gap-3 text-sm mt-4 min-h-[44px]"><input name="is_daily_anchor" type="checkbox" ' + (task.is_daily_anchor ? 'checked' : '') + '> Daily anchor</label>' +
-    '<div class="grid sm:grid-cols-2 gap-3 mt-5"><button class="btn-primary rounded-xl min-h-[52px]">Save changes</button><button type="button" id="startEditedTask" class="btn-ghost rounded-xl min-h-[52px]">Start focus</button></div><button type="button" id="completeEditedTask" class="btn-ghost w-full rounded-xl min-h-[48px] mt-3">' + (task.status === 'completed' ? 'Reopen task' : 'Mark complete') + '</button>' + (state.google.connected ? '<button type="button" id="syncEditedTaskGoogle" class="btn-ghost w-full rounded-xl min-h-[48px] mt-3">' + (parseGoogleTaskKey(task.legacy_key) ? 'Synced with Google Tasks' : 'Send to Google Tasks') + '</button>' : '') + '</form></section>';
+    '<div class="grid sm:grid-cols-2 gap-3 mt-5"><button class="btn-primary rounded-xl min-h-[52px]">Save changes</button><button type="button" id="startEditedTask" class="btn-ghost rounded-xl min-h-[52px]">Start focus</button></div><button type="button" id="completeEditedTask" class="btn-ghost w-full rounded-xl min-h-[48px] mt-3">' + (task.status === 'completed' ? 'Reopen task' : 'Mark complete') + '</button>' + (state.google.connected ? '<button type="button" id="syncEditedTaskGoogle" class="btn-ghost w-full rounded-xl min-h-[48px] mt-3">' + (isTaskGoogleLinked(task.id) ? 'Sync now' : 'Send to Google Tasks and Calendar') + '</button>' : '') + '</form></section>';
 }
 
 function renderFlowPage() {
@@ -1592,22 +1611,23 @@ function createCanonicalTask(form) {
   state.taskSaving = true; state.syncStatus = "saving"; updateSyncPill();
   var titles = form.dataset.brainDump === 'true' ? payload.title.split(/\n+/).map(function(title){ return title.trim(); }).filter(Boolean) : [payload.title];
   if (titles.length > 1) {
-    sb.from("focusos_tasks").insert(titles.map(function(title,index){ var item = Object.assign({},payload); item.title = title; item.project_id = null; item.goal_id = null; item.sort_order = payload.sort_order + index; return item; })).then(function(result){ if(result.error) throw result.error; state.openSections.add = false; state.pendingGoalId = null; return refreshCanonicalData(titles.length + " tasks captured to Inbox."); }).catch(function(error){ state.taskSaving=false; state.syncStatus="error"; updateSyncPill(); showToast(error.message || "Could not save brain dump."); });
+    sb.from("focusos_tasks").insert(titles.map(function(title,index){ var item = Object.assign({},payload); item.title = title; item.project_id = null; item.goal_id = null; item.sort_order = payload.sort_order + index; return item; })).select("id").then(function(result){ if(result.error) throw result.error; return Promise.all((result.data || []).map(function(task){ return syncFocusTask(task.id,true).catch(function(){ return null; }); })); }).then(function(){ state.openSections.add = false; state.pendingGoalId = null; return refreshCanonicalData(titles.length + " tasks captured to Inbox."); }).catch(function(error){ state.taskSaving=false; state.syncStatus="error"; updateSyncPill(); showToast(error.message || "Could not save brain dump."); });
     return;
   }
-  sb.from("focusos_tasks").insert(payload).select("id").single().then(function (result) { if (result.error) throw result.error; return replaceTaskTags(result.data.id, tagIds); }).then(function () { state.openSections.add = false; state.pendingGoalId = null; return refreshCanonicalData("Task added."); }).catch(function (error) { state.taskSaving = false; state.syncStatus = "error"; updateSyncPill(); showToast(error.message || "Could not add task."); });
+  var createdId = null;
+  sb.from("focusos_tasks").insert(payload).select("id").single().then(function (result) { if (result.error) throw result.error; createdId = result.data.id; return replaceTaskTags(createdId, tagIds); }).then(function () { return syncFocusTask(createdId,true).catch(function(){ showToast("Task saved. Google sync needs attention."); }); }).then(function () { state.openSections.add = false; state.pendingGoalId = null; return refreshCanonicalData("Task added."); }).catch(function (error) { state.taskSaving = false; state.syncStatus = "error"; updateSyncPill(); showToast(error.message || "Could not add task."); });
 }
 
 function updateCanonicalTask(id, patch, message, tagIds) {
-  var originalTask = findTaskById(id);
   state.taskSaving = true; state.syncStatus = "saving"; updateSyncPill();
   patch.updated_at = new Date().toISOString();
-  return sb.from("focusos_tasks").update(patch).eq("id", id).then(function (result) { if (result.error) throw result.error; return Array.isArray(tagIds) ? replaceTaskTags(id, tagIds) : null; }).then(function () { return syncGoogleLinkedTask(originalTask, patch).catch(function () { showToast("Saved in FocusOS; Google sync needs attention."); }); }).then(function () { return refreshCanonicalData(message || "Task updated."); }).catch(function (error) { state.taskSaving = false; state.syncStatus = "error"; updateSyncPill(); showToast(error.message || "Could not update task."); });
+  return sb.from("focusos_tasks").update(patch).eq("id", id).then(function (result) { if (result.error) throw result.error; return Array.isArray(tagIds) ? replaceTaskTags(id, tagIds) : null; }).then(function () { return syncFocusTask(id,true).catch(function () { showToast("Saved in FocusOS; Google sync needs attention."); }); }).then(function () { return refreshCanonicalData(message || "Task updated."); }).catch(function (error) { state.taskSaving = false; state.syncStatus = "error"; updateSyncPill(); showToast(error.message || "Could not update task."); });
 }
 
 function deleteCanonicalTask(id) {
   state.taskSaving = true; state.syncStatus = "saving"; updateSyncPill();
-  return sb.from("focusos_tasks").delete().eq("id", id).then(function (result) { if (result.error) throw result.error; state.flowTaskId = null; state.editingTaskId = null; return refreshCanonicalData("Task deleted."); }).catch(function (error) { state.taskSaving = false; state.syncStatus = "error"; updateSyncPill(); showToast(error.message || "Could not delete task."); });
+  var removeExternal = state.google.connected ? googleRequest("/delete-focus-task-links","POST",{taskId:id}).catch(function(){ showToast("Google item could not be removed."); }) : Promise.resolve();
+  return removeExternal.then(function(){ return sb.from("focusos_tasks").delete().eq("id", id); }).then(function (result) { if (result.error) throw result.error; state.flowTaskId = null; state.editingTaskId = null; return refreshCanonicalData("Task deleted."); }).catch(function (error) { state.taskSaving = false; state.syncStatus = "error"; updateSyncPill(); showToast(error.message || "Could not delete task."); });
 }
 
 function toggleCanonicalTask(id) {
@@ -1825,8 +1845,12 @@ function attachConsoleHandlers() {
   if (connectCockpitGoogle) connectCockpitGoogle.addEventListener('click', connectGoogleWorkspace);
   var refreshCockpit = document.getElementById('refreshCockpit');
   if (refreshCockpit) refreshCockpit.addEventListener('click', function(){ loadGoogleWorkspaceData(true); });
+  var cockpitTaskSearch = document.getElementById('cockpitTaskSearch');
+  if (cockpitTaskSearch) cockpitTaskSearch.addEventListener('input', function(){ state.cockpitTaskQuery=cockpitTaskSearch.value; state.cockpitTaskLimit=5; render(); setTimeout(function(){ var input=document.getElementById('cockpitTaskSearch'); if(input){input.focus();input.setSelectionRange(input.value.length,input.value.length);}},0); });
+  var loadMoreGoogleTasks = document.getElementById('loadMoreGoogleTasks');
+  if (loadMoreGoogleTasks) loadMoreGoogleTasks.addEventListener('click', function(){ state.cockpitTaskLimit += 10; render(); });
   els = document.querySelectorAll('[data-import-google-task]');
-  for (i = 0; i < els.length; i++) els[i].addEventListener('click', function(e){ var id=e.currentTarget.getAttribute('data-import-google-task'); var item=(state.liveData.googleTasks||[]).find(function(task){return task.externalTaskId===id;}); if(item) importGoogleTask(item); });
+  for (i = 0; i < els.length; i++) els[i].addEventListener('click', function(e){ var id=e.currentTarget.getAttribute('data-import-google-task'); var listId=e.currentTarget.getAttribute('data-google-task-list'); var item=(state.liveData.googleTasks||[]).find(function(task){return task.externalTaskId===id && task.externalTaskListId===listId;}); if(item) importGoogleTask(item); });
   els = document.querySelectorAll('[data-gmail-task]');
   for (i = 0; i < els.length; i++) els[i].addEventListener('click', function(e){ var id=e.currentTarget.getAttribute('data-gmail-task'); var item=(state.liveData.gmail||[]).find(function(message){return message.id===id;}); if(item) gmailToTask(item); });
   els = document.querySelectorAll('[data-gmail-archive]');
@@ -1927,7 +1951,7 @@ function attachConsoleHandlers() {
   var completeEditedTask = document.getElementById("completeEditedTask");
   if (completeEditedTask) completeEditedTask.addEventListener("click", function () { toggleCanonicalTask(state.editingTaskId); });
   var syncEditedTaskGoogle = document.getElementById("syncEditedTaskGoogle");
-  if (syncEditedTaskGoogle) syncEditedTaskGoogle.addEventListener("click", function () { var task=findTaskById(state.editingTaskId); if (task && !parseGoogleTaskKey(task.legacy_key)) sendTaskToGoogle(task); });
+  if (syncEditedTaskGoogle) syncEditedTaskGoogle.addEventListener("click", function () { var task=findTaskById(state.editingTaskId); if (task) sendTaskToGoogle(task); });
   var deleteEditedTask = document.getElementById("deleteEditedTask");
   if (deleteEditedTask) deleteEditedTask.addEventListener("click", function () { if (window.confirm("Delete this task?")) deleteCanonicalTask(state.editingTaskId); });
 
