@@ -450,6 +450,12 @@ function attachSetupHandlers() {
 ============================================================ */
 function renderLockScreen() {
   var mode = state.authMode;
+  var isResetRequest = mode === "reset";
+  var isPasswordUpdate = mode === "update-password";
+  var heading = isResetRequest ? "Reset your password" : (isPasswordUpdate ? "Choose a new password" : "FocusOS");
+  var subheading = isResetRequest
+    ? "Enter your email and we will send you a secure reset link."
+    : (isPasswordUpdate ? "Create a new password for your FocusOS account." : "Autonomous Agent Console - authentication required");
   return '<div class="min-h-screen flex items-center justify-center p-6 relative overflow-hidden">' +
     '<div class="absolute -top-32 -right-32 w-96 h-96 rounded-full pointer-events-none" style="background:rgba(16,185,129,.1);filter:blur(80px);"></div>' +
     '<div class="absolute -bottom-32 -left-24 w-80 h-80 rounded-full pointer-events-none" style="background:rgba(99,102,241,.1);filter:blur(80px);"></div>' +
@@ -459,31 +465,49 @@ function renderLockScreen() {
       '<div class="text-center mb-8">' +
         '<div class="inline-flex items-center gap-2.5 mb-3">' +
           '<div class="w-3 h-3 rounded-full pulse-dot" style="background:var(--emerald);"></div>' +
-          '<span class="text-2xl font-semibold tracking-tight text-white">FocusOS</span>' +
+          '<span class="text-2xl font-semibold tracking-tight text-white">' + heading + '</span>' +
         '</div>' +
-        '<p class="text-sm text-slate-500">Autonomous Agent Console - authentication required</p>' +
+        '<p class="text-sm text-slate-500">' + subheading + '</p>' +
       '</div>' +
       '<div class="glass p-7">' +
-        '<div class="flex items-center gap-1.5 mb-6 bg-slate-950/50 rounded-full p-1">' +
+        (!isResetRequest && !isPasswordUpdate ? '<div class="flex items-center gap-1.5 mb-6 bg-slate-950/50 rounded-full p-1">' +
           '<button type="button" data-mode="signin" class="auth-mode-btn flex-1 text-xs py-2 rounded-full transition-colors font-medium ' + (mode === "signin" ? "bg-emerald-500" : "text-slate-400") + '" style="' + (mode === "signin" ? "color:#022c22;" : "") + '">Sign in</button>' +
           '<button type="button" data-mode="signup" class="auth-mode-btn flex-1 text-xs py-2 rounded-full transition-colors font-medium ' + (mode === "signup" ? "bg-emerald-500" : "text-slate-400") + '" style="' + (mode === "signup" ? "color:#022c22;" : "") + '">Create account</button>' +
-        '</div>' +
+        '</div>' : '') +
         '<form id="authForm" class="space-y-4">' +
-          '<div><label class="text-xs text-slate-500 mb-1.5 block">Email</label>' +
-          '<input type="email" id="authEmail" placeholder="you@company.com" autocomplete="email" required class="w-full rounded-xl px-4 py-2.5 text-sm placeholder-slate-600"></div>' +
-          '<div><label class="text-xs text-slate-500 mb-1.5 block">Password</label>' +
-          '<input type="password" id="authPassword" placeholder="********" autocomplete="' + (mode === "signin" ? "current-password" : "new-password") + '" required class="w-full rounded-xl px-4 py-2.5 text-sm placeholder-slate-600"></div>' +
+          (!isPasswordUpdate ? '<div><label class="text-xs text-slate-500 mb-1.5 block">Email</label>' +
+          '<input type="email" id="authEmail" placeholder="you@company.com" autocomplete="email" required class="w-full rounded-xl px-4 py-2.5 text-sm placeholder-slate-600"></div>' : '') +
+          (!isResetRequest ? '<div><label class="text-xs text-slate-500 mb-1.5 block">' + (isPasswordUpdate ? "New password" : "Password") + '</label>' +
+          '<input type="password" id="authPassword" placeholder="' + (mode === "signin" ? "********" : "At least 8 characters") + '" ' + (isPasswordUpdate ? 'minlength="8" ' : '') + 'autocomplete="' + (mode === "signin" ? "current-password" : "new-password") + '" required class="w-full rounded-xl px-4 py-2.5 text-sm placeholder-slate-600"></div>' : '') +
+          (isPasswordUpdate ? '<div><label class="text-xs text-slate-500 mb-1.5 block">Confirm new password</label>' +
+          '<input type="password" id="authPasswordConfirm" placeholder="Enter it again" minlength="8" autocomplete="new-password" required class="w-full rounded-xl px-4 py-2.5 text-sm placeholder-slate-600"></div>' : '') +
           '<div id="authMessage">' + (state.authNotice ? '<div class="rounded-lg px-3 py-2.5 text-xs mb-2" style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:#34d399;">' + escapeHtml(state.authNotice) + '</div>' : '') + '</div>' +
-          '<button type="submit" id="authSubmitBtn" class="btn-primary w-full rounded-xl px-5 py-3 text-sm flex items-center justify-center gap-2">' + (mode === "signin" ? "Sign in" : "Create account") + '</button>' +
+          '<button type="submit" id="authSubmitBtn" class="btn-primary w-full rounded-xl px-5 py-3 text-sm flex items-center justify-center gap-2">' + (isResetRequest ? "Send reset link" : (isPasswordUpdate ? "Save new password" : (mode === "signin" ? "Sign in" : "Create account"))) + '</button>' +
         '</form>' +
+        (mode === "signin" ? '<button type="button" id="forgotPasswordBtn" class="w-full mt-4 text-xs font-medium" style="color:var(--accent);">Forgot password?</button>' : '') +
+        (isResetRequest ? '<button type="button" id="returnToSignInBtn" class="w-full mt-4 text-xs font-medium text-slate-400">← Return to sign in</button>' : '') +
       '</div>' +
       '<p class="text-center text-[11px] text-slate-600 mt-5">Your data is stored in your own Supabase project, tied to your account.</p>' +
     '</div></div>';
 }
 
 function attachLockHandlers() {
-  document.getElementById("backToLanding").addEventListener("click", function () { state.screen = "landing"; render(); });
+  document.getElementById("backToLanding").addEventListener("click", function () {
+    function returnToLanding() {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      state.authMode = "signin";
+      state.authNotice = "";
+      state.screen = "landing";
+      render();
+    }
+    if (state.authMode === "update-password") sb.auth.signOut().then(returnToLanding).catch(returnToLanding);
+    else returnToLanding();
+  });
   document.getElementById("authThemeToggle").addEventListener("click", toggleTheme);
+  var forgotBtn = document.getElementById("forgotPasswordBtn");
+  if (forgotBtn) forgotBtn.addEventListener("click", function () { state.authMode = "reset"; state.authNotice = ""; render(); });
+  var returnBtn = document.getElementById("returnToSignInBtn");
+  if (returnBtn) returnBtn.addEventListener("click", function () { state.authMode = "signin"; state.authNotice = ""; render(); });
   var modeBtns = document.querySelectorAll(".auth-mode-btn");
   for (var i = 0; i < modeBtns.length; i++) {
     modeBtns[i].addEventListener("click", function (e) {
@@ -495,12 +519,60 @@ function attachLockHandlers() {
   var form = document.getElementById("authForm");
   form.addEventListener("submit", function (e) {
     e.preventDefault();
-    var email = document.getElementById("authEmail").value.trim();
-    var password = document.getElementById("authPassword").value;
+    var emailInput = document.getElementById("authEmail");
+    var passwordInput = document.getElementById("authPassword");
+    var email = emailInput ? emailInput.value.trim() : "";
+    var password = passwordInput ? passwordInput.value : "";
     var msgBox = document.getElementById("authMessage");
     var submitBtn = document.getElementById("authSubmitBtn");
     msgBox.innerHTML = "";
     state.authNotice = "";
+    if (state.authMode === "reset") {
+      if (!email) {
+        msgBox.innerHTML = '<div class="rounded-lg px-3 py-2.5 text-xs mb-2" style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.25);color:#fca5a5;">Enter your email address.</div>';
+        return;
+      }
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Sending...";
+      var redirectUrl = window.location.origin + window.location.pathname;
+      sb.auth.resetPasswordForEmail(email, { redirectTo: redirectUrl }).then(function (result) {
+        if (result.error) throw result.error;
+        state.authNotice = "If an account exists for that email, a secure reset link has been sent. Please check your inbox and junk folder.";
+        render();
+      }).catch(function (err) {
+        msgBox.innerHTML = '<div class="rounded-lg px-3 py-2.5 text-xs mb-2" style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.25);color:#fca5a5;">' + escapeHtml(err.message || "We could not send the reset email. Please try again.") + '</div>';
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Send reset link";
+      });
+      return;
+    }
+    if (state.authMode === "update-password") {
+      var confirmation = document.getElementById("authPasswordConfirm").value;
+      if (password.length < 8) {
+        msgBox.innerHTML = '<div class="rounded-lg px-3 py-2.5 text-xs mb-2" style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.25);color:#fca5a5;">Use at least 8 characters for your new password.</div>';
+        return;
+      }
+      if (password !== confirmation) {
+        msgBox.innerHTML = '<div class="rounded-lg px-3 py-2.5 text-xs mb-2" style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.25);color:#fca5a5;">The passwords do not match.</div>';
+        return;
+      }
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Saving...";
+      sb.auth.updateUser({ password: password }).then(function (result) {
+        if (result.error) throw result.error;
+        window.history.replaceState({}, document.title, window.location.pathname);
+        state.authNotice = "Your password has been updated. You are now signed in.";
+        state.authMode = "signin";
+        state.screen = "loading";
+        render();
+        loadCloudData();
+      }).catch(function (err) {
+        msgBox.innerHTML = '<div class="rounded-lg px-3 py-2.5 text-xs mb-2" style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.25);color:#fca5a5;">' + escapeHtml(err.message || "We could not update your password. Request a new reset link and try again.") + '</div>';
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Save new password";
+      });
+      return;
+    }
     if (!email || !password) {
       msgBox.innerHTML = '<div class="rounded-lg px-3 py-2.5 text-xs mb-2" style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.25);color:#fca5a5;">Enter both an email and a password.</div>';
       return;
@@ -541,23 +613,34 @@ function attachLockHandlers() {
 ============================================================ */
 function initAuth() {
   if (!isSupabaseConfigured() || !sb) { render(); return; }
-  sb.auth.getSession().then(function (result) {
-    state.session = result.data.session;
-    if (state.session) { state.screen = "loading"; render(); loadCloudData(); }
-    else { state.screen = "landing"; render(); }
-  }).catch(function () {
-    state.screen = "landing";
-    render();
-  });
+  var recoveryLink = /(?:^|[&#?])type=recovery(?:&|$)/.test(window.location.hash + "&" + window.location.search);
 
-  sb.auth.onAuthStateChange(function (_event, session) {
+  sb.auth.onAuthStateChange(function (event, session) {
     state.session = session;
+    if (event === "PASSWORD_RECOVERY") {
+      state.authMode = "update-password";
+      state.authNotice = "";
+      state.screen = "lock";
+      render();
+      return;
+    }
     if (!session) {
       state.cloud = null;
       state.screen = "landing";
       render();
     }
   });
+
+  sb.auth.getSession().then(function (result) {
+    state.session = result.data.session;
+    if (recoveryLink && state.session) { state.authMode = "update-password"; state.screen = "lock"; render(); }
+    else if (state.session) { state.screen = "loading"; render(); loadCloudData(); }
+    else { state.screen = "landing"; render(); }
+  }).catch(function () {
+    state.screen = "landing";
+    render();
+  });
+
 }
 
 function signOut() {
