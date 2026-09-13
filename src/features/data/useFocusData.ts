@@ -1,0 +1,229 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../services/supabase/client';
+import { useAuth } from '../auth/AuthProvider';
+import type {
+  FocusGoal,
+  FocusProject,
+  FocusState,
+  FocusTag,
+  FocusTask,
+  TaskDraft,
+  TaskTag,
+} from '../../types/models';
+
+const focusKey = (userId: string) => ['focusos', userId] as const;
+
+async function checked<T>(promise: PromiseLike<{ data: T; error: { message: string } | null }>) {
+  const { data, error } = await promise;
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export function useFocusData() {
+  const { session } = useAuth();
+  const userId = session?.user.id ?? '';
+  return useQuery({
+    queryKey: focusKey(userId),
+    enabled: Boolean(userId),
+    queryFn: async () => {
+      const [stateResult, tasks, projects, goals, tags, taskTags] = await Promise.all([
+        checked(supabase.from('focusos_state').select('*').eq('user_id', userId).maybeSingle()),
+        checked(
+          supabase
+            .from('focusos_tasks')
+            .select('*')
+            .eq('user_id', userId)
+            .order('sort_order')
+            .order('created_at'),
+        ),
+        checked(
+          supabase
+            .from('focusos_projects')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('status', 'active')
+            .order('created_at'),
+        ),
+        checked(
+          supabase
+            .from('focusos_goals')
+            .select('*')
+            .eq('user_id', userId)
+            .neq('status', 'archived')
+            .order('sort_order')
+            .order('created_at'),
+        ),
+        checked(supabase.from('focusos_tags').select('*').eq('user_id', userId).order('name')),
+        checked(supabase.from('focusos_task_tags').select('task_id,tag_id').eq('user_id', userId)),
+      ]);
+
+      let state = stateResult as FocusState | null;
+      if (!state) {
+        state = {
+          user_id: userId,
+          xp: 0,
+          habits: { date: new Date().toISOString().slice(0, 10), values: {} },
+          docs: [],
+          workspace: { anchors: [], timeline: [], completed: [], inboxZeroDates: [] },
+          connections: {},
+        };
+        await checked(supabase.from('focusos_state').insert(state).select('*').single());
+      }
+
+      return {
+        state,
+        tasks: (tasks ?? []) as FocusTask[],
+        projects: (projects ?? []) as FocusProject[],
+        goals: (goals ?? []) as FocusGoal[],
+        tags: (tags ?? []) as FocusTag[],
+        taskTags: (taskTags ?? []) as TaskTag[],
+      };
+    },
+  });
+}
+
+export function useTaskMutations() {
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = session?.user.id ?? '';
+  const refresh = () => queryClient.invalidateQueries({ queryKey: focusKey(userId) });
+
+  const saveTask = useMutation({
+    mutationFn: async ({ id, draft }: { id?: string; draft: TaskDraft }) => {
+      const payload = {
+        user_id: userId,
+        title: draft.title.trim(),
+        priority: draft.priority,
+        project_id: draft.project_id || null,
+        goal_id: draft.goal_id || null,
+        scheduled_date: draft.scheduled_date || null,
+        scheduled_time: draft.scheduled_time || null,
+        is_daily_anchor: draft.is_daily_anchor,
+        recurrence: draft.is_daily_anchor ? 'daily' : 'none',
+        updated_at: new Date().toISOString(),
+      };
+      const saved = id
+        ? await checked(supabase.from('focusos_tasks').update(payload).eq('id', id).eq('user_id', userId).select('id').single())
+        : await checked(
+            supabase
+              .from('focusos_tasks')
+              .insert({ ...payload, status: 'open', source: 'manual' })
+              .select('id')
+              .single(),
+          );
+      if (!saved) throw new Error('Task was not saved.');
+      const taskId = saved.id as string;
+      await checked(supabase.from('focusos_task_tags').delete().eq('task_id', taskId).eq('user_id', userId));
+      if (draft.tag_ids.length) {
+        await checked(
+          supabase.from('focusos_task_tags').insert(
+            draft.tag_ids.map((tagId) => ({ user_id: userId, task_id: taskId, tag_id: tagId })),
+          ),
+        );
+      }
+      return taskId;
+    },
+    onSuccess: refresh,
+  });
+
+  const toggleTask = useMutation({
+    mutationFn: async (task: FocusTask) =>
+      checked(
+        supabase
+          .from('focusos_tasks')
+          .update({
+            status: task.status === 'completed' ? 'open' : 'completed',
+            completed_at: task.status === 'completed' ? null : new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', task.id)
+          .eq('user_id', userId),
+      ),
+    onSuccess: refresh,
+  });
+
+  const deleteTask = useMutation({
+    mutationFn: async (id: string) =>
+      checked(supabase.from('focusos_tasks').delete().eq('id', id).eq('user_id', userId)),
+    onSuccess: refresh,
+  });
+
+  return { saveTask, toggleTask, deleteTask };
+}
+
+export function useOrganisationMutations() {
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = session?.user.id ?? '';
+  const refresh = () => queryClient.invalidateQueries({ queryKey: focusKey(userId) });
+
+  const saveProject = useMutation({
+    mutationFn: async ({ id, name, colour }: { id?: string; name: string; colour: string }) =>
+      id
+        ? checked(
+            supabase
+              .from('focusos_projects')
+              .update({ name: name.trim(), colour, updated_at: new Date().toISOString() })
+              .eq('id', id)
+              .eq('user_id', userId),
+          )
+        : checked(
+            supabase
+              .from('focusos_projects')
+              .insert({ user_id: userId, name: name.trim(), colour, status: 'active' }),
+          ),
+    onSuccess: refresh,
+  });
+
+  const archiveProject = useMutation({
+    mutationFn: async (id: string) =>
+      checked(
+        supabase
+          .from('focusos_projects')
+          .update({ status: 'archived', updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .eq('user_id', userId),
+      ),
+    onSuccess: refresh,
+  });
+
+  const saveGoal = useMutation({
+    mutationFn: async ({
+      id,
+      projectId,
+      title,
+      why,
+    }: {
+      id?: string;
+      projectId: string;
+      title: string;
+      why: string;
+    }) =>
+      id
+        ? checked(
+            supabase
+              .from('focusos_goals')
+              .update({ title: title.trim(), why_this_matters: why.trim() || null, updated_at: new Date().toISOString() })
+              .eq('id', id)
+              .eq('user_id', userId),
+          )
+        : checked(
+            supabase.from('focusos_goals').insert({
+              user_id: userId,
+              project_id: projectId,
+              title: title.trim(),
+              why_this_matters: why.trim() || null,
+              status: 'active',
+            }),
+          ),
+    onSuccess: refresh,
+  });
+
+  const saveTag = useMutation({
+    mutationFn: async ({ name, colour }: { name: string; colour: string }) =>
+      checked(supabase.from('focusos_tags').insert({ user_id: userId, name: name.trim(), colour })),
+    onSuccess: refresh,
+  });
+
+  return { saveProject, archiveProject, saveGoal, saveTag };
+}
