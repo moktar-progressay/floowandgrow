@@ -30,7 +30,7 @@ export function FocusMode({ task, open, onClose, onComplete }: { task: FocusTask
       <Stack alignItems="center" justifyContent="center" textAlign="center" gap={3} p={3}>
         <Typography variant="overline" color="primary.main" letterSpacing={3}>{mode === 'focus' ? 'Focus sprint' : 'Dopamine break'}</Typography>
         <Typography variant="h3" fontWeight={800} maxWidth={720}>{task?.title || 'Take a breath'}</Typography>
-        <FocusOrb size="clamp(160px, 35vw, 260px)" />
+        <FocusOrb size="clamp(160px, 35vw, 260px)" activity={running ? 'active' : 'calm'} />
         <Typography variant="h2" fontWeight={800} sx={{ fontVariantNumeric: 'tabular-nums' }}>{minutes}:{remainder}</Typography>
         <ToggleButtonGroup exclusive value={mode} onChange={(_, next) => next && choose(next)}>
           <ToggleButton value="focus">25 min focus</ToggleButton><ToggleButton value="break">5 min break</ToggleButton>

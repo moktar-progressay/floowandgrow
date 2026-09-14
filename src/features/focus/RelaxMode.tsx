@@ -21,7 +21,7 @@ export function RelaxMode({ open, onClose }: { open: boolean; onClose: () => voi
       <IconButton onClick={onClose} aria-label="Exit breathing mode" sx={{ position: 'fixed', top: 20, right: 20 }}><Close /></IconButton>
       <Stack alignItems="center" justifyContent="center" textAlign="center" gap={7} p={3}>
         <Typography variant="overline" color="success.main" letterSpacing={4}>Breathe</Typography>
-        <Box component="button" onClick={() => setActive((value) => !value)} aria-label={active ? 'Pause guided breathing' : 'Start guided breathing'} sx={{ appearance: 'none', border: 0, background: 'none', cursor: 'pointer' }}><FocusOrb size="clamp(205px, 55vw, 330px)" /></Box>
+        <Box component="button" onClick={() => setActive((value) => !value)} aria-label={active ? 'Pause guided breathing' : 'Start guided breathing'} sx={{ appearance: 'none', border: 0, background: 'none', cursor: 'pointer' }}><FocusOrb size="clamp(205px, 55vw, 330px)" activity={active ? 'breathing' : 'calm'} /></Box>
         <div><Typography variant="h5" color="primary.main" fontWeight={800}>{active ? phases[phase]!.label : 'Tap to begin'}</Typography><Typography color="text.secondary" mt={1}>Nothing else is required.</Typography></div>
       </Stack>
     </Box>
