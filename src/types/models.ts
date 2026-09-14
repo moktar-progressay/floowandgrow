@@ -91,8 +91,11 @@ export interface GoogleMessage {
   from: string;
   replyTo?: string;
   snippet?: string;
+  preview?: string;
   date?: string;
+  time?: string;
   unread?: boolean;
+  link?: string;
 }
 
 export interface GoogleEvent {
@@ -102,6 +105,7 @@ export interface GoogleEvent {
   start: string;
   end?: string;
   link?: string;
+  location?: string;
 }
 
 export interface GoogleTask {
