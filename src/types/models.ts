@@ -53,6 +53,12 @@ export interface TaskTag {
   tag_id: string;
 }
 
+export interface DailyCompletion {
+  task_id: string;
+  completion_date: string;
+  completed_at: string;
+}
+
 export interface FocusState {
   user_id: string;
   xp: number;
@@ -121,6 +127,7 @@ export interface VaultDocument {
 export interface GoogleWorkspaceData {
   connected: boolean;
   email?: string;
+  services?: Record<string, { ok: boolean; error: string | null }>;
   gmail?: { unread?: number; messages?: GoogleMessage[] };
   calendar?: { events?: GoogleEvent[] };
   tasks?: { items?: GoogleTask[] };
