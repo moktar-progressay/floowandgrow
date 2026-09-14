@@ -6,7 +6,7 @@ import { SurfaceCard } from '../../components/common/SurfaceCard';
 import { EmptyState } from '../../components/common/EmptyState';
 import { FilterButton, FilterDrawer } from '../../components/common/FilterDrawer';
 import { TaskRow } from './TaskRow';
-import { localDate, overdueTasks } from './taskDates';
+import { localDate, matchesDueDate, overdueTasks, type DueDateFilter } from './taskDates';
 import type { FocusProject, FocusTask } from '../../types/models';
 import { useSearchParams } from 'react-router-dom';
 
@@ -37,7 +37,8 @@ export function TasksPage({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [projectId, setProjectId] = useState('all');
-  const [source, setSource] = useState<'all' | 'focusos' | 'google_tasks'>('all');
+  const [source, setSource] = useState<'all' | 'focusos' | 'daily_anchors' | 'google_tasks' | 'google_calendar' | 'gmail'>('all');
+  const [dueDate, setDueDate] = useState<DueDateFilter>('all');
   const [priority, setPriority] = useState<'all' | 'red' | 'yellow' | 'green' | 'standard'>('all');
   const today = localDate();
   const overdueIds = useMemo(() => new Set(overdueTasks(tasks, today).map((task) => task.id)), [tasks, today]);
@@ -45,7 +46,11 @@ export function TasksPage({
     if (query && !task.title.toLowerCase().includes(query.toLowerCase())) return false;
     if (projectId !== 'all' && (task.project_id ?? 'inbox') !== projectId) return false;
     if (source === 'google_tasks' && task.source !== 'google_tasks') return false;
-    if (source === 'focusos' && task.source === 'google_tasks') return false;
+    if (source === 'google_calendar' && task.source !== 'google_calendar') return false;
+    if (source === 'gmail' && task.source !== 'gmail' && task.source !== 'google_gmail') return false;
+    if (source === 'daily_anchors' && !task.is_daily_anchor) return false;
+    if (source === 'focusos' && (task.is_daily_anchor || ['google_tasks', 'google_calendar', 'gmail', 'google_gmail'].includes(task.source))) return false;
+    if (!matchesDueDate(task, dueDate, today)) return false;
     if (priority === 'standard' && task.priority !== null) return false;
     if (priority !== 'all' && priority !== 'standard' && task.priority !== priority) return false;
     if (tab === 'completed') return task.status === 'completed';
@@ -55,9 +60,11 @@ export function TasksPage({
     if (tab === 'overdue') return overdueIds.has(task.id);
     if (tab === 'upcoming') return Boolean(task.scheduled_date && task.scheduled_date > today);
     return true;
-  }), [tasks, query, projectId, source, priority, tab, today, overdueIds]);
+  }), [tasks, query, projectId, source, dueDate, priority, tab, today, overdueIds]);
   const projectFor = (id: string | null) => projects.find((project) => project.id === id);
   const googleTaskCount = tasks.filter((task) => task.source === 'google_tasks' && task.status !== 'archived').length;
+  const googleCalendarCount = tasks.filter((task) => task.source === 'google_calendar' && task.status !== 'archived').length;
+  const gmailCount = tasks.filter((task) => (task.source === 'gmail' || task.source === 'google_gmail') && task.status !== 'archived').length;
   const completedCount = tasks.filter((task) => task.status === 'completed').length;
   const hiddenCount = tasks.filter((task) => task.status === 'archived').length;
   const viewLabels = {
@@ -72,12 +79,14 @@ export function TasksPage({
     + Number(Boolean(query))
     + Number(projectId !== 'all')
     + Number(source !== 'all')
+    + Number(dueDate !== 'all')
     + Number(priority !== 'all');
   const clearFilters = () => {
     setTab('today');
     setQuery('');
     setProjectId('all');
     setSource('all');
+    setDueDate('all');
     setPriority('all');
   };
 
@@ -94,11 +103,11 @@ export function TasksPage({
           <Stack direction="row" alignItems="center" gap={1.25}>
             {googleLoading && !googleConnected ? <CircularProgress size={22} /> : <CloudDone color={googleConnected ? 'primary' : 'disabled'} />}
             <Stack>
-              <Typography fontWeight={800}>Google Tasks</Typography>
+              <Typography fontWeight={800}>Google Workspace</Typography>
               <Typography variant="body2" color="text.secondary">
                 {googleConnected
-                  ? `${googleTaskCount} tasks synced${googleEmail ? ` with ${googleEmail}` : ''}.`
-                  : googleLoading ? 'Checking your Google connection…' : 'Connect Google so tasks appear here automatically.'}
+                  ? `${googleTaskCount} tasks, ${gmailCount} emails and ${googleCalendarCount} events synced${googleEmail ? ` with ${googleEmail}` : ''}.`
+                  : googleLoading ? 'Checking your Google connection…' : 'Connect Google so tasks, emails and events appear here automatically.'}
               </Typography>
             </Stack>
           </Stack>
@@ -147,7 +156,18 @@ export function TasksPage({
             <TextField select fullWidth label="Source" value={source} onChange={(event) => setSource(event.target.value as typeof source)}>
               <MenuItem value="all">All sources</MenuItem>
               <MenuItem value="focusos">FocusOS</MenuItem>
+              <MenuItem value="daily_anchors">Daily Anchors</MenuItem>
               <MenuItem value="google_tasks">Google Tasks</MenuItem>
+              <MenuItem value="google_calendar">Google Calendar</MenuItem>
+              <MenuItem value="gmail">Google Gmail</MenuItem>
+            </TextField>
+            <TextField select fullWidth label="Due date" value={dueDate} onChange={(event) => setDueDate(event.target.value as DueDateFilter)}>
+              <MenuItem value="all">Any due date</MenuItem>
+              <MenuItem value="overdue">Overdue</MenuItem>
+              <MenuItem value="today">Today</MenuItem>
+              <MenuItem value="tomorrow">Tomorrow</MenuItem>
+              <MenuItem value="next_7_days">Next 7 days</MenuItem>
+              <MenuItem value="no_date">No due date</MenuItem>
             </TextField>
             <TextField select fullWidth label="Priority" value={priority} onChange={(event) => setPriority(event.target.value as typeof priority)}>
               <MenuItem value="all">All priorities</MenuItem>
