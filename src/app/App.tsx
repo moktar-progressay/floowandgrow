@@ -17,6 +17,7 @@ import { useNotice } from './AppProviders';
 const TodayPage = lazy(() => import('../features/today/TodayPage').then((module) => ({ default: module.TodayPage })));
 const TasksPage = lazy(() => import('../features/tasks/TasksPage').then((module) => ({ default: module.TasksPage })));
 const ProjectsPage = lazy(() => import('../features/projects/ProjectsPage').then((module) => ({ default: module.ProjectsPage })));
+const ProjectDetailPage = lazy(() => import('../features/projects/ProjectDetailPage').then((module) => ({ default: module.ProjectDetailPage })));
 const CalendarPage = lazy(() => import('../features/calendar/CalendarPage').then((module) => ({ default: module.CalendarPage })));
 const VaultPage = lazy(() => import('../features/vault/VaultPage').then((module) => ({ default: module.VaultPage })));
 const InboxPage = lazy(() => import('../features/inbox/InboxPage').then((module) => ({ default: module.InboxPage })));
@@ -97,6 +98,7 @@ function ProtectedApp() {
       <Route path="/today" element={<TodayPage tasks={tasks} projects={projects} dailyCompletions={dailyCompletions} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onRelax={() => setRelaxOpen(true)} />} />
       <Route path="/tasks" element={<TasksPage tasks={tasksForToday} projects={projects} googleConnected={google.connected} googleEmail={google.email} googleLoading={googleLoading} googleError={google.data?.services?.tasks?.error || googleError} onGoogleConnect={connect} onGoogleRefresh={() => void google.refetch()} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} />} />
       <Route path="/projects" element={<ProjectsPage tasks={tasksForToday} projects={projects} goals={goals} />} />
+      <Route path="/projects/:projectId" element={<ProjectDetailPage tasks={tasksForToday} projects={projects} goals={goals} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} />} />
       <Route path="/calendar" element={<CalendarPage tasks={tasks} projects={projects} events={events} googleConnected={google.connected} googleError={google.data?.services?.calendar?.error || googleError} onGoogleConnect={connect} />} />
       <Route path="/vault" element={<VaultPage documents={documents} connected={google.connected} onConnect={connect} />} />
       <Route path="/inbox" element={<InboxPage messages={messages} connected={google.connected} loading={googleLoading} error={google.data?.services?.gmail?.error || googleError} onConnect={connect} onArchive={archiveMessage} onCreateTask={createMessageTask} />} />
