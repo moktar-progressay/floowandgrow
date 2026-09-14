@@ -1,13 +1,17 @@
 import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { googleWorkspaceFunction } from '../../config/env';
+import { env, googleWorkspaceFunction } from '../../config/env';
 import { useAuth } from '../auth/AuthProvider';
 import type { GoogleWorkspaceData, VaultDocument } from '../../types/models';
 
-async function request<T>(token: string, path: string, method = 'GET', body?: unknown): Promise<T> {
+export async function requestGoogleWorkspace<T>(token: string, path: string, method = 'GET', body?: unknown): Promise<T> {
   const response = await fetch(googleWorkspaceFunction + path, {
     method,
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: {
+      apikey: env.supabasePublishableKey,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = (await response.json().catch(() => ({}))) as T & { error?: string };
@@ -35,14 +39,14 @@ export function useGoogleWorkspace() {
   const status = useQuery({
     queryKey: ['google-workspace-status', session?.user.id],
     enabled: Boolean(token),
-    queryFn: () => request<Pick<GoogleWorkspaceData, 'connected' | 'email'>>(token, '/status'),
+    queryFn: () => requestGoogleWorkspace<Pick<GoogleWorkspaceData, 'connected' | 'email'>>(token, '/status'),
     retry: false,
   });
   const query = useQuery({
     queryKey: ['google-workspace', session?.user.id],
     enabled: Boolean(token),
     queryFn: async () => {
-      const data = await request<GoogleWorkspaceData>(token, '/data');
+      const data = await requestGoogleWorkspace<GoogleWorkspaceData>(token, '/data');
       if (data.connected && session?.user.id) {
         await client.invalidateQueries({ queryKey: ['focusos', session.user.id] });
       }
@@ -53,17 +57,17 @@ export function useGoogleWorkspace() {
   const gmail = useQuery({
     queryKey: ['google-workspace-gmail', session?.user.id],
     enabled: Boolean(token) && status.data?.connected === true,
-    queryFn: () => request<Pick<GoogleWorkspaceData, 'connected' | 'email' | 'gmail' | 'services'>>(token, '/gmail-data'),
+    queryFn: () => requestGoogleWorkspace<Pick<GoogleWorkspaceData, 'connected' | 'email' | 'gmail' | 'services'>>(token, '/gmail-data'),
     retry: 2,
   });
   const connect = useMutation({
-    mutationFn: () => request<{ url: string }>(token, '/start', 'POST', {
+    mutationFn: () => requestGoogleWorkspace<{ url: string }>(token, '/start', 'POST', {
       returnTo: new URL(import.meta.env.BASE_URL, window.location.origin).toString(),
     }),
     onSuccess: ({ url }) => window.location.assign(url),
   });
   const disconnect = useMutation({
-    mutationFn: () => request(token, '/disconnect', 'POST'),
+    mutationFn: () => requestGoogleWorkspace(token, '/disconnect', 'POST'),
     onSuccess: async () => {
       await Promise.all([
         client.invalidateQueries({ queryKey: ['google-workspace'] }),
@@ -72,7 +76,7 @@ export function useGoogleWorkspace() {
       ]);
     },
   });
-  const action = useCallback(<T,>(path: string, body: unknown) => request<T>(token, path, 'POST', body), [token]);
+  const action = useCallback(<T,>(path: string, body: unknown) => requestGoogleWorkspace<T>(token, path, 'POST', body), [token]);
   return {
     ...query,
     connected: status.data?.connected ?? query.data?.connected ?? false,
