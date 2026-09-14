@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useState } from 'react';
+import { lazy, Suspense, useCallback, useState, type ComponentType } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthProvider';
 import { LandingPage } from '../features/auth/LandingPage';
@@ -17,17 +17,31 @@ import { useNotice } from './AppProviders';
 import type { AgentProposal } from '../features/assistant/agentClient';
 import { draftReply } from '../features/assistant/agentClient';
 import { supabase } from '../services/supabase/client';
+import { markAppLoaded, recoverStaleChunk } from './AppErrorBoundary';
 
-const TodayPage = lazy(() => import('../features/today/TodayPage').then((module) => ({ default: module.TodayPage })));
-const TasksPage = lazy(() => import('../features/tasks/TasksPage').then((module) => ({ default: module.TasksPage })));
-const ProjectsPage = lazy(() => import('../features/projects/ProjectsPage').then((module) => ({ default: module.ProjectsPage })));
-const ProjectDetailPage = lazy(() => import('../features/projects/ProjectDetailPage').then((module) => ({ default: module.ProjectDetailPage })));
-const CalendarPage = lazy(() => import('../features/calendar/CalendarPage').then((module) => ({ default: module.CalendarPage })));
-const VaultPage = lazy(() => import('../features/vault/VaultPage').then((module) => ({ default: module.VaultPage })));
-const InboxPage = lazy(() => import('../features/inbox/InboxPage').then((module) => ({ default: module.InboxPage })));
-const AssistantPage = lazy(() => import('../features/assistant/AssistantPage').then((module) => ({ default: module.AssistantPage })));
-const SettingsPage = lazy(() => import('../features/settings/SettingsPage').then((module) => ({ default: module.SettingsPage })));
-const MorePage = lazy(() => import('../features/more/MorePage').then((module) => ({ default: module.MorePage })));
+function lazyWithRecovery<T extends ComponentType<any>>(load: () => Promise<{ default: T }>) {
+  return lazy(async () => {
+    try {
+      const loaded = await load();
+      markAppLoaded();
+      return loaded;
+    } catch (error) {
+      if (recoverStaleChunk(error)) return new Promise<{ default: T }>(() => undefined);
+      throw error;
+    }
+  });
+}
+
+const TodayPage = lazyWithRecovery(() => import('../features/today/TodayPage').then((module) => ({ default: module.TodayPage })));
+const TasksPage = lazyWithRecovery(() => import('../features/tasks/TasksPage').then((module) => ({ default: module.TasksPage })));
+const ProjectsPage = lazyWithRecovery(() => import('../features/projects/ProjectsPage').then((module) => ({ default: module.ProjectsPage })));
+const ProjectDetailPage = lazyWithRecovery(() => import('../features/projects/ProjectDetailPage').then((module) => ({ default: module.ProjectDetailPage })));
+const CalendarPage = lazyWithRecovery(() => import('../features/calendar/CalendarPage').then((module) => ({ default: module.CalendarPage })));
+const VaultPage = lazyWithRecovery(() => import('../features/vault/VaultPage').then((module) => ({ default: module.VaultPage })));
+const InboxPage = lazyWithRecovery(() => import('../features/inbox/InboxPage').then((module) => ({ default: module.InboxPage })));
+const AssistantPage = lazyWithRecovery(() => import('../features/assistant/AssistantPage').then((module) => ({ default: module.AssistantPage })));
+const SettingsPage = lazyWithRecovery(() => import('../features/settings/SettingsPage').then((module) => ({ default: module.SettingsPage })));
+const MorePage = lazyWithRecovery(() => import('../features/more/MorePage').then((module) => ({ default: module.MorePage })));
 
 function ProtectedApp() {
   const focus = useFocusData();
