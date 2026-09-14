@@ -1,6 +1,7 @@
 import { Checkbox, Chip, IconButton, ListItem, ListItemButton, ListItemText, Stack, Tooltip } from '@mui/material';
 import { PlayArrow, Visibility, VisibilityOff } from '@mui/icons-material';
 import type { FocusProject, FocusTask } from '../../types/models';
+import { GoogleSourceChip } from '../../components/common/GoogleSourceChip';
 
 export function TaskRow({
   task, project, completed, contextLabel, hidden = false, onToggle, onEdit, onFocus, onHide,
@@ -19,22 +20,16 @@ export function TaskRow({
   return (
     <ListItem
       disablePadding
-      secondaryAction={
-        <Stack direction="row">
-          {onHide && <Tooltip title={hidden ? 'Show task' : 'Hide task'}><IconButton onClick={onHide} aria-label={`${hidden ? 'Show' : 'Hide'} ${task.title}`}>{hidden ? <Visibility /> : <VisibilityOff />}</IconButton></Tooltip>}
-          {!complete && !hidden && <Tooltip title="Start focus"><IconButton onClick={onFocus} aria-label={`Start focus on ${task.title}`}><PlayArrow /></IconButton></Tooltip>}
-        </Stack>
-      }
       sx={{ borderBottom: 1, borderColor: 'divider' }}
     >
       {!hidden && <Checkbox checked={complete} onChange={onToggle} inputProps={{ 'aria-label': `${complete ? 'Reopen' : 'Complete'} ${task.title}` }} />}
-      <ListItemButton onClick={onEdit} sx={{ pr: 7, py: 1.5 }}>
+      <ListItemButton onClick={onEdit} sx={{ minWidth: 0, px: 1, py: 1.5 }}>
         <ListItemText
           primary={task.title}
           secondary={
             <Stack component="span" direction="row" alignItems="center" flexWrap="wrap" gap={1} mt={0.5}>
               <Chip component="span" size="small" label={project?.name ?? 'Inbox'} sx={project?.colour ? { borderColor: project.colour } : undefined} variant="outlined" />
-              {task.source === 'google_tasks' && <Chip component="span" size="small" label="Google Tasks" color="primary" variant="outlined" />}
+              {task.source === 'google_tasks' && <GoogleSourceChip component="span" service="tasks" />}
               {task.scheduled_time && <span>{task.scheduled_time.slice(0, 5)}</span>}
               {contextLabel && <span>{contextLabel}</span>}
             </Stack>
@@ -42,6 +37,10 @@ export function TaskRow({
           primaryTypographyProps={{ sx: complete ? { textDecoration: 'line-through', color: 'text.disabled' } : undefined }}
         />
       </ListItemButton>
+      <Stack direction="row" flexShrink={0} pr={0.5}>
+        {onHide && <Tooltip title={hidden ? 'Show task' : 'Hide task'}><IconButton onClick={onHide} aria-label={`${hidden ? 'Show' : 'Hide'} ${task.title}`}>{hidden ? <Visibility /> : <VisibilityOff />}</IconButton></Tooltip>}
+        {!complete && !hidden && <Tooltip title="Start focus"><IconButton onClick={onFocus} aria-label={`Start focus on ${task.title}`}><PlayArrow /></IconButton></Tooltip>}
+      </Stack>
     </ListItem>
   );
 }
