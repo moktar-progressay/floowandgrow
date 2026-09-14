@@ -31,6 +31,9 @@ export function TaskRow({
             <Stack component="span" direction="row" alignItems="center" flexWrap="wrap" gap={1} mt={0.5}>
               {showProject && <Chip component="span" size="small" label={project?.name ?? 'Inbox'} sx={project?.colour ? { borderColor: project.colour } : undefined} variant="outlined" />}
               {task.source === 'google_tasks' && <GoogleSourceChip component="span" service="tasks" />}
+              {task.source === 'google_calendar' && <GoogleSourceChip component="span" service="calendar" />}
+              {(task.source === 'gmail' || task.source === 'google_gmail') && <GoogleSourceChip component="span" service="gmail" />}
+              {task.is_daily_anchor && <Chip component="span" size="small" label="Daily Anchor" color="secondary" variant="outlined" />}
               {task.scheduled_time && <span>{task.scheduled_time.slice(0, 5)}</span>}
               {contextLabel && <span>{contextLabel}</span>}
             </Stack>
