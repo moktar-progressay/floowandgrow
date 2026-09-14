@@ -259,7 +259,7 @@ async function connectedUser(req) {
   if (!row || !credentials) throw new Error("Connect Google Workspace first.");
   return { user, row, accessToken: credentials.access_token };
 }
-function fromBase64Url(value) {
+function decodeBase64UrlText(value) {
   if (!value) return "";
   const normalised = String(value).replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalised.padEnd(Math.ceil(normalised.length / 4) * 4, "=");
@@ -274,7 +274,7 @@ function collectGmailParts(part, textParts, htmlParts, attachments) {
     attachments.push({ filename, mimeType: part.mimeType || "application/octet-stream", size: Number(part.body.size || 0), attachmentId: part.body.attachmentId });
   }
   if (part.body?.data) {
-    const decoded = fromBase64Url(part.body.data);
+    const decoded = decodeBase64UrlText(part.body.data);
     if (part.mimeType === "text/plain") textParts.push(decoded);
     if (part.mimeType === "text/html") htmlParts.push(decoded);
   }
