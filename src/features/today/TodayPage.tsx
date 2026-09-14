@@ -1,36 +1,64 @@
 import { useMemo, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button, List, Stack, Typography } from '@mui/material';
-import { Add, Anchor, CalendarToday } from '@mui/icons-material';
-import type { FocusProject, FocusTask } from '../../types/models';
+import { Add, Anchor, CalendarToday, History } from '@mui/icons-material';
+import type { DailyCompletion, FocusProject, FocusTask } from '../../types/models';
 import { FocusOrb } from '../../components/brand/FocusOrb';
 import { SurfaceCard } from '../../components/common/SurfaceCard';
 import { EmptyState } from '../../components/common/EmptyState';
 import { TaskRow } from '../tasks/TaskRow';
+import { localDate, overdueTasks } from '../tasks/taskDates';
 import { useAuth } from '../auth/AuthProvider';
 
-function localDate(date = new Date()) {
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
-}
-
 export function TodayPage({
-  tasks, projects, onAdd, onEdit, onToggle, onFocus, onRelax,
+  tasks, projects, dailyCompletions, onAdd, onEdit, onToggle, onHide, onFocus, onRelax,
 }: {
   tasks: FocusTask[];
   projects: FocusProject[];
+  dailyCompletions: DailyCompletion[];
   onAdd: () => void;
   onEdit: (task: FocusTask) => void;
-  onToggle: (task: FocusTask) => void;
+  onToggle: (task: FocusTask, completionDate?: string) => void;
+  onHide: (task: FocusTask) => void;
   onFocus: (task: FocusTask) => void;
   onRelax: () => void;
 }) {
   const { session } = useAuth();
   const [selectedDate, setSelectedDate] = useState(localDate());
+  const [showAllTasks, setShowAllTasks] = useState(false);
   const firstName = String(session?.user.user_metadata.first_name || session?.user.user_metadata.full_name || session?.user.email?.split('@')[0] || '').split(' ')[0];
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening';
-  const visible = useMemo(() => tasks.filter((task) => task.status !== 'archived' && (task.scheduled_date === selectedDate || (task.is_daily_anchor && task.recurrence === 'daily'))), [tasks, selectedDate]);
+  const completedAnchorIds = useMemo(
+    () => new Set(
+      dailyCompletions
+        .filter((completion) => completion.completion_date === selectedDate)
+        .map((completion) => completion.task_id),
+    ),
+    [dailyCompletions, selectedDate],
+  );
+  const visible = useMemo(
+    () => tasks.filter((task) =>
+      task.status === 'open' && (
+        task.scheduled_date === selectedDate ||
+        (task.is_daily_anchor && task.recurrence === 'daily' && (!task.scheduled_date || task.scheduled_date <= selectedDate))
+      )),
+    [tasks, selectedDate],
+  );
   const anchors = visible.filter((task) => task.is_daily_anchor);
+  const activeAnchors = anchors.filter((task) => !completedAnchorIds.has(task.id));
   const agenda = visible.filter((task) => !task.is_daily_anchor);
+  const allCarriedForward = useMemo(
+    () => overdueTasks(tasks, selectedDate).filter((task) => task.source !== 'google_tasks'),
+    [tasks, selectedDate],
+  );
+  const carriedForward = allCarriedForward.slice(0, 5);
+  const nextTask = [...agenda].sort((a, b) => (a.scheduled_time ?? '99:99').localeCompare(b.scheduled_time ?? '99:99'))[0]
+    ?? carriedForward[0]
+    ?? activeAnchors[0];
+  const visibleTaskCount = agenda.length + allCarriedForward.length + activeAnchors.length;
+  const formatShortDate = (date: string | null) => date
+    ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(new Date(`${date}T12:00:00`))
+    : '';
   const projectFor = (id: string | null) => projects.find((project) => project.id === id);
 
   return (
@@ -39,8 +67,8 @@ export function TodayPage({
         <Typography variant="h4" component="h1" fontWeight={800}>{greeting}{firstName ? `, ${firstName}` : ''}</Typography>
         <Typography color="text.secondary">Let’s make today feel lighter.</Typography>
       </Box>
-      <Button onClick={onRelax} aria-label="Open guided breathing" sx={{ alignSelf: 'center', borderRadius: '50%', my: 5 }}>
-        <FocusOrb size="clamp(175px, 42vw, 240px)" />
+      <Button onClick={onRelax} aria-label="Open guided breathing" sx={{ alignSelf: 'center', borderRadius: '50%', my: 3 }}>
+        <FocusOrb size="clamp(145px, 38vw, 195px)" />
       </Button>
       <Typography textAlign="center" color="text.secondary" variant="caption" mt={-5}>Tap the orb to relax</Typography>
       <SurfaceCard>
@@ -49,20 +77,76 @@ export function TodayPage({
           <input aria-label="Selected date" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} style={{ color: 'inherit', background: 'transparent', border: 0, font: 'inherit' }} />
         </Stack>
       </SurfaceCard>
+      {!showAllTasks && (
+        <SurfaceCard sx={{ borderColor: 'primary.main' }}>
+          <Typography variant="overline" color="primary.main" fontWeight={800}>Next task</Typography>
+          {nextTask ? (
+            <List disablePadding>
+              <TaskRow
+                task={nextTask}
+                project={projectFor(nextTask.project_id)}
+                contextLabel={nextTask.scheduled_date && nextTask.scheduled_date < selectedDate ? `Due ${formatShortDate(nextTask.scheduled_date)}` : undefined}
+                onToggle={() => onToggle(nextTask, nextTask.is_daily_anchor ? selectedDate : undefined)}
+                onEdit={() => onEdit(nextTask)}
+                onHide={() => onHide(nextTask)}
+                onFocus={() => onFocus(nextTask)}
+              />
+            </List>
+          ) : <EmptyState icon={<CalendarToday />} title="You are clear" description="There is nothing else asking for your attention." actionLabel="Add task" onAction={onAdd} />}
+        </SurfaceCard>
+      )}
+      {visibleTaskCount > 1 && (
+        <Button onClick={() => setShowAllTasks((value) => !value)}>
+          {showAllTasks ? 'Show only next task' : `Show more tasks (${visibleTaskCount - 1})`}
+        </Button>
+      )}
+      {showAllTasks && <>
       <SurfaceCard>
         <Stack direction="row" alignItems="center" justifyContent="space-between">
           <Stack direction="row" alignItems="center" gap={1}><Anchor color="secondary" /><Typography variant="h6" fontWeight={700}>Daily Anchors</Typography></Stack>
-          <Typography variant="caption" color="text.secondary">{anchors.filter((task) => task.status === 'completed').length} of {anchors.length} done</Typography>
+          <Typography variant="caption" color="text.secondary">{anchors.filter((task) => completedAnchorIds.has(task.id)).length} of {anchors.length} done</Typography>
         </Stack>
-        {anchors.length ? <List disablePadding sx={{ mt: 1 }}>{anchors.map((task) => <TaskRow key={task.id} task={task} project={projectFor(task.project_id)} onToggle={() => onToggle(task)} onEdit={() => onEdit(task)} onFocus={() => onFocus(task)} />)}</List> : <EmptyState icon={<Anchor />} title="No Daily Anchors" description="Add the small routines that steady your day." actionLabel="Add anchor" onAction={onAdd} />}
+        {activeAnchors.length ? <List disablePadding sx={{ mt: 1 }}>{activeAnchors.map((task) => <TaskRow key={task.id} task={task} project={projectFor(task.project_id)} onToggle={() => onToggle(task, selectedDate)} onEdit={() => onEdit(task)} onHide={() => onHide(task)} onFocus={() => onFocus(task)} />)}</List> : <EmptyState icon={<Anchor />} title={anchors.length ? 'Anchors complete' : 'No Daily Anchors'} description={anchors.length ? 'Today’s anchors are safely recorded.' : 'Add the small routines that steady your day.'} actionLabel={anchors.length ? undefined : 'Add anchor'} onAction={anchors.length ? undefined : onAdd} />}
       </SurfaceCard>
+      {carriedForward.length > 0 && (
+        <SurfaceCard sx={{ borderColor: 'warning.main' }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2}>
+            <Stack direction="row" alignItems="center" gap={1}>
+              <History color="warning" />
+              <Typography variant="h6" fontWeight={700}>Carried forward</Typography>
+            </Stack>
+            <Typography variant="caption" color="text.secondary">{allCarriedForward.length} unfinished</Typography>
+          </Stack>
+          <Typography variant="body2" color="text.secondary" mt={0.75}>
+            These remain visible until you complete or reschedule them.
+          </Typography>
+          <List disablePadding sx={{ mt: 1 }}>
+            {carriedForward.map((task) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                project={projectFor(task.project_id)}
+                contextLabel={`Due ${formatShortDate(task.scheduled_date)}`}
+                onToggle={() => onToggle(task)}
+                onEdit={() => onEdit(task)}
+                onHide={() => onHide(task)}
+                onFocus={() => onFocus(task)}
+              />
+            ))}
+          </List>
+          <Button component={RouterLink} to="/tasks?view=overdue" sx={{ mt: 1 }}>
+            Review all overdue tasks
+          </Button>
+        </SurfaceCard>
+      )}
       <SurfaceCard>
         <Stack direction="row" alignItems="center" justifyContent="space-between">
           <Typography variant="h6" fontWeight={700}>Agenda</Typography>
           <Button startIcon={<Add />} onClick={onAdd}>Add task</Button>
         </Stack>
-        {agenda.length ? <List disablePadding sx={{ mt: 1 }}>{agenda.map((task) => <TaskRow key={task.id} task={task} project={projectFor(task.project_id)} onToggle={() => onToggle(task)} onEdit={() => onEdit(task)} onFocus={() => onFocus(task)} />)}</List> : <EmptyState icon={<CalendarToday />} title="Nothing scheduled" description="Your day is clear. Add something only if it matters." actionLabel="Add task" onAction={onAdd} />}
+        {agenda.length ? <List disablePadding sx={{ mt: 1 }}>{agenda.map((task) => <TaskRow key={task.id} task={task} project={projectFor(task.project_id)} onToggle={() => onToggle(task)} onEdit={() => onEdit(task)} onHide={() => onHide(task)} onFocus={() => onFocus(task)} />)}</List> : <EmptyState icon={<CalendarToday />} title="Nothing scheduled" description="Your day is clear. Add something only if it matters." actionLabel="Add task" onAction={onAdd} />}
       </SurfaceCard>
+      </>}
     </Stack>
   );
 }

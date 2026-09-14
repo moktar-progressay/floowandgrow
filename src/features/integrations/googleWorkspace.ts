@@ -31,20 +31,48 @@ export function useGoogleWorkspace() {
   const { session } = useAuth();
   const token = session?.access_token ?? '';
   const client = useQueryClient();
+  const status = useQuery({
+    queryKey: ['google-workspace-status', session?.user.id],
+    enabled: Boolean(token),
+    queryFn: () => request<Pick<GoogleWorkspaceData, 'connected' | 'email'>>(token, '/status'),
+    retry: false,
+  });
   const query = useQuery({
     queryKey: ['google-workspace', session?.user.id],
     enabled: Boolean(token),
-    queryFn: () => request<GoogleWorkspaceData>(token, '/data'),
+    queryFn: async () => {
+      const data = await request<GoogleWorkspaceData>(token, '/data');
+      if (data.connected && session?.user.id) {
+        await client.invalidateQueries({ queryKey: ['focusos', session.user.id] });
+      }
+      return data;
+    },
     retry: false,
   });
   const connect = useMutation({
-    mutationFn: () => request<{ url: string }>(token, '/start', 'POST'),
+    mutationFn: () => request<{ url: string }>(token, '/start', 'POST', {
+      returnTo: new URL(import.meta.env.BASE_URL, window.location.origin).toString(),
+    }),
     onSuccess: ({ url }) => window.location.assign(url),
   });
   const disconnect = useMutation({
     mutationFn: () => request(token, '/disconnect', 'POST'),
-    onSuccess: () => client.invalidateQueries({ queryKey: ['google-workspace'] }),
+    onSuccess: async () => {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ['google-workspace'] }),
+        client.invalidateQueries({ queryKey: ['google-workspace-status'] }),
+      ]);
+    },
   });
   const action = <T,>(path: string, body: unknown) => request<T>(token, path, 'POST', body);
-  return { ...query, connect, disconnect, action };
+  return {
+    ...query,
+    connected: status.data?.connected ?? query.data?.connected ?? false,
+    email: status.data?.email ?? query.data?.email,
+    checkingConnection: status.isPending,
+    connectionError: status.error,
+    connect,
+    disconnect,
+    action,
+  };
 }

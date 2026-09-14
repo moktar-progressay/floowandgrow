@@ -19,7 +19,7 @@ const emptyDraft = (): TaskDraft => ({
 });
 
 export function TaskDialog({
-  open, onClose, task, projects, goals, tags, taskTags,
+  open, onClose, task, projects, goals, tags, taskTags, onSaved, onBeforeDelete,
 }: {
   open: boolean;
   onClose: () => void;
@@ -28,6 +28,8 @@ export function TaskDialog({
   goals: FocusGoal[];
   tags: FocusTag[];
   taskTags: TaskTag[];
+  onSaved?: (taskId: string) => Promise<void>;
+  onBeforeDelete?: (taskId: string) => Promise<void>;
 }) {
   const { saveTask, deleteTask } = useTaskMutations();
   const { notify } = useNotice();
@@ -56,8 +58,14 @@ export function TaskDialog({
     event.preventDefault();
     if (!draft.title.trim()) return;
     try {
-      await saveTask.mutateAsync({ id: task?.id, draft });
-      notify(task ? 'Task updated.' : 'Task added.');
+      const taskId = await saveTask.mutateAsync({ id: task?.id, draft });
+      if (onSaved) {
+        try { await onSaved(taskId); }
+        catch { notify('Task saved in FocusOS, but Google sync needs another try.', 'warning'); onClose(); return; }
+      }
+      notify(task
+        ? onSaved ? 'Task updated and synced.' : 'Task updated.'
+        : onSaved ? 'Task added and synced.' : 'Task added.');
       onClose();
     } catch (error) {
       notify(error instanceof Error ? error.message : 'Task could not be saved.', 'error');
@@ -67,8 +75,13 @@ export function TaskDialog({
   async function remove() {
     if (!task || !window.confirm('Delete this task?')) return;
     try {
+      let googleRemoved = true;
+      if (onBeforeDelete) {
+        try { await onBeforeDelete(task.id); }
+        catch { googleRemoved = false; }
+      }
       await deleteTask.mutateAsync(task.id);
-      notify('Task deleted.');
+      notify(googleRemoved ? 'Task deleted.' : 'Task deleted from FocusOS. The Google copy may remain.', googleRemoved ? 'success' : 'warning');
       onClose();
     } catch (error) {
       notify(error instanceof Error ? error.message : 'Task could not be deleted.', 'error');

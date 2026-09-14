@@ -7,6 +7,7 @@ import type {
   FocusState,
   FocusTag,
   FocusTask,
+  DailyCompletion,
   TaskDraft,
   TaskTag,
 } from '../../types/models';
@@ -26,7 +27,7 @@ export function useFocusData() {
     queryKey: focusKey(userId),
     enabled: Boolean(userId),
     queryFn: async () => {
-      const [stateResult, tasks, projects, goals, tags, taskTags] = await Promise.all([
+      const [stateResult, tasks, projects, goals, tags, taskTags, dailyCompletions] = await Promise.all([
         checked(supabase.from('focusos_state').select('*').eq('user_id', userId).maybeSingle()),
         checked(
           supabase
@@ -55,6 +56,13 @@ export function useFocusData() {
         ),
         checked(supabase.from('focusos_tags').select('*').eq('user_id', userId).order('name')),
         checked(supabase.from('focusos_task_tags').select('task_id,tag_id').eq('user_id', userId)),
+        checked(
+          supabase
+            .from('focusos_daily_completions')
+            .select('task_id,completion_date,completed_at')
+            .eq('user_id', userId)
+            .order('completion_date', { ascending: false }),
+        ),
       ]);
 
       let state = stateResult as FocusState | null;
@@ -77,6 +85,7 @@ export function useFocusData() {
         goals: (goals ?? []) as FocusGoal[],
         tags: (tags ?? []) as FocusTag[],
         taskTags: (taskTags ?? []) as TaskTag[],
+        dailyCompletions: (dailyCompletions ?? []) as DailyCompletion[],
       };
     },
   });
@@ -127,18 +136,40 @@ export function useTaskMutations() {
   });
 
   const toggleTask = useMutation({
-    mutationFn: async (task: FocusTask) =>
-      checked(
-        supabase
-          .from('focusos_tasks')
-          .update({
-            status: task.status === 'completed' ? 'open' : 'completed',
-            completed_at: task.status === 'completed' ? null : new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', task.id)
-          .eq('user_id', userId),
-      ),
+    mutationFn: async ({ task, completionDate, completed }: { task: FocusTask; completionDate?: string; completed?: boolean }) => {
+      if (task.is_daily_anchor) {
+        const date = completionDate ?? new Date().toISOString().slice(0, 10);
+        return completed
+          ? checked(
+              supabase
+                .from('focusos_daily_completions')
+                .delete()
+                .eq('user_id', userId)
+                .eq('task_id', task.id)
+                .eq('completion_date', date),
+            )
+          : checked(
+              supabase
+                .from('focusos_daily_completions')
+                .upsert(
+                  { user_id: userId, task_id: task.id, completion_date: date, completed_at: new Date().toISOString() },
+                  { onConflict: 'user_id,task_id,completion_date', ignoreDuplicates: true },
+                ),
+            );
+      }
+
+      return checked(
+          supabase
+            .from('focusos_tasks')
+            .update({
+              status: task.status === 'completed' ? 'open' : 'completed',
+              completed_at: task.status === 'completed' ? null : new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', task.id)
+            .eq('user_id', userId),
+        );
+    },
     onSuccess: refresh,
   });
 
@@ -148,7 +179,19 @@ export function useTaskMutations() {
     onSuccess: refresh,
   });
 
-  return { saveTask, toggleTask, deleteTask };
+  const setTaskHidden = useMutation({
+    mutationFn: async ({ id, hidden }: { id: string; hidden: boolean }) =>
+      checked(
+        supabase
+          .from('focusos_tasks')
+          .update({ status: hidden ? 'archived' : 'open', updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .eq('user_id', userId),
+      ),
+    onSuccess: refresh,
+  });
+
+  return { saveTask, toggleTask, deleteTask, setTaskHidden };
 }
 
 export function useOrganisationMutations() {
