@@ -4,13 +4,14 @@ import type { FocusProject, FocusTask } from '../../types/models';
 import { GoogleSourceChip } from '../../components/common/GoogleSourceChip';
 
 export function TaskRow({
-  task, project, completed, contextLabel, hidden = false, onToggle, onEdit, onFocus, onHide,
+  task, project, completed, contextLabel, hidden = false, showProject = true, onToggle, onEdit, onFocus, onHide,
 }: {
   task: FocusTask;
   project?: FocusProject;
   completed?: boolean;
   contextLabel?: string;
   hidden?: boolean;
+  showProject?: boolean;
   onToggle: () => void;
   onEdit: () => void;
   onFocus: () => void;
@@ -28,7 +29,7 @@ export function TaskRow({
           primary={task.title}
           secondary={
             <Stack component="span" direction="row" alignItems="center" flexWrap="wrap" gap={1} mt={0.5}>
-              <Chip component="span" size="small" label={project?.name ?? 'Inbox'} sx={project?.colour ? { borderColor: project.colour } : undefined} variant="outlined" />
+              {showProject && <Chip component="span" size="small" label={project?.name ?? 'Inbox'} sx={project?.colour ? { borderColor: project.colour } : undefined} variant="outlined" />}
               {task.source === 'google_tasks' && <GoogleSourceChip component="span" service="tasks" />}
               {task.scheduled_time && <span>{task.scheduled_time.slice(0, 5)}</span>}
               {contextLabel && <span>{contextLabel}</span>}

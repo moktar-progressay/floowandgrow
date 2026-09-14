@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Alert, Button, Chip, CircularProgress, InputAdornment, List, MenuItem, Stack, Tab, Tabs, TextField, Typography } from '@mui/material';
+import { Alert, Button, Chip, CircularProgress, InputAdornment, List, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { Add, CloudDone, Refresh, Search, TaskAlt } from '@mui/icons-material';
 import { PageHeader } from '../../components/common/PageHeader';
 import { SurfaceCard } from '../../components/common/SurfaceCard';
 import { EmptyState } from '../../components/common/EmptyState';
+import { FilterButton, FilterDrawer } from '../../components/common/FilterDrawer';
 import { TaskRow } from './TaskRow';
 import { localDate, overdueTasks } from './taskDates';
 import type { FocusProject, FocusTask } from '../../types/models';
@@ -33,6 +34,7 @@ export function TasksPage({
     ? requestedView
     : 'today';
   const [tab, setTab] = useState<'today' | 'overdue' | 'upcoming' | 'active' | 'completed' | 'hidden'>(initialTab);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [projectId, setProjectId] = useState('all');
   const [source, setSource] = useState<'all' | 'focusos' | 'google_tasks'>('all');
@@ -58,6 +60,26 @@ export function TasksPage({
   const googleTaskCount = tasks.filter((task) => task.source === 'google_tasks' && task.status !== 'archived').length;
   const completedCount = tasks.filter((task) => task.status === 'completed').length;
   const hiddenCount = tasks.filter((task) => task.status === 'archived').length;
+  const viewLabels = {
+    today: 'Today',
+    overdue: 'Overdue',
+    upcoming: 'Upcoming',
+    active: 'Active',
+    completed: `Completed (${completedCount})`,
+    hidden: `Hidden (${hiddenCount})`,
+  } as const;
+  const activeFilterCount = Number(tab !== 'today')
+    + Number(Boolean(query))
+    + Number(projectId !== 'all')
+    + Number(source !== 'all')
+    + Number(priority !== 'all');
+  const clearFilters = () => {
+    setTab('today');
+    setQuery('');
+    setProjectId('all');
+    setSource('all');
+    setPriority('all');
+  };
 
   return (
     <>
@@ -87,40 +109,55 @@ export function TasksPage({
         {googleError && <Alert severity="warning" sx={{ mt: 2 }}>{googleError}</Alert>}
       </SurfaceCard>
       <SurfaceCard>
-        <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" allowScrollButtonsMobile sx={{ mb: 2 }}>
-          <Tab value="today" label="Today" />
-          <Tab value="overdue" label="Overdue" />
-          <Tab value="upcoming" label="Upcoming" />
-          <Tab value="active" label="Active" />
-          <Tab value="completed" label={`Completed (${completedCount})`} />
-          <Tab value="hidden" label={`Hidden (${hiddenCount})`} />
-        </Tabs>
-        <Stack direction={{ xs: 'column', sm: 'row' }} gap={2} mb={2}>
-          <TextField
-            fullWidth
-            placeholder="Search tasks"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search /></InputAdornment> } }}
-          />
-          <TextField select label="Project" value={projectId} onChange={(event) => setProjectId(event.target.value)} sx={{ minWidth: 200 }}>
-            <MenuItem value="all">All projects</MenuItem>
-            <MenuItem value="inbox">Inbox</MenuItem>
-            {projects.map((project) => <MenuItem key={project.id} value={project.id}>{project.name}</MenuItem>)}
-          </TextField>
-          <TextField select label="Source" value={source} onChange={(event) => setSource(event.target.value as typeof source)} sx={{ minWidth: 180 }}>
-            <MenuItem value="all">All sources</MenuItem>
-            <MenuItem value="focusos">FocusOS</MenuItem>
-            <MenuItem value="google_tasks">Google Tasks</MenuItem>
-          </TextField>
-          <TextField select label="Priority" value={priority} onChange={(event) => setPriority(event.target.value as typeof priority)} sx={{ minWidth: 160 }}>
-            <MenuItem value="all">All priorities</MenuItem>
-            <MenuItem value="red">Critical</MenuItem>
-            <MenuItem value="yellow">Important</MenuItem>
-            <MenuItem value="green">Flexible</MenuItem>
-            <MenuItem value="standard">Standard</MenuItem>
-          </TextField>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2} mb={2}>
+          <Stack minWidth={0}>
+            <Typography variant="h6" fontWeight={800} noWrap>{viewLabels[tab]}</Typography>
+            <Typography variant="caption" color="text.secondary">{filtered.length} {filtered.length === 1 ? 'task' : 'tasks'}</Typography>
+          </Stack>
+          <FilterButton activeCount={activeFilterCount} onClick={() => setFiltersOpen(true)} />
         </Stack>
+        <FilterDrawer
+          open={filtersOpen}
+          activeCount={activeFilterCount}
+          onClose={() => setFiltersOpen(false)}
+          onClear={clearFilters}
+          title="Task filters"
+        >
+          <Stack gap={2.5}>
+            <TextField select fullWidth label="View" value={tab} onChange={(event) => setTab(event.target.value as typeof tab)}>
+              <MenuItem value="today">Today</MenuItem>
+              <MenuItem value="overdue">Overdue</MenuItem>
+              <MenuItem value="upcoming">Upcoming</MenuItem>
+              <MenuItem value="active">Active</MenuItem>
+              <MenuItem value="completed">Completed ({completedCount})</MenuItem>
+              <MenuItem value="hidden">Hidden ({hiddenCount})</MenuItem>
+            </TextField>
+            <TextField
+              fullWidth
+              placeholder="Search tasks"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search /></InputAdornment> } }}
+            />
+            <TextField select fullWidth label="Project" value={projectId} onChange={(event) => setProjectId(event.target.value)}>
+              <MenuItem value="all">All projects</MenuItem>
+              <MenuItem value="inbox">Inbox</MenuItem>
+              {projects.map((project) => <MenuItem key={project.id} value={project.id}>{project.name}</MenuItem>)}
+            </TextField>
+            <TextField select fullWidth label="Source" value={source} onChange={(event) => setSource(event.target.value as typeof source)}>
+              <MenuItem value="all">All sources</MenuItem>
+              <MenuItem value="focusos">FocusOS</MenuItem>
+              <MenuItem value="google_tasks">Google Tasks</MenuItem>
+            </TextField>
+            <TextField select fullWidth label="Priority" value={priority} onChange={(event) => setPriority(event.target.value as typeof priority)}>
+              <MenuItem value="all">All priorities</MenuItem>
+              <MenuItem value="red">Critical</MenuItem>
+              <MenuItem value="yellow">Important</MenuItem>
+              <MenuItem value="green">Flexible</MenuItem>
+              <MenuItem value="standard">Standard</MenuItem>
+            </TextField>
+          </Stack>
+        </FilterDrawer>
         {filtered.length ? (
           <List disablePadding>{filtered.map((task) => <TaskRow key={task.id} task={task} project={projectFor(task.project_id)} hidden={tab === 'hidden'} onEdit={() => onEdit(task)} onToggle={() => onToggle(task)} onHide={tab === 'completed' ? undefined : () => onHide(task)} onFocus={() => onFocus(task)} />)}</List>
         ) : (

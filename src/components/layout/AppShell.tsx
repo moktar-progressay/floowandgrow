@@ -48,7 +48,7 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
         {nav.map((item) => (
           <ListItemButton
             key={item.to}
-            selected={location.pathname === item.to}
+            selected={location.pathname === item.to || (item.to === '/projects' && location.pathname.startsWith('/projects/'))}
             onClick={() => { navigate(item.to); setMobileOpen(false); }}
             sx={{ borderRadius: 2.5, mb: 0.5, minHeight: 48 }}
           >
@@ -67,7 +67,9 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
     </Stack>
   );
 
-  const bottomValue = nav.find((item) => item.to === location.pathname)?.to ?? false;
+  const bottomValue = location.pathname.startsWith('/projects')
+    ? '/projects'
+    : nav.find((item) => item.to === location.pathname)?.to ?? false;
   return (
     <Box minHeight="100dvh" display="flex">
       {desktop ? (
