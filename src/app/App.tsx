@@ -32,6 +32,7 @@ function ProtectedApp() {
   const { notify } = useNotice();
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<FocusTask | null>(null);
+  const [newTaskDate, setNewTaskDate] = useState<string | null>(null);
   const [focusTask, setFocusTask] = useState<FocusTask | null>(null);
   const [relaxOpen, setRelaxOpen] = useState(false);
   if (focus.isLoading) return <LoadingScreen label="Loading your workspace…" />;
@@ -45,7 +46,8 @@ function ProtectedApp() {
       ? { ...task, status: anchorCompletedOn(task.id, localToday) ? 'completed' as const : 'open' as const }
       : task,
   );
-  const openAdd = () => { setEditingTask(null); setTaskDialogOpen(true); };
+  const openAdd = () => { setEditingTask(null); setNewTaskDate(null); setTaskDialogOpen(true); };
+  const openAddOnDate = (date: string) => { setEditingTask(null); setNewTaskDate(date); setTaskDialogOpen(true); };
   const openEdit = (task: FocusTask) => { setEditingTask(task); setTaskDialogOpen(true); };
   const toggle = async (task: FocusTask, completionDate = localToday) => {
     const wasCompleted = task.is_daily_anchor ? anchorCompletedOn(task.id, completionDate) : task.status === 'completed';
@@ -77,7 +79,7 @@ function ProtectedApp() {
       notify(error instanceof Error ? error.message : 'Could not change task visibility.', 'error');
     }
   };
-  const messages = google.data?.gmail?.messages ?? [];
+  const messages = google.gmail?.messages ?? [];
   const events = google.data?.calendar?.events ?? [];
   const documents = [...mapDriveFiles(google.data), ...(state.docs ?? [])];
   const createMessageTask = async (message: GoogleMessage) => {
@@ -99,15 +101,15 @@ function ProtectedApp() {
       <Route path="/tasks" element={<TasksPage tasks={tasksForToday} projects={projects} googleConnected={google.connected} googleEmail={google.email} googleLoading={googleLoading} googleError={google.data?.services?.tasks?.error || googleError} onGoogleConnect={connect} onGoogleRefresh={() => void google.refetch()} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} />} />
       <Route path="/projects" element={<ProjectsPage tasks={tasksForToday} projects={projects} goals={goals} />} />
       <Route path="/projects/:projectId" element={<ProjectDetailPage tasks={tasksForToday} projects={projects} goals={goals} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} />} />
-      <Route path="/calendar" element={<CalendarPage tasks={tasks} projects={projects} events={events} googleConnected={google.connected} googleError={google.data?.services?.calendar?.error || googleError} onGoogleConnect={connect} />} />
+      <Route path="/calendar" element={<CalendarPage tasks={tasks} projects={projects} events={events} googleConnected={google.connected} googleError={google.data?.services?.calendar?.error || googleError} onGoogleConnect={connect} onAddTask={openAddOnDate} onEditTask={openEdit} onToggleTask={toggle} onHideTask={hideTask} onFocusTask={setFocusTask} />} />
       <Route path="/vault" element={<VaultPage documents={documents} connected={google.connected} onConnect={connect} />} />
-      <Route path="/inbox" element={<InboxPage messages={messages} connected={google.connected} loading={googleLoading} error={google.data?.services?.gmail?.error || googleError} onConnect={connect} onArchive={archiveMessage} onCreateTask={createMessageTask} />} />
+      <Route path="/inbox" element={<InboxPage messages={messages} connected={google.connected} loading={google.gmailLoading} error={google.gmailError instanceof Error ? google.gmailError.message : google.data?.services?.gmail?.error || googleError} onConnect={connect} onRefresh={() => void google.refetchGmail()} onArchive={archiveMessage} onCreateTask={createMessageTask} />} />
       <Route path="/assistant" element={<AssistantPage tasks={tasksForToday} onFocus={setFocusTask} />} />
       <Route path="/settings" element={<SettingsPage connected={google.connected} email={google.email} error={googleError} onConnect={connect} onRefresh={() => void google.refetch()} onDisconnect={() => google.disconnect.mutate()} />} />
       <Route path="/more" element={<MorePage />} />
       <Route path="*" element={<Navigate to="/today" replace />} />
     </Routes></Suspense>
-    <TaskDialog open={taskDialogOpen} onClose={() => setTaskDialogOpen(false)} task={editingTask} projects={projects} goals={goals} tags={tags} taskTags={taskTags} onSaved={google.connected ? syncTaskToGoogle : undefined} onBeforeDelete={google.connected ? removeTaskFromGoogle : undefined} />
+    <TaskDialog open={taskDialogOpen} onClose={() => setTaskDialogOpen(false)} task={editingTask} initialDate={newTaskDate} projects={projects} goals={goals} tags={tags} taskTags={taskTags} onSaved={google.connected ? syncTaskToGoogle : undefined} onBeforeDelete={google.connected ? removeTaskFromGoogle : undefined} />
     <FocusMode task={focusTask} open={Boolean(focusTask)} onClose={() => setFocusTask(null)} onComplete={(task) => { void toggle(task); setFocusTask(null); }} />
     <RelaxMode open={relaxOpen} onClose={() => setRelaxOpen(false)} />
   </AppShell>;
