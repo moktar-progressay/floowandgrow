@@ -231,7 +231,7 @@ async function googleAllItems(url, accessToken) {
     const pageUrl = new URL(url);
     if (pageToken) pageUrl.searchParams.set("pageToken", pageToken);
     const page = await googleJson(pageUrl.toString(), accessToken);
-    items.push(...(page.items || page.files || page.spaces || []));
+    items.push(...(page.items || page.files || page.spaces || page.messages || []));
     pageToken = page.nextPageToken || "";
   } while (pageToken);
   return items;
@@ -260,7 +260,7 @@ async function connectedUser(req) {
   return { user, row, accessToken: credentials.access_token };
 }
 async function handleGmailAction(req) {
-  const { accessToken } = await connectedUser(req);
+  const { user, accessToken } = await connectedUser(req);
   const body = await req.json();
   const messageId = String(body.messageId || "");
   if (!messageId) throw new Error("Message is required.");
@@ -270,6 +270,16 @@ async function handleGmailAction(req) {
     : null;
   if (!changes) throw new Error("Unsupported Gmail action.");
   await googleApi("https://gmail.googleapis.com/gmail/v1/users/me/messages/" + encodeURIComponent(messageId) + "/modify", accessToken, "POST", changes);
+  const linkQuery = new URLSearchParams({ select: "task_id", user_id: "eq." + user.id, provider: "eq.gmail", external_id: "eq." + messageId, limit: "1" });
+  const linked = await db("focusos_external_links?" + linkQuery.toString());
+  if (Array.isArray(linked) && linked[0]?.task_id) {
+    const completed = body.action !== "unread";
+    await db("focusos_tasks?id=eq." + encodeURIComponent(linked[0].task_id) + "&user_id=eq." + encodeURIComponent(user.id), {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ status: completed ? "completed" : "open", completed_at: completed ? new Date().toISOString() : null, updated_at: new Date().toISOString() }),
+    });
+  }
   return json(req, { ok: true });
 }
 async function handleGmailReply(req) {
@@ -370,25 +380,41 @@ async function handleSyncFocusTask(req) {
   const taskId = String(body.taskId || "");
   if (!taskId) throw new Error("Task is required.");
   const { task, links } = await taskAndLinks(user.id, taskId);
-  const taskLink = links.find((link) => link.provider === "google_tasks");
-  const target = await projectAndGoogleList(user.id, task.project_id, accessToken);
-  const targetListId = target.listId || "@default";
-  const googleTaskBody = { title: task.title, due: task.scheduled_date ? task.scheduled_date + "T00:00:00.000Z" : null, status: task.status === "completed" ? "completed" : "needsAction", completed: task.status === "completed" ? (task.completed_at || new Date().toISOString()) : null };
-  let googleTask;
-  if (taskLink && (taskLink.external_container_id || "@default") !== targetListId) {
-    googleTask = await googleApi("https://tasks.googleapis.com/tasks/v1/lists/" + encodeURIComponent(targetListId) + "/tasks", accessToken, "POST", googleTaskBody);
-    await googleApi("https://tasks.googleapis.com/tasks/v1/lists/" + encodeURIComponent(taskLink.external_container_id || "@default") + "/tasks/" + encodeURIComponent(taskLink.external_id), accessToken, "DELETE");
-  } else if (taskLink) {
-    googleTask = await googleApi("https://tasks.googleapis.com/tasks/v1/lists/" + encodeURIComponent(targetListId) + "/tasks/" + encodeURIComponent(taskLink.external_id), accessToken, "PATCH", googleTaskBody);
-  } else {
-    googleTask = await googleApi("https://tasks.googleapis.com/tasks/v1/lists/" + encodeURIComponent(targetListId) + "/tasks", accessToken, "POST", googleTaskBody);
+  const gmailLink = links.find((link) => link.provider === "gmail");
+  if ((task.source === "gmail" || task.source === "google_gmail") && gmailLink) {
+    const changes = task.status === "archived"
+      ? { removeLabelIds: ["INBOX"] }
+      : task.status === "completed"
+        ? { removeLabelIds: ["UNREAD"] }
+        : { addLabelIds: ["UNREAD"] };
+    await googleApi("https://gmail.googleapis.com/gmail/v1/users/me/messages/" + encodeURIComponent(gmailLink.external_id) + "/modify", accessToken, "POST", changes);
+    await saveExternalLink(user.id, task.id, "gmail", gmailLink.external_id, gmailLink.external_container_id || null, gmailLink.external_updated_at || null);
+    return json(req, { ok: true });
   }
-  await saveExternalLink(user.id, task.id, "google_tasks", googleTask.id, targetListId, googleTask.updated || null);
+
+  const taskLink = links.find((link) => link.provider === "google_tasks");
+  if (task.source !== "google_calendar") {
+    const target = await projectAndGoogleList(user.id, task.project_id, accessToken);
+    const targetListId = target.listId || "@default";
+    const googleTaskBody = { title: task.title, due: task.scheduled_date ? task.scheduled_date + "T00:00:00.000Z" : null, status: task.status === "completed" ? "completed" : "needsAction", completed: task.status === "completed" ? (task.completed_at || new Date().toISOString()) : null };
+    let googleTask;
+    if (taskLink && (taskLink.external_container_id || "@default") !== targetListId) {
+      googleTask = await googleApi("https://tasks.googleapis.com/tasks/v1/lists/" + encodeURIComponent(targetListId) + "/tasks", accessToken, "POST", googleTaskBody);
+      await googleApi("https://tasks.googleapis.com/tasks/v1/lists/" + encodeURIComponent(taskLink.external_container_id || "@default") + "/tasks/" + encodeURIComponent(taskLink.external_id), accessToken, "DELETE");
+    } else if (taskLink) {
+      googleTask = await googleApi("https://tasks.googleapis.com/tasks/v1/lists/" + encodeURIComponent(targetListId) + "/tasks/" + encodeURIComponent(taskLink.external_id), accessToken, "PATCH", googleTaskBody);
+    } else {
+      googleTask = await googleApi("https://tasks.googleapis.com/tasks/v1/lists/" + encodeURIComponent(targetListId) + "/tasks", accessToken, "POST", googleTaskBody);
+    }
+    await saveExternalLink(user.id, task.id, "google_tasks", googleTask.id, targetListId, googleTask.updated || null);
+  }
 
   const calendarLink = links.find((link) => link.provider === "google_calendar");
-  if (task.scheduled_date && task.scheduled_time && task.status !== "archived") {
-    const range = calendarRange(task.scheduled_date, task.scheduled_time);
-    const eventBody = { summary: task.title, description: "Synced from FocusOS", start: range.start, end: range.end };
+  const shouldSyncCalendar = task.scheduled_date && task.status !== "archived" && (task.scheduled_time || task.source === "google_calendar");
+  if (shouldSyncCalendar) {
+    const eventBody = task.scheduled_time
+      ? (() => { const range = calendarRange(task.scheduled_date, task.scheduled_time); return { summary: task.title, description: "Synced from FocusOS", start: range.start, end: range.end }; })()
+      : { summary: task.title, description: "Synced from FocusOS", start: { date: task.scheduled_date }, end: { date: nextIsoDate(task.scheduled_date) } };
     const event = calendarLink
       ? await googleApi("https://www.googleapis.com/calendar/v3/calendars/primary/events/" + encodeURIComponent(calendarLink.external_id), accessToken, "PATCH", eventBody)
       : await googleApi("https://www.googleapis.com/calendar/v3/calendars/primary/events", accessToken, "POST", eventBody);
@@ -440,14 +466,15 @@ async function ensureGoogleProjectMappings(userId, taskLists) {
   }
   return mapping;
 }
-async function synchroniseGoogleToFocus(userId, taskLists, googleTasks, calendarEvents) {
+async function synchroniseGoogleToFocus(userId, taskLists, googleTasks, calendarEvents, gmailMessages = []) {
   const projectMappings = await ensureGoogleProjectMappings(userId, taskLists);
   const linkQuery = new URLSearchParams({ select: "*", user_id: "eq." + userId });
   const links = await db("focusos_external_links?" + linkQuery.toString());
   const allLinks = Array.isArray(links) ? links : [];
   const taskLinks = allLinks.filter((link) => link.provider === "google_tasks");
   const calendarLinks = allLinks.filter((link) => link.provider === "google_calendar");
-  const focusQuery = new URLSearchParams({ select: "id,title,status,project_id,scheduled_date,scheduled_time,updated_at", user_id: "eq." + userId });
+  const gmailLinks = allLinks.filter((link) => link.provider === "gmail");
+  const focusQuery = new URLSearchParams({ select: "id,legacy_key,title,status,completed_at,project_id,scheduled_date,scheduled_time,source,updated_at", user_id: "eq." + userId });
   const focusTasks = await db("focusos_tasks?" + focusQuery.toString());
   for (const [listId, projectId] of projectMappings.entries()) {
     const ids = taskLinks.filter((link) => link.external_container_id === listId).map((link) => link.task_id).filter((taskId) => {
@@ -473,7 +500,10 @@ async function synchroniseGoogleToFocus(userId, taskLists, googleTasks, calendar
     if (!link) {
       if (item.status === "completed") continue;
       const inserted = await db("focusos_tasks", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ user_id: userId, legacy_key: "google_tasks:" + item.externalTaskListId + ":" + item.id, title: item.title || "Untitled task", status: "open", project_id: projectId, scheduled_date: item.due ? String(item.due).slice(0, 10) : null, recurrence: "none", is_daily_anchor: false, source: "google_tasks" }) });
-      if (Array.isArray(inserted) && inserted[0]) await saveExternalLink(userId, inserted[0].id, "google_tasks", item.id, item.externalTaskListId, item.updated || null);
+      if (Array.isArray(inserted) && inserted[0]) {
+        focusTasks.push(inserted[0]);
+        await saveExternalLink(userId, inserted[0].id, "google_tasks", item.id, item.externalTaskListId, item.updated || null);
+      }
       continue;
     }
     const focusTask = focusTasks.find((candidate) => candidate.id === link.task_id);
@@ -486,19 +516,71 @@ async function synchroniseGoogleToFocus(userId, taskLists, googleTasks, calendar
     await saveExternalLink(userId, focusTask.id, "google_tasks", item.id, item.externalTaskListId, item.updated);
   }
   for (const event of calendarEvents) {
-    const link = calendarLinks.find((candidate) => candidate.external_id === event.id);
+    let link = calendarLinks.find((candidate) => candidate.external_id === event.id);
     if (link && event.status === "cancelled") {
-      await db("focusos_tasks?id=eq." + encodeURIComponent(link.task_id) + "&user_id=eq." + encodeURIComponent(userId), { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ scheduled_date: null, scheduled_time: null, updated_at: new Date().toISOString() }) });
-      await db("focusos_external_links?task_id=eq." + encodeURIComponent(link.task_id) + "&provider=eq.google_calendar", { method: "DELETE" });
+      await db("focusos_tasks?id=eq." + encodeURIComponent(link.task_id) + "&user_id=eq." + encodeURIComponent(userId), { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: "archived", updated_at: new Date().toISOString() }) });
       continue;
     }
-    if (!link || !event.updated || (link.last_synced_at && new Date(event.updated) <= new Date(link.last_synced_at))) continue;
+    if (event.status === "cancelled") continue;
+    const start = event.start?.dateTime || event.start?.date || "";
+    if (!link) {
+      const legacyKey = "google_calendar:" + event.id;
+      let focusTask = focusTasks.find((candidate) => candidate.legacy_key === legacyKey);
+      if (!focusTask) {
+        const inserted = await db("focusos_tasks", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ user_id: userId, legacy_key: legacyKey, title: event.summary || "Untitled event", status: "open", project_id: null, scheduled_date: start ? String(start).slice(0, 10) : null, scheduled_time: event.start?.dateTime ? String(event.start.dateTime).slice(11, 19) : null, recurrence: "none", is_daily_anchor: false, source: "google_calendar" }) });
+        focusTask = Array.isArray(inserted) ? inserted[0] : null;
+        if (focusTask) focusTasks.push(focusTask);
+      }
+      if (focusTask) {
+        await saveExternalLink(userId, focusTask.id, "google_calendar", event.id, "primary", event.updated || null);
+        link = { task_id: focusTask.id, external_id: event.id, last_synced_at: new Date().toISOString() };
+        calendarLinks.push(link);
+      }
+      continue;
+    }
+    if (!event.updated || (link.last_synced_at && new Date(event.updated) <= new Date(link.last_synced_at))) continue;
     const focusTask = focusTasks.find((candidate) => candidate.id === link.task_id);
     if (!focusTask) continue;
-    const start = event.start?.dateTime || event.start?.date || "";
-    await db("focusos_tasks?id=eq." + encodeURIComponent(focusTask.id) + "&user_id=eq." + encodeURIComponent(userId), { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ title: event.summary || focusTask.title, scheduled_date: start ? String(start).slice(0, 10) : null, scheduled_time: event.start?.dateTime ? String(event.start.dateTime).slice(11, 19) : null, updated_at: new Date().toISOString() }) });
+    await db("focusos_tasks?id=eq." + encodeURIComponent(focusTask.id) + "&user_id=eq." + encodeURIComponent(userId), { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ title: event.summary || focusTask.title, scheduled_date: start ? String(start).slice(0, 10) : null, scheduled_time: event.start?.dateTime ? String(event.start.dateTime).slice(11, 19) : null, source: "google_calendar", updated_at: new Date().toISOString() }) });
     await saveExternalLink(userId, focusTask.id, "google_calendar", event.id, "primary", event.updated);
   }
+
+  for (const message of gmailMessages) {
+    const messageId = String(message.id || "");
+    if (!messageId) continue;
+    let link = gmailLinks.find((candidate) => candidate.external_id === messageId);
+    const legacyKey = "gmail:" + messageId;
+    const dateHeader = headerValue(message, "Date");
+    const receivedAt = validIsoDate(dateHeader) || (message.internalDate ? new Date(Number(message.internalDate)).toISOString() : new Date().toISOString());
+    const unread = (message.labelIds || []).includes("UNREAD");
+    const title = "Read email: " + (headerValue(message, "Subject") || "No subject");
+    let focusTask = link ? focusTasks.find((candidate) => candidate.id === link.task_id) : focusTasks.find((candidate) => candidate.legacy_key === legacyKey);
+    if (!focusTask) {
+      const inserted = await db("focusos_tasks", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ user_id: userId, legacy_key: legacyKey, title, status: unread ? "open" : "completed", project_id: null, scheduled_date: receivedAt.slice(0, 10), scheduled_time: receivedAt.slice(11, 19), recurrence: "none", is_daily_anchor: false, source: "gmail", completed_at: unread ? null : receivedAt }) });
+      focusTask = Array.isArray(inserted) ? inserted[0] : null;
+      if (focusTask) focusTasks.push(focusTask);
+    }
+    if (!focusTask) continue;
+    if (!link) {
+      await saveExternalLink(userId, focusTask.id, "gmail", messageId, message.threadId || null, receivedAt);
+      link = { task_id: focusTask.id, external_id: messageId, last_synced_at: new Date().toISOString() };
+      gmailLinks.push(link);
+    }
+    if (focusTask.status !== "archived") {
+      await db("focusos_tasks?id=eq." + encodeURIComponent(focusTask.id) + "&user_id=eq." + encodeURIComponent(userId), { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ title, status: unread ? "open" : "completed", scheduled_date: receivedAt.slice(0, 10), scheduled_time: receivedAt.slice(11, 19), source: "gmail", completed_at: unread ? null : (focusTask.completed_at || receivedAt), updated_at: new Date().toISOString() }) });
+    }
+    await saveExternalLink(userId, focusTask.id, "gmail", messageId, message.threadId || null, receivedAt);
+  }
+}
+function validIsoDate(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+function nextIsoDate(value) {
+  const date = new Date(String(value) + "T12:00:00Z");
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
 }
 function headerValue(message, name) {
   const headers = message?.payload?.headers || [];
@@ -508,10 +590,10 @@ function headerValue(message, name) {
 async function loadGmail(accessToken) {
   const [inboxLabel, messageList] = await Promise.all([
     googleJson("https://gmail.googleapis.com/gmail/v1/users/me/labels/INBOX", accessToken),
-    googleJson("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=30&q=" + encodeURIComponent("in:inbox newer_than:30d"), accessToken),
+    googleAllItems("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=100&q=" + encodeURIComponent("in:inbox newer_than:30d"), accessToken),
   ]);
   const details = [];
-  const messages = messageList.messages || [];
+  const messages = Array.isArray(messageList) ? messageList : [];
   for (let index = 0; index < messages.length; index += 8) {
     const batch = await Promise.allSettled(messages.slice(index, index + 8).map((message) => googleJson("https://gmail.googleapis.com/gmail/v1/users/me/messages/" + encodeURIComponent(message.id) + "?format=metadata&metadataHeaders=From&metadataHeaders=Reply-To&metadataHeaders=Subject&metadataHeaders=Date", accessToken)));
     details.push(...batch.filter((item) => item.status === "fulfilled").map((item) => item.value));
@@ -529,8 +611,9 @@ function gmailPayload(gmail) {
   };
 }
 async function handleGmailData(req) {
-  const { row, accessToken } = await connectedUser(req);
+  const { user, row, accessToken } = await connectedUser(req);
   const gmail = await loadGmail(accessToken);
+  await synchroniseGoogleToFocus(user.id, [], [], [], gmail.messages);
   return json(req, { connected: true, email: row.provider_email, services: { gmail: { ok: true, error: null } }, gmail: gmailPayload(gmail) });
 }
 async function handleData(req) {
@@ -573,8 +656,8 @@ async function handleData(req) {
     if (result.status === "fulfilled") { values[name] = result.value; services[name] = { ok: true, error: null }; }
     else { values[name] = null; services[name] = { ok: false, error: result.reason instanceof Error ? result.reason.message : "Google service unavailable" }; }
   });
-  if (values.tasks) {
-    try { await synchroniseGoogleToFocus(user.id, values.tasks.lists, values.tasks.items, values.calendar || []); }
+  if (values.tasks || values.calendar || values.gmail) {
+    try { await synchroniseGoogleToFocus(user.id, values.tasks?.lists || [], values.tasks?.items || [], values.calendar || [], values.gmail?.messages || []); }
     catch (error) { services.tasks = { ok: false, error: error instanceof Error ? error.message : "Task synchronisation failed" }; }
   }
   const gmail = values.gmail || { unread: 0, messages: [] };
