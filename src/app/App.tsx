@@ -97,7 +97,7 @@ function ProtectedApp() {
       <Route path="/today" element={<TodayPage tasks={tasks} projects={projects} dailyCompletions={dailyCompletions} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onRelax={() => setRelaxOpen(true)} />} />
       <Route path="/tasks" element={<TasksPage tasks={tasksForToday} projects={projects} googleConnected={google.connected} googleEmail={google.email} googleLoading={googleLoading} googleError={google.data?.services?.tasks?.error || googleError} onGoogleConnect={connect} onGoogleRefresh={() => void google.refetch()} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} />} />
       <Route path="/projects" element={<ProjectsPage tasks={tasksForToday} projects={projects} goals={goals} />} />
-      <Route path="/calendar" element={<CalendarPage tasks={tasks} projects={projects} events={events} />} />
+      <Route path="/calendar" element={<CalendarPage tasks={tasks} projects={projects} events={events} googleConnected={google.connected} googleError={google.data?.services?.calendar?.error || googleError} onGoogleConnect={connect} />} />
       <Route path="/vault" element={<VaultPage documents={documents} connected={google.connected} onConnect={connect} />} />
       <Route path="/inbox" element={<InboxPage messages={messages} connected={google.connected} loading={googleLoading} error={google.data?.services?.gmail?.error || googleError} onConnect={connect} onArchive={archiveMessage} onCreateTask={createMessageTask} />} />
       <Route path="/assistant" element={<AssistantPage tasks={tasksForToday} onFocus={setFocusTask} />} />
