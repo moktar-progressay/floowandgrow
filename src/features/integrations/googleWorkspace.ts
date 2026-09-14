@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { googleWorkspaceFunction } from '../../config/env';
 import { useAuth } from '../auth/AuthProvider';
@@ -71,7 +72,7 @@ export function useGoogleWorkspace() {
       ]);
     },
   });
-  const action = <T,>(path: string, body: unknown) => request<T>(token, path, 'POST', body);
+  const action = useCallback(<T,>(path: string, body: unknown) => request<T>(token, path, 'POST', body), [token]);
   return {
     ...query,
     connected: status.data?.connected ?? query.data?.connected ?? false,
