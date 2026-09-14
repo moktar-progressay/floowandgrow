@@ -25,7 +25,7 @@ type Mode = 'signin' | 'signup' | 'reset' | 'update-password';
 export function AuthPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { session, isRecovery, clearRecovery } = useAuth();
+  const { session, isRecovery, recoveryError, clearRecovery } = useAuth();
   const { mode: colourMode, toggleMode } = useColourMode();
   const [mode, setMode] = useState<Mode>(() => (params.get('mode') === 'signup' ? 'signup' : 'signin'));
   const [email, setEmail] = useState('');
@@ -38,6 +38,12 @@ export function AuthPage() {
     if (isRecovery) setMode('update-password');
   }, [isRecovery]);
   useEffect(() => {
+    if (!recoveryError) return;
+    setMode('reset');
+    setMessage({ type: 'error', text: recoveryError });
+    window.history.replaceState({}, document.title, import.meta.env.BASE_URL + '?mode=reset');
+  }, [recoveryError]);
+  useEffect(() => {
     if (session && !isRecovery && mode !== 'update-password') navigate('/today', { replace: true });
   }, [session, isRecovery, mode, navigate]);
 
@@ -47,9 +53,11 @@ export function AuthPage() {
     setMessage(null);
     try {
       if (mode === 'reset') {
-        // Keep recovery on the already allow-listed app root. App routing sends
-        // PASSWORD_RECOVERY sessions to the password update form.
-        const redirectTo = window.location.origin + import.meta.env.BASE_URL;
+        // Keep recovery on the deployed app root. App routing sends the
+        // PASSWORD_RECOVERY session to the password update form.
+        const recoveryUrl = new URL(import.meta.env.BASE_URL, window.location.origin);
+        recoveryUrl.searchParams.set('mode', 'update-password');
+        const redirectTo = recoveryUrl.toString();
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
         if (error) throw error;
         setMessage({ type: 'success', text: 'If an account exists for that email, a reset link has been sent. Check your inbox and junk folder.' });
@@ -72,7 +80,13 @@ export function AuthPage() {
         }
       }
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Authentication failed.' });
+      const detail = error instanceof Error ? error.message : 'Authentication failed.';
+      setMessage({
+        type: 'error',
+        text: /email rate limit exceeded/i.test(detail)
+          ? 'Too many reset emails have been requested. Please wait before trying again, then press Send reset link only once.'
+          : detail,
+      });
     } finally {
       setBusy(false);
     }

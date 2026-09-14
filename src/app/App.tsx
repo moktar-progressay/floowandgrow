@@ -116,12 +116,12 @@ function ProtectedApp() {
 }
 
 export function App() {
-  const { session, loading, isRecovery } = useAuth();
+  const { session, loading, isRecovery, recoveryError } = useAuth();
   if (loading) return <LoadingScreen label="Checking your session…" />;
   return <Routes>
     <Route
       path="/"
-      element={isRecovery ? <Navigate to="/auth" replace /> : session ? <Navigate to="/today" replace /> : <LandingPage />}
+      element={isRecovery || recoveryError ? <Navigate to="/auth" replace /> : session ? <Navigate to="/today" replace /> : <LandingPage />}
     />
     <Route path="/auth" element={<AuthPage />} />
     <Route path="/*" element={session && !isRecovery ? <ProtectedApp /> : <Navigate to={isRecovery ? '/auth' : '/'} replace />} />

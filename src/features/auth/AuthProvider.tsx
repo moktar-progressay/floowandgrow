@@ -6,6 +6,7 @@ interface AuthContextValue {
   session: Session | null;
   loading: boolean;
   isRecovery: boolean;
+  recoveryError: string | null;
   clearRecovery: () => void;
 }
 
@@ -15,6 +16,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRecovery, setRecovery] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -22,6 +24,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.location.hash + '&' + window.location.search,
     );
     if (recoveryInUrl) setRecovery(true);
+    const callbackParams = new URLSearchParams(window.location.hash.replace(/^#/, '') || window.location.search);
+    const callbackError = callbackParams.get('error_code');
+    if (callbackError === 'otp_expired' || callbackParams.get('error') === 'access_denied') {
+      setRecoveryError('This reset link has expired or has already been used. Request a new link below.');
+    }
 
     void supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
@@ -49,9 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       loading,
       isRecovery,
-      clearRecovery: () => setRecovery(false),
+      recoveryError,
+      clearRecovery: () => { setRecovery(false); setRecoveryError(null); },
     }),
-    [session, loading, isRecovery],
+    [session, loading, isRecovery, recoveryError],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
