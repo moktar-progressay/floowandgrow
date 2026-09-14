@@ -194,6 +194,34 @@ export function useTaskMutations() {
   return { saveTask, toggleTask, deleteTask, setTaskHidden };
 }
 
+export function useRewardMutation() {
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = session?.user.id ?? '';
+  return useMutation({
+    mutationFn: async ({ rewardKey, points }: { rewardKey: string; points: number }) => {
+      const current = await checked(
+        supabase
+          .from('focusos_state')
+          .select('xp,workspace')
+          .eq('user_id', userId)
+          .single(),
+      ) as Pick<FocusState, 'xp' | 'workspace'>;
+      const rewards = current.workspace?.taskTownRewards ?? [];
+      if (rewards.includes(rewardKey)) return false;
+      const workspace = { ...(current.workspace ?? {}), taskTownRewards: [...rewards, rewardKey] };
+      await checked(
+        supabase
+          .from('focusos_state')
+          .update({ xp: Number(current.xp || 0) + points, workspace })
+          .eq('user_id', userId),
+      );
+      return true;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: focusKey(userId) }),
+  });
+}
+
 export function useOrganisationMutations() {
   const { session } = useAuth();
   const queryClient = useQueryClient();

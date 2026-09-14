@@ -5,7 +5,7 @@ import { LandingPage } from '../features/auth/LandingPage';
 import { AuthPage } from '../features/auth/AuthPage';
 import { LoadingScreen } from '../components/common/LoadingScreen';
 import { AppShell } from '../components/layout/AppShell';
-import { useFocusData, useTaskMutations } from '../features/data/useFocusData';
+import { useFocusData, useRewardMutation, useTaskMutations } from '../features/data/useFocusData';
 import { useGoogleWorkspace, mapDriveFiles } from '../features/integrations/googleWorkspace';
 import { TaskDialog } from '../features/tasks/TaskDialog';
 import { FocusMode } from '../features/focus/FocusMode';
@@ -47,6 +47,7 @@ export function ProtectedApp() {
   const focus = useFocusData();
   const google = useGoogleWorkspace();
   const { toggleTask, saveTask, setTaskHidden } = useTaskMutations();
+  const awardReward = useRewardMutation();
   const { notify } = useNotice();
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<FocusTask | null>(null);
@@ -100,11 +101,13 @@ export function ProtectedApp() {
     const wasCompleted = task.is_daily_anchor ? anchorCompletedOn(task.id, completionDate) : task.status === 'completed';
     try {
       await toggleTask.mutateAsync({ task, completionDate, completed: wasCompleted });
+      const points = task.source === 'gmail' || task.source === 'google_gmail' ? 10 : task.is_daily_anchor ? 20 : 30;
+      const awarded = !wasCompleted && await awardReward.mutateAsync({ rewardKey: `${task.id}:complete`, points });
       if (google.connected && !task.is_daily_anchor) {
         try { await google.action('/sync-focus-task', { taskId: task.id }); }
         catch { notify('Task updated in FocusOS. Tap Sync now to retry Google.', 'warning'); return; }
       }
-      notify(wasCompleted ? 'Task reopened.' : 'Task completed.');
+      notify(wasCompleted ? 'Task reopened.' : awarded ? `Task completed. +${points} XP` : 'Task completed.');
     }
     catch (error) { notify(error instanceof Error ? error.message : 'Could not update task.', 'error'); }
   };
@@ -128,34 +131,44 @@ export function ProtectedApp() {
   };
   const messages = google.gmail?.messages ?? [];
   const events = google.data?.calendar?.events ?? [];
+  const taskTownStreak = state.workspace?.inboxZeroDates?.length ?? 0;
   const documents = [...mapDriveFiles(google.data), ...(state.docs ?? [])];
   const createMessageTask = async (message: GoogleMessage) => {
     const draft: TaskDraft = { title: `Follow up: ${message.subject || 'Email'}`, priority: null, project_id: null, goal_id: null, scheduled_date: new Date().toISOString().slice(0, 10), scheduled_time: null, is_daily_anchor: false, tag_ids: [] };
     try {
       const taskId = await saveTask.mutateAsync({ draft });
       if (google.connected) await syncTaskToGoogle(taskId);
-      notify('Email added as a task.');
+      const awarded = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:follow-up`, points: 20 });
+      notify(awarded ? 'Email added as a task. +20 XP' : 'Email added as a task.');
     }
     catch (error) { notify(error instanceof Error ? error.message : 'Could not create task.', 'error'); }
   };
   const archiveMessage = async (message: GoogleMessage) => {
-    try { await google.action('/gmail-action', { messageId: message.id, action: 'archive' }); await google.refetch(); notify('Email archived.'); }
+    try {
+      await google.action('/gmail-action', { messageId: message.id, action: 'archive' });
+      const awarded = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:archive`, points: 10 });
+      void Promise.allSettled([google.refetchGmail(), focus.refetch()]);
+      notify(awarded ? 'Email archived. +10 XP' : 'Email archived.');
+    }
     catch (error) { notify(error instanceof Error ? error.message : 'Could not archive email.', 'error'); }
   };
   const completeEmail = async (message: GoogleMessage) => {
     await google.action('/gmail-action', { messageId: message.id, action: 'read' });
+    const awarded = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:read`, points: 10 });
     void Promise.allSettled([google.refetchGmail(), focus.refetch()]);
-    notify('Email marked as read and completed.');
+    notify(awarded ? 'Email completed. +10 XP' : 'Email marked as read and completed.');
   };
   const archiveEmailFromReader = async (message: GoogleMessage) => {
     await google.action('/gmail-action', { messageId: message.id, action: 'archive' });
+    const awarded = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:archive`, points: 10 });
     void Promise.allSettled([google.refetchGmail(), focus.refetch()]);
-    notify('Email archived and task completed.');
+    notify(awarded ? 'Email archived and task completed. +10 XP' : 'Email archived and task completed.');
   };
   const replyToEmail = async (message: GoogleMessageDetail, reply: string) => {
     const subject = /^re:/i.test(message.subject) ? message.subject : `Re: ${message.subject}`;
     await google.action('/gmail-reply', { to: message.replyTo || message.from, subject, message: reply, threadId: message.threadId, confirm: true });
-    notify('Reply sent.');
+    const awarded = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:reply`, points: 30 });
+    notify(awarded ? 'Reply sent. +30 XP' : 'Reply sent.');
   };
   const draftEmailReply = (message: GoogleMessageDetail) => draftReply({
     channel: 'email',
@@ -221,7 +234,7 @@ export function ProtectedApp() {
   return <AppShell xp={state.xp} onAddTask={openAdd}>
     <Suspense fallback={<LoadingScreen label="Opening page…" />}><Routes>
       <Route path="/today" element={<TodayPage tasks={tasks} projects={projects} dailyCompletions={dailyCompletions} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onRelax={() => setRelaxOpen(true)} />} />
-      <Route path="/tasks" element={<TasksPage tasks={tasksForToday} projects={projects} googleConnected={google.connected} googleEmail={google.email} googleLoading={googleLoading} googleError={google.data?.services?.tasks?.error || google.data?.services?.calendar?.error || google.data?.services?.gmail?.error || googleError} onGoogleConnect={connect} onGoogleRefresh={() => void google.refetch()} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} />} />
+      <Route path="/tasks" element={<TasksPage tasks={tasksForToday} projects={projects} events={events} xp={state.xp} streak={taskTownStreak} googleConnected={google.connected} googleEmail={google.email} googleLoading={googleLoading} googleError={google.data?.services?.tasks?.error || google.data?.services?.calendar?.error || google.data?.services?.gmail?.error || googleError} onGoogleConnect={connect} onGoogleRefresh={() => void google.refetch()} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onChallenge={(task) => { if (task.source === 'gmail' || task.source === 'google_gmail') void openEdit(task); else setFocusTask(task); }} />} />
       <Route path="/projects" element={<ProjectsPage tasks={tasksForToday} projects={projects} goals={goals} />} />
       <Route path="/projects/:projectId" element={<ProjectDetailPage tasks={tasksForToday} projects={projects} goals={goals} onAddTask={openAddForGoal} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} />} />
       <Route path="/calendar" element={<CalendarPage tasks={tasks} projects={projects} events={events} googleConnected={google.connected} googleError={google.data?.services?.calendar?.error || googleError} onGoogleConnect={connect} onAddTask={openAddOnDate} onEditTask={openEdit} onToggleTask={toggle} onHideTask={hideTask} onFocusTask={setFocusTask} />} />

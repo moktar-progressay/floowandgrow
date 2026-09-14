@@ -70,6 +70,7 @@ export interface FocusState {
     timeline: unknown[];
     completed: unknown[];
     inboxZeroDates: string[];
+    taskTownRewards?: string[];
   };
 }
 

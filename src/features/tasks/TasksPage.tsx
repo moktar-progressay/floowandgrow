@@ -1,21 +1,25 @@
 import { useMemo, useState } from 'react';
-import { Alert, Button, Chip, CircularProgress, InputAdornment, List, MenuItem, Stack, TextField, Typography } from '@mui/material';
-import { Add, CloudDone, Refresh, Search, TaskAlt } from '@mui/icons-material';
+import { Alert, Button, Chip, CircularProgress, InputAdornment, List, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { Add, CalendarMonth, CloudDone, FormatListBulleted, Refresh, Search, SportsEsports, TaskAlt } from '@mui/icons-material';
 import { PageHeader } from '../../components/common/PageHeader';
 import { SurfaceCard } from '../../components/common/SurfaceCard';
 import { EmptyState } from '../../components/common/EmptyState';
 import { FilterButton, FilterDrawer } from '../../components/common/FilterDrawer';
 import { TaskRow } from './TaskRow';
 import { localDate, matchesDueDate, overdueTasks, type DueDateFilter } from './taskDates';
-import type { FocusProject, FocusTask } from '../../types/models';
-import { useSearchParams } from 'react-router-dom';
+import type { FocusProject, FocusTask, GoogleEvent } from '../../types/models';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { TaskTown } from './TaskTown';
 
 export function TasksPage({
-  tasks, projects, googleConnected, googleEmail, googleLoading, googleError,
-  onGoogleConnect, onGoogleRefresh, onEdit, onToggle, onHide, onFocus, onAdd,
+  tasks, projects, events, xp, streak, googleConnected, googleEmail, googleLoading, googleError,
+  onGoogleConnect, onGoogleRefresh, onEdit, onToggle, onHide, onFocus, onChallenge, onAdd,
 }: {
   tasks: FocusTask[];
   projects: FocusProject[];
+  events: GoogleEvent[];
+  xp: number;
+  streak: number;
   googleConnected: boolean;
   googleEmail?: string;
   googleLoading: boolean;
@@ -26,8 +30,10 @@ export function TasksPage({
   onToggle: (task: FocusTask) => void;
   onHide: (task: FocusTask) => void;
   onFocus: (task: FocusTask) => void;
+  onChallenge: (task: FocusTask) => void;
   onAdd: () => void;
 }) {
+  const navigate = useNavigate();
   const [params] = useSearchParams();
   const requestedView = params.get('view');
   const initialTab = requestedView === 'overdue' || requestedView === 'completed' || requestedView === 'hidden'
@@ -40,6 +46,7 @@ export function TasksPage({
   const [source, setSource] = useState<'all' | 'focusos' | 'daily_anchors' | 'google_tasks' | 'google_calendar' | 'gmail'>('all');
   const [dueDate, setDueDate] = useState<DueDateFilter>('all');
   const [priority, setPriority] = useState<'all' | 'red' | 'yellow' | 'green' | 'standard'>('all');
+  const [layout, setLayout] = useState<'list' | 'town'>('list');
   const today = localDate();
   const overdueIds = useMemo(() => new Set(overdueTasks(tasks, today).map((task) => task.id)), [tasks, today]);
   const filtered = useMemo(() => tasks.filter((task) => {
@@ -98,6 +105,24 @@ export function TasksPage({
         description="One task list, shown in the way you need."
         action={<Button variant="contained" startIcon={<Add />} onClick={onAdd}>Add task</Button>}
       />
+      <ToggleButtonGroup
+        exclusive
+        value={layout}
+        size="small"
+        aria-label="Task view"
+        sx={{ mb: 2.5, width: { xs: '100%', sm: 'auto' }, '& .MuiToggleButton-root': { flex: { xs: 1, sm: 'initial' } } }}
+        onChange={(_, value: 'list' | 'town' | 'calendar' | null) => {
+          if (value === 'calendar') navigate('/calendar');
+          else if (value) setLayout(value);
+        }}
+      >
+        <ToggleButton value="list"><FormatListBulleted sx={{ mr: .75 }} />List</ToggleButton>
+        <ToggleButton value="calendar"><CalendarMonth sx={{ mr: .75 }} />Calendar</ToggleButton>
+        <ToggleButton value="town"><SportsEsports sx={{ mr: .75 }} />Task Town</ToggleButton>
+      </ToggleButtonGroup>
+      {layout === 'town' ? (
+        <TaskTown tasks={tasks} events={events} xp={xp} streak={streak} onChallenge={onChallenge} />
+      ) : <>
       <SurfaceCard sx={{ mb: 2.5 }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" gap={2}>
           <Stack direction="row" alignItems="center" gap={1.25}>
@@ -184,6 +209,8 @@ export function TasksPage({
           <EmptyState icon={<TaskAlt fontSize="large" />} title="No matching tasks" description="Try another view or add a task." actionLabel="Add task" onAction={onAdd} />
         )}
       </SurfaceCard>
+      </>
+      }
     </>
   );
 }
