@@ -230,6 +230,18 @@ export function useOrganisationMutations() {
     onSuccess: refresh,
   });
 
+  const deleteProject = useMutation({
+    mutationFn: async (id: string) =>
+      checked(
+        supabase
+          .from('focusos_projects')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', userId),
+      ),
+    onSuccess: refresh,
+  });
+
   const saveGoal = useMutation({
     mutationFn: async ({
       id,
@@ -262,11 +274,23 @@ export function useOrganisationMutations() {
     onSuccess: refresh,
   });
 
+  const deleteGoal = useMutation({
+    mutationFn: async (id: string) =>
+      checked(
+        supabase
+          .from('focusos_goals')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', userId),
+      ),
+    onSuccess: refresh,
+  });
+
   const saveTag = useMutation({
     mutationFn: async ({ name, colour }: { name: string; colour: string }) =>
       checked(supabase.from('focusos_tags').insert({ user_id: userId, name: name.trim(), colour })),
     onSuccess: refresh,
   });
 
-  return { saveProject, archiveProject, saveGoal, saveTag };
+  return { saveProject, archiveProject, deleteProject, saveGoal, deleteGoal, saveTag };
 }
