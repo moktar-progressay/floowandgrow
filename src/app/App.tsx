@@ -43,7 +43,7 @@ const AssistantPage = lazyWithRecovery(() => import('../features/assistant/Assis
 const SettingsPage = lazyWithRecovery(() => import('../features/settings/SettingsPage').then((module) => ({ default: module.SettingsPage })));
 const MorePage = lazyWithRecovery(() => import('../features/more/MorePage').then((module) => ({ default: module.MorePage })));
 
-function ProtectedApp() {
+export function ProtectedApp() {
   const focus = useFocusData();
   const google = useGoogleWorkspace();
   const { toggleTask, saveTask, setTaskHidden } = useTaskMutations();
@@ -56,6 +56,7 @@ function ProtectedApp() {
   const [focusTask, setFocusTask] = useState<FocusTask | null>(null);
   const [relaxOpen, setRelaxOpen] = useState(false);
   const [emailReader, setEmailReader] = useState<{ message: GoogleMessage; task: FocusTask | null } | null>(null);
+  const loadEmail = useCallback((messageId: string) => google.action<GoogleMessageDetail>('/gmail-message', { messageId }), [google.action]);
   if (focus.isLoading) return <LoadingScreen label="Loading your workspace…" />;
   if (focus.error || !focus.data) return <LoadingScreen label={focus.error instanceof Error ? focus.error.message : 'Could not load FocusOS.'} />;
   const { state, tasks, projects, goals, tags, taskTags, dailyCompletions } = focus.data;
@@ -141,7 +142,6 @@ function ProtectedApp() {
     try { await google.action('/gmail-action', { messageId: message.id, action: 'archive' }); await google.refetch(); notify('Email archived.'); }
     catch (error) { notify(error instanceof Error ? error.message : 'Could not archive email.', 'error'); }
   };
-  const loadEmail = useCallback((messageId: string) => google.action<GoogleMessageDetail>('/gmail-message', { messageId }), [google.action]);
   const completeEmail = async (message: GoogleMessage) => {
     if (emailReader?.task && emailReader.task.status !== 'completed') {
       await toggleTask.mutateAsync({ task: emailReader.task, completed: false });
