@@ -259,6 +259,69 @@ async function connectedUser(req) {
   if (!row || !credentials) throw new Error("Connect Google Workspace first.");
   return { user, row, accessToken: credentials.access_token };
 }
+function fromBase64Url(value) {
+  if (!value) return "";
+  const normalised = String(value).replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalised.padEnd(Math.ceil(normalised.length / 4) * 4, "=");
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+function collectGmailParts(part, textParts, htmlParts, attachments) {
+  if (!part) return;
+  const filename = String(part.filename || "").trim();
+  if (filename && part.body?.attachmentId) {
+    attachments.push({ filename, mimeType: part.mimeType || "application/octet-stream", size: Number(part.body.size || 0), attachmentId: part.body.attachmentId });
+  }
+  if (part.body?.data) {
+    const decoded = fromBase64Url(part.body.data);
+    if (part.mimeType === "text/plain") textParts.push(decoded);
+    if (part.mimeType === "text/html") htmlParts.push(decoded);
+  }
+  for (const child of part.parts || []) collectGmailParts(child, textParts, htmlParts, attachments);
+}
+function readableHtml(value) {
+  return String(value || "")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<\/p\s*>/gi, "\n\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+async function handleGmailMessage(req) {
+  const { accessToken } = await connectedUser(req);
+  const body = await req.json();
+  const messageId = String(body.messageId || "");
+  if (!messageId) throw new Error("Message is required.");
+  const message = await googleJson("https://gmail.googleapis.com/gmail/v1/users/me/messages/" + encodeURIComponent(messageId) + "?format=full", accessToken);
+  const textParts = [];
+  const htmlParts = [];
+  const attachments = [];
+  collectGmailParts(message.payload, textParts, htmlParts, attachments);
+  const text = textParts.join("\n\n").trim() || readableHtml(htmlParts.join("\n\n"));
+  return json(req, {
+    id: message.id,
+    threadId: message.threadId || "",
+    subject: headerValue(message, "Subject") || "No subject",
+    from: headerValue(message, "From") || "Unknown sender",
+    replyTo: headerValue(message, "Reply-To") || headerValue(message, "From") || "",
+    to: headerValue(message, "To") || "",
+    cc: headerValue(message, "Cc") || "",
+    date: headerValue(message, "Date") || "",
+    text: text || message.snippet || "This email has no readable text content.",
+    unread: (message.labelIds || []).includes("UNREAD"),
+    attachments,
+  });
+}
 async function handleGmailAction(req) {
   const { user, accessToken } = await connectedUser(req);
   const body = await req.json();
@@ -710,6 +773,7 @@ Deno.serve(async (req) => {
     if (action === "status" && req.method === "GET") return await handleStatus(req);
     if (action === "data" && req.method === "GET") return await handleData(req);
     if (action === "gmail-data" && req.method === "GET") return await handleGmailData(req);
+    if (action === "gmail-message" && req.method === "POST") return await handleGmailMessage(req);
     if (action === "gmail-action" && req.method === "POST") return await handleGmailAction(req);
     if (action === "gmail-reply" && req.method === "POST") return await handleGmailReply(req);
     if (action === "google-task" && req.method === "POST") return await handleGoogleTask(req);
