@@ -27,6 +27,7 @@ describe('EmailReaderDialog', () => {
           onArchive={vi.fn()}
           onCreateTask={vi.fn()}
           onReply={vi.fn()}
+          onDraftReply={vi.fn().mockResolvedValue('Thank you. I will make the change today.')}
         />
       </ThemeProvider>,
     );
@@ -35,5 +36,43 @@ describe('EmailReaderDialog', () => {
     expect(onLoad).toHaveBeenCalledWith('gmail-1');
     fireEvent.click(screen.getByRole('button', { name: 'Complete' }));
     await waitFor(() => expect(onComplete).toHaveBeenCalledWith(message));
+  });
+
+  it('drafts with AI but does not send until the user approves', async () => {
+    const message = { id: 'gmail-2', subject: 'Meeting time', from: 'Alex', unread: true };
+    const detail = {
+      ...message,
+      threadId: 'thread-2',
+      to: 'moktar@progressay.com',
+      text: 'Can we meet at 2pm tomorrow?',
+      attachments: [],
+    };
+    const onDraftReply = vi.fn().mockResolvedValue('Yes, 2pm tomorrow works for me.');
+    const onReply = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <ThemeProvider theme={createAppTheme('light')}>
+        <EmailReaderDialog
+          open
+          message={message}
+          onClose={() => undefined}
+          onLoad={vi.fn().mockResolvedValue(detail)}
+          onComplete={vi.fn()}
+          onArchive={vi.fn()}
+          onCreateTask={vi.fn()}
+          onReply={onReply}
+          onDraftReply={onDraftReply}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(await screen.findByText('Can we meet at 2pm tomorrow?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Draft with AI' }));
+    expect(await screen.findByDisplayValue('Yes, 2pm tomorrow works for me.')).toBeInTheDocument();
+    expect(onDraftReply).toHaveBeenCalledWith(detail);
+    expect(onReply).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve and send' }));
+    await waitFor(() => expect(onReply).toHaveBeenCalledWith(detail, 'Yes, 2pm tomorrow works for me.'));
   });
 });

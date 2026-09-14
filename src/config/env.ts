@@ -8,3 +8,4 @@ export const env = {
 };
 
 export const googleWorkspaceFunction = `${env.supabaseUrl}/functions/v1/google-workspace`;
+export const focusAgentFunction = `${env.supabaseUrl}/functions/v1/focus-agent`;

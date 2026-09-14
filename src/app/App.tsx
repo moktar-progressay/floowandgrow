@@ -14,6 +14,9 @@ import { EmailReaderDialog } from '../features/inbox/EmailReaderDialog';
 import { localDate } from '../features/tasks/taskDates';
 import type { FocusTask, GoogleMessage, GoogleMessageDetail, TaskDraft } from '../types/models';
 import { useNotice } from './AppProviders';
+import type { AgentProposal } from '../features/assistant/agentClient';
+import { draftReply } from '../features/assistant/agentClient';
+import { supabase } from '../services/supabase/client';
 
 const TodayPage = lazy(() => import('../features/today/TodayPage').then((module) => ({ default: module.TodayPage })));
 const TasksPage = lazy(() => import('../features/tasks/TasksPage').then((module) => ({ default: module.TasksPage })));
@@ -34,6 +37,8 @@ function ProtectedApp() {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<FocusTask | null>(null);
   const [newTaskDate, setNewTaskDate] = useState<string | null>(null);
+  const [newTaskProjectId, setNewTaskProjectId] = useState<string | null>(null);
+  const [newTaskGoalId, setNewTaskGoalId] = useState<string | null>(null);
   const [focusTask, setFocusTask] = useState<FocusTask | null>(null);
   const [relaxOpen, setRelaxOpen] = useState(false);
   const [emailReader, setEmailReader] = useState<{ message: GoogleMessage; task: FocusTask | null } | null>(null);
@@ -48,11 +53,27 @@ function ProtectedApp() {
       ? { ...task, status: anchorCompletedOn(task.id, localToday) ? 'completed' as const : 'open' as const }
       : task,
   );
-  const openAdd = () => { setEditingTask(null); setNewTaskDate(null); setTaskDialogOpen(true); };
-  const openAddOnDate = (date: string) => { setEditingTask(null); setNewTaskDate(date); setTaskDialogOpen(true); };
-  const openEdit = (task: FocusTask) => {
+  const openAdd = () => { setEditingTask(null); setNewTaskDate(null); setNewTaskProjectId(null); setNewTaskGoalId(null); setTaskDialogOpen(true); };
+  const openAddOnDate = (date: string) => { setEditingTask(null); setNewTaskDate(date); setNewTaskProjectId(null); setNewTaskGoalId(null); setTaskDialogOpen(true); };
+  const openAddForGoal = (projectId: string, goalId: string) => {
+    setEditingTask(null);
+    setNewTaskDate(null);
+    setNewTaskProjectId(projectId);
+    setNewTaskGoalId(goalId);
+    setTaskDialogOpen(true);
+  };
+  const openEdit = async (task: FocusTask) => {
     if (task.source === 'gmail' || task.source === 'google_gmail') {
-      const messageId = task.legacy_key?.startsWith('gmail:') ? task.legacy_key.slice('gmail:'.length) : '';
+      let messageId = task.legacy_key?.startsWith('gmail:') ? task.legacy_key.slice('gmail:'.length) : '';
+      if (!messageId) {
+        const { data } = await supabase
+          .from('focusos_external_links')
+          .select('external_id')
+          .eq('task_id', task.id)
+          .eq('provider', 'gmail')
+          .maybeSingle();
+        messageId = data?.external_id || '';
+      }
       if (!messageId) { notify('This email is missing its Google reference.', 'error'); return; }
       setEmailReader({ task, message: { id: messageId, subject: task.title.replace(/^Read email:\s*/i, ''), from: '', unread: task.status === 'open' } });
       return;
@@ -127,24 +148,70 @@ function ProtectedApp() {
     await google.action('/gmail-reply', { to: message.replyTo || message.from, subject, message: reply, threadId: message.threadId, confirm: true });
     notify('Reply sent.');
   };
+  const draftEmailReply = (message: GoogleMessageDetail) => draftReply({
+    channel: 'email',
+    subject: message.subject,
+    sender: message.from,
+    text: message.text,
+  });
+  const approveAgentProposal = async (proposal: AgentProposal) => {
+    if (proposal.action === 'create') {
+      const taskId = await saveTask.mutateAsync({ draft: {
+        title: proposal.title || 'New task',
+        priority: proposal.priority ?? null,
+        project_id: null,
+        goal_id: null,
+        scheduled_date: proposal.scheduledDate ?? null,
+        scheduled_time: proposal.scheduledTime ?? null,
+        is_daily_anchor: false,
+        tag_ids: [],
+      } });
+      if (google.connected) await syncTaskToGoogle(taskId);
+      notify('Approved. Task created.');
+      return;
+    }
+    const task = tasksForToday.find((item) => item.id === proposal.taskId);
+    if (!task) throw new Error('That task is no longer available.');
+    if (proposal.action === 'focus') {
+      setFocusTask(task);
+      notify('Approved. Focus Mode opened.');
+      return;
+    }
+    if (proposal.action === 'complete') {
+      await toggle(task);
+      return;
+    }
+    await saveTask.mutateAsync({ id: task.id, draft: {
+      title: proposal.title || task.title,
+      priority: proposal.priority === undefined ? task.priority : proposal.priority,
+      project_id: task.project_id,
+      goal_id: task.goal_id,
+      scheduled_date: proposal.scheduledDate === undefined ? task.scheduled_date : proposal.scheduledDate,
+      scheduled_time: proposal.scheduledTime === undefined ? task.scheduled_time : proposal.scheduledTime,
+      is_daily_anchor: task.is_daily_anchor,
+      tag_ids: taskTags.filter((link) => link.task_id === task.id).map((link) => link.tag_id),
+    } });
+    if (google.connected) await syncTaskToGoogle(task.id);
+    notify('Approved. Task updated.');
+  };
   return <AppShell xp={state.xp} onAddTask={openAdd}>
     <Suspense fallback={<LoadingScreen label="Opening page…" />}><Routes>
       <Route path="/today" element={<TodayPage tasks={tasks} projects={projects} dailyCompletions={dailyCompletions} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onRelax={() => setRelaxOpen(true)} />} />
       <Route path="/tasks" element={<TasksPage tasks={tasksForToday} projects={projects} googleConnected={google.connected} googleEmail={google.email} googleLoading={googleLoading} googleError={google.data?.services?.tasks?.error || google.data?.services?.calendar?.error || google.data?.services?.gmail?.error || googleError} onGoogleConnect={connect} onGoogleRefresh={() => void google.refetch()} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} />} />
       <Route path="/projects" element={<ProjectsPage tasks={tasksForToday} projects={projects} goals={goals} />} />
-      <Route path="/projects/:projectId" element={<ProjectDetailPage tasks={tasksForToday} projects={projects} goals={goals} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} />} />
+      <Route path="/projects/:projectId" element={<ProjectDetailPage tasks={tasksForToday} projects={projects} goals={goals} onAddTask={openAddForGoal} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} />} />
       <Route path="/calendar" element={<CalendarPage tasks={tasks} projects={projects} events={events} googleConnected={google.connected} googleError={google.data?.services?.calendar?.error || googleError} onGoogleConnect={connect} onAddTask={openAddOnDate} onEditTask={openEdit} onToggleTask={toggle} onHideTask={hideTask} onFocusTask={setFocusTask} />} />
       <Route path="/vault" element={<VaultPage documents={documents} connected={google.connected} onConnect={connect} />} />
       <Route path="/inbox" element={<InboxPage messages={messages} connected={google.connected} loading={google.gmailLoading} error={google.gmailError instanceof Error ? google.gmailError.message : google.data?.services?.gmail?.error || googleError} onConnect={connect} onRefresh={() => void google.refetchGmail()} onOpen={(message) => setEmailReader({ message, task: null })} onArchive={archiveMessage} onCreateTask={createMessageTask} />} />
-      <Route path="/assistant" element={<AssistantPage tasks={tasksForToday} onFocus={setFocusTask} />} />
+      <Route path="/assistant" element={<AssistantPage tasks={tasksForToday} onApproveProposal={approveAgentProposal} />} />
       <Route path="/settings" element={<SettingsPage connected={google.connected} email={google.email} error={googleError} onConnect={connect} onRefresh={() => void google.refetch()} onDisconnect={() => google.disconnect.mutate()} />} />
       <Route path="/more" element={<MorePage />} />
       <Route path="*" element={<Navigate to="/today" replace />} />
     </Routes></Suspense>
-    <TaskDialog open={taskDialogOpen} onClose={() => setTaskDialogOpen(false)} task={editingTask} initialDate={newTaskDate} projects={projects} goals={goals} tags={tags} taskTags={taskTags} onSaved={google.connected ? syncTaskToGoogle : undefined} onBeforeDelete={google.connected ? removeTaskFromGoogle : undefined} />
+    <TaskDialog open={taskDialogOpen} onClose={() => setTaskDialogOpen(false)} task={editingTask} initialDate={newTaskDate} initialProjectId={newTaskProjectId} initialGoalId={newTaskGoalId} projects={projects} goals={goals} tags={tags} taskTags={taskTags} onSaved={google.connected ? syncTaskToGoogle : undefined} onBeforeDelete={google.connected ? removeTaskFromGoogle : undefined} />
     <FocusMode task={focusTask} open={Boolean(focusTask)} onClose={() => setFocusTask(null)} onComplete={(task) => { void toggle(task); setFocusTask(null); }} />
     <RelaxMode open={relaxOpen} onClose={() => setRelaxOpen(false)} />
-    <EmailReaderDialog open={Boolean(emailReader)} message={emailReader?.message ?? null} onClose={() => setEmailReader(null)} onLoad={loadEmail} onComplete={completeEmail} onArchive={archiveEmailFromReader} onCreateTask={createMessageTask} onReply={replyToEmail} />
+    <EmailReaderDialog open={Boolean(emailReader)} message={emailReader?.message ?? null} onClose={() => setEmailReader(null)} onLoad={loadEmail} onComplete={completeEmail} onArchive={archiveEmailFromReader} onCreateTask={createMessageTask} onReply={replyToEmail} onDraftReply={draftEmailReply} />
   </AppShell>;
 }
 

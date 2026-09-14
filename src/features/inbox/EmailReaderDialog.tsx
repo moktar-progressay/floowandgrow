@@ -3,12 +3,12 @@ import {
   Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogTitle, Divider, IconButton, Stack, TextField, Typography,
 } from '@mui/material';
-import { Archive, AttachFile, CheckCircle, Close, Reply, TaskAlt } from '@mui/icons-material';
+import { Archive, AttachFile, AutoAwesome, CheckCircle, Close, Reply, TaskAlt } from '@mui/icons-material';
 import { GoogleSourceChip } from '../../components/common/GoogleSourceChip';
 import type { GoogleMessage, GoogleMessageDetail } from '../../types/models';
 
 export function EmailReaderDialog({
-  open, message, onClose, onLoad, onComplete, onArchive, onCreateTask, onReply,
+  open, message, onClose, onLoad, onComplete, onArchive, onCreateTask, onReply, onDraftReply,
 }: {
   open: boolean;
   message: GoogleMessage | null;
@@ -18,6 +18,7 @@ export function EmailReaderDialog({
   onArchive: (message: GoogleMessage) => Promise<void>;
   onCreateTask: (message: GoogleMessage) => Promise<void>;
   onReply: (message: GoogleMessageDetail, reply: string) => Promise<void>;
+  onDraftReply: (message: GoogleMessageDetail) => Promise<string>;
 }) {
   const [detail, setDetail] = useState<GoogleMessageDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +83,10 @@ export function EmailReaderDialog({
           </Box>}
           {replyOpen && <Stack gap={1.5}>
             <TextField multiline minRows={4} autoFocus label="Your reply" value={reply} onChange={(event) => setReply(event.target.value)} />
-            <Button variant="contained" startIcon={<Reply />} disabled={!reply.trim() || busy} onClick={() => void run(async () => { await onReply(detail, reply.trim()); setReply(''); setReplyOpen(false); })}>Send reply</Button>
+            <Stack direction="row" gap={1} flexWrap="wrap">
+              <Button startIcon={<AutoAwesome />} disabled={busy} onClick={() => void run(async () => setReply(await onDraftReply(detail)))}>Draft with AI</Button>
+              <Button variant="contained" startIcon={<Reply />} disabled={!reply.trim() || busy} onClick={() => void run(async () => { await onReply(detail, reply.trim()); setReply(''); setReplyOpen(false); })}>Approve and send</Button>
+            </Stack>
           </Stack>}
         </Stack>}
       </DialogContent>
@@ -90,6 +94,7 @@ export function EmailReaderDialog({
       <DialogActions sx={{ p: 2, gap: 1, flexWrap: 'wrap', justifyContent: 'flex-start' }}>
         <Button variant="contained" startIcon={<CheckCircle />} disabled={!detail || busy} onClick={() => message && void run(() => onComplete(message), true)}>Complete</Button>
         <Button startIcon={<Reply />} disabled={!detail || busy} onClick={() => setReplyOpen((value) => !value)}>Reply</Button>
+        <Button startIcon={<AutoAwesome />} disabled={!detail || busy} onClick={() => detail && void run(async () => { setReplyOpen(true); setReply(await onDraftReply(detail)); })}>Draft with AI</Button>
         <Button startIcon={<TaskAlt />} disabled={!detail || busy} onClick={() => message && void run(() => onCreateTask(message))}>Follow-up task</Button>
         <Button startIcon={<Archive />} disabled={!detail || busy} onClick={() => message && void run(() => onArchive(message), true)}>Archive</Button>
       </DialogActions>
