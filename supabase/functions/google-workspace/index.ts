@@ -194,7 +194,7 @@ async function authorisedCredentials(userId) {
   return { row, credentials };
 }
 async function googleJson(url, accessToken) {
-  const response = await fetch(url, { headers: { Authorization: "Bearer " + accessToken } });
+  const response = await googleFetch(url, { headers: { Authorization: "Bearer " + accessToken } });
   if (!response.ok) {
     const raw = await response.text();
     let detail = raw;
@@ -202,6 +202,24 @@ async function googleJson(url, accessToken) {
     throw new Error("Google API " + response.status + (detail ? ": " + String(detail).slice(0, 220) : ""));
   }
   return response.json();
+}
+async function googleFetch(url, init = {}) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await fetch(url, init);
+      if ((response.status === 429 || response.status >= 500) && attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+        continue;
+      }
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+    }
+  }
+  const detail = lastError instanceof Error ? lastError.message : "Network request failed";
+  throw new Error("Google could not be reached: " + detail);
 }
 async function googleJsonOptional(url, accessToken) {
   try { return await googleJson(url, accessToken); } catch (_) { return null; }
@@ -219,7 +237,7 @@ async function googleAllItems(url, accessToken) {
   return items;
 }
 async function googleApi(url, accessToken, method = "GET", body: unknown = undefined) {
-  const response = await fetch(url, {
+  const response = await googleFetch(url, {
     method,
     headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -487,6 +505,34 @@ function headerValue(message, name) {
   const found = headers.find((header) => String(header.name).toLowerCase() === name.toLowerCase());
   return found?.value || "";
 }
+async function loadGmail(accessToken) {
+  const [inboxLabel, messageList] = await Promise.all([
+    googleJson("https://gmail.googleapis.com/gmail/v1/users/me/labels/INBOX", accessToken),
+    googleJson("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=30&q=" + encodeURIComponent("in:inbox newer_than:30d"), accessToken),
+  ]);
+  const details = [];
+  const messages = messageList.messages || [];
+  for (let index = 0; index < messages.length; index += 8) {
+    const batch = await Promise.allSettled(messages.slice(index, index + 8).map((message) => googleJson("https://gmail.googleapis.com/gmail/v1/users/me/messages/" + encodeURIComponent(message.id) + "?format=metadata&metadataHeaders=From&metadataHeaders=Reply-To&metadataHeaders=Subject&metadataHeaders=Date", accessToken)));
+    details.push(...batch.filter((item) => item.status === "fulfilled").map((item) => item.value));
+  }
+  return { unread: Number(inboxLabel.messagesUnread || 0), messages: details };
+}
+function gmailPayload(gmail) {
+  return {
+    unread: gmail.unread,
+    messages: gmail.messages.map((message) => {
+      const snippet = message.snippet || "";
+      const date = headerValue(message, "Date") || "";
+      return { id: message.id, threadId: message.threadId || "", channel: "gmail", from: headerValue(message, "From") || "Unknown sender", replyTo: headerValue(message, "Reply-To") || headerValue(message, "From") || "", subject: headerValue(message, "Subject") || "No subject", snippet, preview: snippet, date, time: date, unread: (message.labelIds || []).includes("UNREAD"), link: "https://mail.google.com/mail/u/0/#inbox/" + message.id };
+    }),
+  };
+}
+async function handleGmailData(req) {
+  const { row, accessToken } = await connectedUser(req);
+  const gmail = await loadGmail(accessToken);
+  return json(req, { connected: true, email: row.provider_email, services: { gmail: { ok: true, error: null } }, gmail: gmailPayload(gmail) });
+}
 async function handleData(req) {
   ensureConfigured();
   const user = await requireUser(req);
@@ -496,14 +542,7 @@ async function handleData(req) {
   const start = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
   const end = new Date(Date.now() + 366 * 24 * 60 * 60 * 1000).toISOString();
   const loaders: Record<string, Promise<any>> = {
-    gmail: (async () => {
-      const [inboxLabel, messageList] = await Promise.all([
-        googleJson("https://gmail.googleapis.com/gmail/v1/users/me/labels/INBOX", accessToken),
-        googleJson("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20&q=" + encodeURIComponent("is:unread in:inbox"), accessToken),
-      ]);
-      const details = await Promise.allSettled((messageList.messages || []).map((message) => googleJson("https://gmail.googleapis.com/gmail/v1/users/me/messages/" + encodeURIComponent(message.id) + "?format=metadata&metadataHeaders=From&metadataHeaders=Reply-To&metadataHeaders=Subject&metadataHeaders=Date", accessToken)));
-      return { unread: Number(inboxLabel.messagesUnread || 0), messages: details.filter((item) => item.status === "fulfilled").map((item) => item.value) };
-    })(),
+    gmail: loadGmail(accessToken),
     calendar: googleAllItems("https://www.googleapis.com/calendar/v3/calendars/primary/events?" + new URLSearchParams({ timeMin: start, timeMax: end, maxResults: "2500", singleEvents: "true", showDeleted: "true", orderBy: "startTime" }).toString(), accessToken),
     drive: googleAllItems("https://www.googleapis.com/drive/v3/files?" + new URLSearchParams({ q: "trashed = false", pageSize: "1000", orderBy: "modifiedTime desc", fields: "nextPageToken,files(id,name,mimeType,modifiedTime,webViewLink,iconLink,size,starred,parents)" }).toString(), accessToken),
     tasks: (async () => {
@@ -548,7 +587,7 @@ async function handleData(req) {
     email: row.provider_email,
     scopes: row.scopes || [],
     services,
-    gmail: { unread: gmail.unread, messages: gmail.messages.map((message) => ({ id: message.id, threadId: message.threadId || "", channel: "gmail", from: headerValue(message, "From") || "Unknown sender", replyTo: headerValue(message, "Reply-To") || headerValue(message, "From") || "", subject: headerValue(message, "Subject") || "No subject", preview: message.snippet || "", time: headerValue(message, "Date") || "", link: "https://mail.google.com/mail/u/0/#inbox/" + message.id })) },
+    gmail: gmailPayload(gmail),
     calendar: { events: calendar.filter((event) => event.status !== "cancelled").map((event) => ({ id: event.id, title: event.summary || "Untitled event", start: event.start?.dateTime || event.start?.date, end: event.end?.dateTime || event.end?.date, location: event.location || "", link: event.htmlLink || "" })) },
     drive: { files: drive.map((file) => ({ id: file.id, name: file.name || "Untitled file", mimeType: file.mimeType || "", modifiedTime: file.modifiedTime || "", link: file.webViewLink || "", iconLink: file.iconLink || "", size: file.size ? Number(file.size) : null, starred: Boolean(file.starred), parents: file.parents || [] })) },
     tasks: { available: Boolean(values.tasks), readOnly: false, lists: taskData.lists, items: taskData.items.filter((task) => task.status !== "completed" && !task.deleted) },
@@ -587,6 +626,7 @@ Deno.serve(async (req) => {
     if (action === "callback" && req.method === "GET") return await handleCallback(req);
     if (action === "status" && req.method === "GET") return await handleStatus(req);
     if (action === "data" && req.method === "GET") return await handleData(req);
+    if (action === "gmail-data" && req.method === "GET") return await handleGmailData(req);
     if (action === "gmail-action" && req.method === "POST") return await handleGmailAction(req);
     if (action === "gmail-reply" && req.method === "POST") return await handleGmailReply(req);
     if (action === "google-task" && req.method === "POST") return await handleGoogleTask(req);

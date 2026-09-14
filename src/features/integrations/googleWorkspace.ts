@@ -47,7 +47,13 @@ export function useGoogleWorkspace() {
       }
       return data;
     },
-    retry: false,
+    retry: 1,
+  });
+  const gmail = useQuery({
+    queryKey: ['google-workspace-gmail', session?.user.id],
+    enabled: Boolean(token) && status.data?.connected === true,
+    queryFn: () => request<Pick<GoogleWorkspaceData, 'connected' | 'email' | 'gmail' | 'services'>>(token, '/gmail-data'),
+    retry: 2,
   });
   const connect = useMutation({
     mutationFn: () => request<{ url: string }>(token, '/start', 'POST', {
@@ -61,6 +67,7 @@ export function useGoogleWorkspace() {
       await Promise.all([
         client.invalidateQueries({ queryKey: ['google-workspace'] }),
         client.invalidateQueries({ queryKey: ['google-workspace-status'] }),
+        client.invalidateQueries({ queryKey: ['google-workspace-gmail'] }),
       ]);
     },
   });
@@ -71,6 +78,10 @@ export function useGoogleWorkspace() {
     email: status.data?.email ?? query.data?.email,
     checkingConnection: status.isPending,
     connectionError: status.error,
+    gmail: gmail.data?.gmail ?? query.data?.gmail,
+    gmailError: gmail.error,
+    gmailLoading: gmail.isPending || gmail.isFetching,
+    refetchGmail: gmail.refetch,
     connect,
     disconnect,
     action,
