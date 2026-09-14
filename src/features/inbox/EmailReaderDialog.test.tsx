@@ -16,12 +16,13 @@ describe('EmailReaderDialog', () => {
     });
     const onComplete = vi.fn().mockResolvedValue(undefined);
 
+    const onClose = vi.fn();
     render(
       <ThemeProvider theme={createAppTheme('light')}>
         <EmailReaderDialog
           open
           message={message}
-          onClose={() => undefined}
+          onClose={onClose}
           onLoad={onLoad}
           onComplete={onComplete}
           onArchive={vi.fn()}
@@ -36,6 +37,7 @@ describe('EmailReaderDialog', () => {
     expect(onLoad).toHaveBeenCalledWith('gmail-1');
     fireEvent.click(screen.getByRole('button', { name: 'Complete' }));
     await waitFor(() => expect(onComplete).toHaveBeenCalledWith(message));
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
   });
 
   it('drafts with AI but does not send until the user approves', async () => {

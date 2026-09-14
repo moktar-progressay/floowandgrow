@@ -39,6 +39,7 @@ describe('Google Workspace requests', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       `${googleWorkspaceFunction}/status`,
       expect.objectContaining({
+        signal: expect.any(AbortSignal),
         headers: expect.objectContaining({
           apikey: env.supabasePublishableKey,
           Authorization: 'Bearer user-token',

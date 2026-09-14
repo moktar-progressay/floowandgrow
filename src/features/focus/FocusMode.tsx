@@ -1,46 +1,176 @@
 import { useEffect, useState } from 'react';
-import { Box, Button, Dialog, IconButton, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { Close, Pause, PlayArrow, Refresh } from '@mui/icons-material';
+import {
+  Accordion, AccordionDetails, AccordionSummary, Box, Button, CircularProgress,
+  Dialog, IconButton, Stack, TextField, Typography,
+} from '@mui/material';
+import { Check, Close, Edit, ExpandMore, Pause, PlayArrow, Refresh } from '@mui/icons-material';
 import { FocusOrb } from '../../components/brand/FocusOrb';
 import type { FocusTask } from '../../types/models';
 
-export function FocusMode({ task, open, onClose, onComplete }: { task: FocusTask | null; open: boolean; onClose: () => void; onComplete: (task: FocusTask) => void }) {
-  const [mode, setMode] = useState<'focus' | 'break'>('focus');
+type FocusModeProps = {
+  task: FocusTask | null;
+  open: boolean;
+  onClose: () => void;
+  onComplete: (task: FocusTask) => void;
+  onRename?: (task: FocusTask, title: string) => Promise<void>;
+};
+
+export function FocusMode({ task, open, onClose, onComplete, onRename }: FocusModeProps) {
+  const [durationMinutes, setDurationMinutes] = useState(25);
   const [seconds, setSeconds] = useState(25 * 60);
   const [running, setRunning] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editingTimer, setEditingTimer] = useState(false);
+  const [title, setTitle] = useState('');
+  const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (!open) {
+      setRunning(false);
+      return;
+    }
+    setTitle(task?.title || 'Take a breath');
+    setNotes(task ? window.localStorage.getItem(`focusos-notes:${task.id}`) || '' : '');
+    setEditingTitle(false);
+    setEditingTimer(false);
+  }, [open, task?.id, task?.title]);
+
   useEffect(() => {
     if (!running) return;
     const timer = window.setInterval(() => setSeconds((value) => {
-      if (value <= 1) { setRunning(false); return 0; }
+      if (value <= 1) {
+        setRunning(false);
+        return 0;
+      }
       return value - 1;
     }), 1000);
     return () => window.clearInterval(timer);
   }, [running]);
-  useEffect(() => {
-    if (!open) setRunning(false);
-  }, [open]);
-  const choose = (next: 'focus' | 'break') => {
-    setMode(next); setSeconds(next === 'focus' ? 25 * 60 : 5 * 60); setRunning(false);
-  };
+
+  const totalSeconds = durationMinutes * 60;
+  const progress = totalSeconds ? Math.min(100, Math.max(0, ((totalSeconds - seconds) / totalSeconds) * 100)) : 0;
   const minutes = String(Math.floor(seconds / 60)).padStart(2, '0');
   const remainder = String(seconds % 60).padStart(2, '0');
-  return <Dialog open={open} onClose={onClose} fullScreen>
-    <Box minHeight="100dvh" display="grid" sx={{ background: 'radial-gradient(circle at center, rgba(37,185,244,.13), transparent 45%)' }}>
-      <IconButton onClick={onClose} aria-label="Exit focus mode" sx={{ position: 'fixed', top: 20, right: 20 }}><Close /></IconButton>
-      <Stack alignItems="center" justifyContent="center" textAlign="center" gap={3} p={3}>
-        <Typography variant="overline" color="primary.main" letterSpacing={3}>{mode === 'focus' ? 'Focus sprint' : 'Dopamine break'}</Typography>
-        <Typography variant="h3" fontWeight={800} maxWidth={720}>{task?.title || 'Take a breath'}</Typography>
-        <FocusOrb size="clamp(160px, 35vw, 260px)" activity={running ? 'active' : 'calm'} />
-        <Typography variant="h2" fontWeight={800} sx={{ fontVariantNumeric: 'tabular-nums' }}>{minutes}:{remainder}</Typography>
-        <ToggleButtonGroup exclusive value={mode} onChange={(_, next) => next && choose(next)}>
-          <ToggleButton value="focus">25 min focus</ToggleButton><ToggleButton value="break">5 min break</ToggleButton>
-        </ToggleButtonGroup>
-        <Stack direction="row" gap={1.5}>
-          <Button variant="contained" startIcon={running ? <Pause /> : <PlayArrow />} onClick={() => setRunning((value) => !value)}>{running ? 'Pause' : 'Start'}</Button>
-          <Button variant="outlined" startIcon={<Refresh />} onClick={() => choose(mode)}>Reset</Button>
-          {task && <Button color="success" variant="outlined" onClick={() => onComplete(task)}>Complete</Button>}
+
+  const reset = (minutesValue = durationMinutes) => {
+    setDurationMinutes(minutesValue);
+    setSeconds(minutesValue * 60);
+    setRunning(false);
+  };
+
+  const saveTitle = async () => {
+    const next = title.trim();
+    if (!next || !task || !onRename || next === task.title) {
+      setTitle(next || task?.title || 'Take a breath');
+      setEditingTitle(false);
+      return;
+    }
+    await onRename(task, next);
+    setEditingTitle(false);
+  };
+
+  const saveTimer = () => {
+    const next = Math.min(120, Math.max(1, Math.round(durationMinutes || 25)));
+    reset(next);
+    setEditingTimer(false);
+  };
+
+  const saveNotes = (value: string) => {
+    setNotes(value);
+    if (task) window.localStorage.setItem(`focusos-notes:${task.id}`, value);
+  };
+
+  return (
+    <Dialog open={open} onClose={running ? undefined : onClose} fullScreen>
+      <Box
+        minHeight="100dvh"
+        width="100%"
+        overflow="hidden"
+        display="grid"
+        sx={{
+          background: 'radial-gradient(circle at 50% 52%, rgba(37,185,244,.16), transparent 38%)',
+          px: { xs: 2, sm: 4 },
+          pt: 'max(24px, env(safe-area-inset-top))',
+          pb: 'max(24px, env(safe-area-inset-bottom))',
+        }}
+      >
+        <IconButton
+          onClick={onClose}
+          disabled={running}
+          aria-label="Exit focus mode"
+          sx={{ position: 'fixed', top: 'max(12px, env(safe-area-inset-top))', right: 12, zIndex: 2 }}
+        >
+          <Close />
+        </IconButton>
+
+        <Stack alignItems="center" justifyContent="center" textAlign="center" gap={{ xs: 2, sm: 2.5 }} width="100%" maxWidth={720} mx="auto">
+          <Typography variant="overline" color="primary.main" letterSpacing={{ xs: 2, sm: 3 }} fontSize={{ xs: '.68rem', sm: '.78rem' }}>
+            Focus sprint
+          </Typography>
+
+          {editingTitle ? (
+            <Stack direction="row" alignItems="center" gap={0.5} width="100%" maxWidth={620}>
+              <TextField autoFocus fullWidth multiline maxRows={3} value={title} onChange={(event) => setTitle(event.target.value)} inputProps={{ 'aria-label': 'Task title' }} />
+              <IconButton aria-label="Save task title" onClick={() => void saveTitle()}><Check /></IconButton>
+            </Stack>
+          ) : (
+            <Stack direction="row" alignItems="flex-start" justifyContent="center" gap={0.25} width="100%" minWidth={0}>
+              <Typography
+                component="h1"
+                fontWeight={850}
+                sx={{
+                  fontSize: 'clamp(1.55rem, 6.5vw, 3rem)',
+                  lineHeight: 1.12,
+                  maxWidth: 'min(100%, 620px)',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {title || task?.title || 'Take a breath'}
+              </Typography>
+              {task && onRename && <IconButton size="small" aria-label="Edit task title" onClick={() => setEditingTitle(true)} sx={{ mt: -.5, flexShrink: 0 }}><Edit fontSize="small" /></IconButton>}
+            </Stack>
+          )}
+
+          <Box position="relative" display="grid" sx={{ width: 'clamp(168px, 50vw, 270px)', height: 'clamp(168px, 50vw, 270px)', placeItems: 'center' }}>
+            <CircularProgress variant="determinate" value={100} size="100%" thickness={1.5} sx={{ position: 'absolute', color: 'rgba(143,164,194,.18)' }} />
+            <CircularProgress variant="determinate" value={progress} size="100%" thickness={2.2} aria-label="Focus progress" sx={{ position: 'absolute', color: 'primary.main', filter: 'drop-shadow(0 0 8px rgba(37,185,244,.6))' }} />
+            <FocusOrb size="clamp(138px, 42vw, 230px)" activity={running ? 'active' : 'calm'} />
+          </Box>
+
+          {editingTimer ? (
+            <Stack direction="row" alignItems="center" gap={0.5}>
+              <TextField autoFocus type="number" value={durationMinutes} onChange={(event) => setDurationMinutes(Number(event.target.value))} inputProps={{ min: 1, max: 120, 'aria-label': 'Focus minutes' }} sx={{ width: 110 }} />
+              <IconButton aria-label="Save focus timer" onClick={saveTimer}><Check /></IconButton>
+            </Stack>
+          ) : (
+            <Stack direction="row" alignItems="center" gap={0.25}>
+              <Typography fontWeight={800} sx={{ fontSize: 'clamp(1.65rem, 8vw, 2.6rem)', fontVariantNumeric: 'tabular-nums' }}>{minutes}:{remainder}</Typography>
+              <IconButton size="small" aria-label="Edit focus timer" onClick={() => { setRunning(false); setEditingTimer(true); }}><Edit fontSize="small" /></IconButton>
+            </Stack>
+          )}
+
+          <Button fullWidth variant="contained" size="large" startIcon={running ? <Pause /> : <PlayArrow />} onClick={() => setRunning((value) => !value)} sx={{ maxWidth: 340, minHeight: 54, fontSize: '1.05rem' }}>
+            {running ? 'Pause' : seconds === totalSeconds ? 'Start' : 'Continue'}
+          </Button>
+
+          <Stack direction="row" alignItems="center" justifyContent="center" gap={0.5} flexWrap="wrap">
+            <Button size="small" color="inherit" startIcon={<Refresh />} onClick={() => reset()}>Reset</Button>
+            {task && <Button size="small" color="success" onClick={() => onComplete(task)}>Complete</Button>}
+          </Stack>
+
+          {task && (
+            <Accordion disableGutters elevation={0} sx={{ width: '100%', maxWidth: 520, bgcolor: 'transparent', '&::before': { display: 'none' } }}>
+              <AccordionSummary expandIcon={<ExpandMore />} aria-controls="focus-notes-content">
+                <Typography variant="body2" color="text.secondary">Notes</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ px: 0 }}>
+                <TextField fullWidth multiline minRows={3} label="Notes" value={notes} onChange={(event) => saveNotes(event.target.value)} />
+              </AccordionDetails>
+            </Accordion>
+          )}
         </Stack>
-      </Stack>
-    </Box>
-  </Dialog>;
+      </Box>
+    </Dialog>
+  );
 }
