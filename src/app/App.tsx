@@ -143,18 +143,13 @@ export function ProtectedApp() {
     catch (error) { notify(error instanceof Error ? error.message : 'Could not archive email.', 'error'); }
   };
   const completeEmail = async (message: GoogleMessage) => {
-    if (emailReader?.task && emailReader.task.status !== 'completed') {
-      await toggleTask.mutateAsync({ task: emailReader.task, completed: false });
-      await google.action('/sync-focus-task', { taskId: emailReader.task.id });
-    } else {
-      await google.action('/gmail-action', { messageId: message.id, action: 'read' });
-    }
-    await google.refetch();
+    await google.action('/gmail-action', { messageId: message.id, action: 'read' });
+    void Promise.allSettled([google.refetchGmail(), focus.refetch()]);
     notify('Email marked as read and completed.');
   };
   const archiveEmailFromReader = async (message: GoogleMessage) => {
     await google.action('/gmail-action', { messageId: message.id, action: 'archive' });
-    await google.refetch();
+    void Promise.allSettled([google.refetchGmail(), focus.refetch()]);
     notify('Email archived and task completed.');
   };
   const replyToEmail = async (message: GoogleMessageDetail, reply: string) => {
@@ -168,6 +163,21 @@ export function ProtectedApp() {
     sender: message.from,
     text: message.text,
   });
+  const renameFocusTask = async (task: FocusTask, title: string) => {
+    await saveTask.mutateAsync({ id: task.id, draft: {
+      title,
+      priority: task.priority,
+      project_id: task.project_id,
+      goal_id: task.goal_id,
+      scheduled_date: task.scheduled_date,
+      scheduled_time: task.scheduled_time,
+      is_daily_anchor: task.is_daily_anchor,
+      tag_ids: taskTags.filter((link) => link.task_id === task.id).map((link) => link.tag_id),
+    } });
+    setFocusTask((current) => current?.id === task.id ? { ...current, title } : current);
+    if (google.connected) await syncTaskToGoogle(task.id);
+    notify('Task title updated.');
+  };
   const approveAgentProposal = async (proposal: AgentProposal) => {
     if (proposal.action === 'create') {
       const taskId = await saveTask.mutateAsync({ draft: {
@@ -223,7 +233,7 @@ export function ProtectedApp() {
       <Route path="*" element={<Navigate to="/today" replace />} />
     </Routes></Suspense>
     <TaskDialog open={taskDialogOpen} onClose={() => setTaskDialogOpen(false)} task={editingTask} initialDate={newTaskDate} initialProjectId={newTaskProjectId} initialGoalId={newTaskGoalId} projects={projects} goals={goals} tags={tags} taskTags={taskTags} onSaved={google.connected ? syncTaskToGoogle : undefined} onBeforeDelete={google.connected ? removeTaskFromGoogle : undefined} />
-    <FocusMode task={focusTask} open={Boolean(focusTask)} onClose={() => setFocusTask(null)} onComplete={(task) => { void toggle(task); setFocusTask(null); }} />
+    <FocusMode task={focusTask} open={Boolean(focusTask)} onClose={() => setFocusTask(null)} onComplete={(task) => { void toggle(task); setFocusTask(null); }} onRename={renameFocusTask} />
     <RelaxMode open={relaxOpen} onClose={() => setRelaxOpen(false)} />
     <EmailReaderDialog open={Boolean(emailReader)} message={emailReader?.message ?? null} onClose={() => setEmailReader(null)} onLoad={loadEmail} onComplete={completeEmail} onArchive={archiveEmailFromReader} onCreateTask={createMessageTask} onReply={replyToEmail} onDraftReply={draftEmailReply} />
   </AppShell>;
