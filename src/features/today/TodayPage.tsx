@@ -6,6 +6,7 @@ import type { DailyCompletion, FocusProject, FocusTask } from '../../types/model
 import { FocusOrb } from '../../components/brand/FocusOrb';
 import { SurfaceCard } from '../../components/common/SurfaceCard';
 import { EmptyState } from '../../components/common/EmptyState';
+import { SectionAccordion } from '../../components/common/SectionAccordion';
 import { TaskRow } from '../tasks/TaskRow';
 import { localDate, overdueTasks } from '../tasks/taskDates';
 import { useAuth } from '../auth/AuthProvider';
@@ -78,8 +79,7 @@ export function TodayPage({
         </Stack>
       </SurfaceCard>
       {!showAllTasks && (
-        <SurfaceCard sx={{ borderColor: 'primary.main' }}>
-          <Typography variant="overline" color="primary.main" fontWeight={800}>Next task</Typography>
+        <SectionAccordion title="Next task" icon={<CalendarToday color="primary" />} defaultExpanded sx={{ borderColor: 'primary.main' }}>
           {nextTask ? (
             <List disablePadding>
               <TaskRow
@@ -93,7 +93,7 @@ export function TodayPage({
               />
             </List>
           ) : <EmptyState icon={<CalendarToday />} title="You are clear" description="There is nothing else asking for your attention." actionLabel="Add task" onAction={onAdd} />}
-        </SurfaceCard>
+        </SectionAccordion>
       )}
       {visibleTaskCount > 1 && (
         <Button onClick={() => setShowAllTasks((value) => !value)}>
@@ -101,22 +101,21 @@ export function TodayPage({
         </Button>
       )}
       {showAllTasks && <>
-      <SurfaceCard>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Stack direction="row" alignItems="center" gap={1}><Anchor color="secondary" /><Typography variant="h6" fontWeight={700}>Daily Anchors</Typography></Stack>
-          <Typography variant="caption" color="text.secondary">{anchors.filter((task) => completedAnchorIds.has(task.id)).length} of {anchors.length} done</Typography>
-        </Stack>
+      <SectionAccordion
+        title="Daily Anchors"
+        icon={<Anchor color="secondary" />}
+        meta={<Typography variant="caption" color="text.secondary">{anchors.filter((task) => completedAnchorIds.has(task.id)).length} of {anchors.length} done</Typography>}
+        defaultExpanded
+      >
         {activeAnchors.length ? <List disablePadding sx={{ mt: 1 }}>{activeAnchors.map((task) => <TaskRow key={task.id} task={task} project={projectFor(task.project_id)} onToggle={() => onToggle(task, selectedDate)} onEdit={() => onEdit(task)} onHide={() => onHide(task)} onFocus={() => onFocus(task)} />)}</List> : <EmptyState icon={<Anchor />} title={anchors.length ? 'Anchors complete' : 'No Daily Anchors'} description={anchors.length ? 'Today’s anchors are safely recorded.' : 'Add the small routines that steady your day.'} actionLabel={anchors.length ? undefined : 'Add anchor'} onAction={anchors.length ? undefined : onAdd} />}
-      </SurfaceCard>
+      </SectionAccordion>
       {carriedForward.length > 0 && (
-        <SurfaceCard sx={{ borderColor: 'warning.main' }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2}>
-            <Stack direction="row" alignItems="center" gap={1}>
-              <History color="warning" />
-              <Typography variant="h6" fontWeight={700}>Carried forward</Typography>
-            </Stack>
-            <Typography variant="caption" color="text.secondary">{allCarriedForward.length} unfinished</Typography>
-          </Stack>
+        <SectionAccordion
+          title="Carried forward"
+          icon={<History color="warning" />}
+          meta={<Typography variant="caption" color="text.secondary">{allCarriedForward.length} unfinished</Typography>}
+          sx={{ borderColor: 'warning.main' }}
+        >
           <Typography variant="body2" color="text.secondary" mt={0.75}>
             These remain visible until you complete or reschedule them.
           </Typography>
@@ -137,15 +136,11 @@ export function TodayPage({
           <Button component={RouterLink} to="/tasks?view=overdue" sx={{ mt: 1 }}>
             Review all overdue tasks
           </Button>
-        </SurfaceCard>
+        </SectionAccordion>
       )}
-      <SurfaceCard>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Typography variant="h6" fontWeight={700}>Agenda</Typography>
-          <Button startIcon={<Add />} onClick={onAdd}>Add task</Button>
-        </Stack>
+      <SectionAccordion title="Agenda" action={<Button size="small" startIcon={<Add />} onClick={onAdd}>Add</Button>}>
         {agenda.length ? <List disablePadding sx={{ mt: 1 }}>{agenda.map((task) => <TaskRow key={task.id} task={task} project={projectFor(task.project_id)} onToggle={() => onToggle(task)} onEdit={() => onEdit(task)} onHide={() => onHide(task)} onFocus={() => onFocus(task)} />)}</List> : <EmptyState icon={<CalendarToday />} title="Nothing scheduled" description="Your day is clear. Add something only if it matters." actionLabel="Add task" onAction={onAdd} />}
-      </SurfaceCard>
+      </SectionAccordion>
       </>}
     </Stack>
   );
