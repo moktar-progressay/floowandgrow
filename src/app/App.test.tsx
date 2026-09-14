@@ -9,6 +9,7 @@ const focusResult = vi.hoisted(() => ({
 
 vi.mock('../features/data/useFocusData', () => ({
   useFocusData: () => focusResult.current,
+  useRewardMutation: () => ({ mutateAsync: vi.fn() }),
   useTaskMutations: () => ({
     toggleTask: { mutateAsync: vi.fn() },
     saveTask: { mutateAsync: vi.fn() },

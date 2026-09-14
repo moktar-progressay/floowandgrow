@@ -7,7 +7,7 @@ import type { GoogleWorkspaceData, VaultDocument } from '../../types/models';
 export async function requestGoogleWorkspace<T>(token: string, path: string, method = 'GET', body?: unknown): Promise<T> {
   const response = await fetch(googleWorkspaceFunction + path, {
     method,
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(path === '/data' ? 120_000 : 20_000),
     headers: {
       apikey: env.supabasePublishableKey,
       Authorization: `Bearer ${token}`,
