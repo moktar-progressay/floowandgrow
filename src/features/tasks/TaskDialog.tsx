@@ -7,11 +7,11 @@ import type { FocusGoal, FocusProject, FocusTag, FocusTask, TaskDraft, TaskTag }
 import { useNotice } from '../../app/AppProviders';
 import { useTaskMutations } from '../data/useFocusData';
 
-const emptyDraft = (initialDate?: string | null): TaskDraft => ({
+const emptyDraft = (initialDate?: string | null, initialProjectId?: string | null, initialGoalId?: string | null): TaskDraft => ({
   title: '',
   priority: null,
-  project_id: null,
-  goal_id: null,
+  project_id: initialProjectId || null,
+  goal_id: initialGoalId || null,
   scheduled_date: initialDate || new Date().toISOString().slice(0, 10),
   scheduled_time: null,
   is_daily_anchor: false,
@@ -19,12 +19,14 @@ const emptyDraft = (initialDate?: string | null): TaskDraft => ({
 });
 
 export function TaskDialog({
-  open, onClose, task, initialDate, projects, goals, tags, taskTags, onSaved, onBeforeDelete,
+  open, onClose, task, initialDate, initialProjectId, initialGoalId, projects, goals, tags, taskTags, onSaved, onBeforeDelete,
 }: {
   open: boolean;
   onClose: () => void;
   task: FocusTask | null;
   initialDate?: string | null;
+  initialProjectId?: string | null;
+  initialGoalId?: string | null;
   projects: FocusProject[];
   goals: FocusGoal[];
   tags: FocusTag[];
@@ -47,8 +49,8 @@ export function TaskDialog({
       scheduled_time: task.scheduled_time?.slice(0, 5) ?? null,
       is_daily_anchor: task.is_daily_anchor,
       tag_ids: taskTags.filter((item) => item.task_id === task.id).map((item) => item.tag_id),
-    } : emptyDraft(initialDate));
-  }, [open, task, initialDate, taskTags]);
+    } : emptyDraft(initialDate, initialProjectId, initialGoalId));
+  }, [open, task, initialDate, initialProjectId, initialGoalId, taskTags]);
 
   const availableGoals = useMemo(
     () => goals.filter((goal) => goal.project_id === draft.project_id),

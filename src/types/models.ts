@@ -98,6 +98,18 @@ export interface GoogleMessage {
   link?: string;
 }
 
+export interface GoogleMessageDetail extends GoogleMessage {
+  to?: string;
+  cc?: string;
+  text: string;
+  attachments: Array<{
+    filename: string;
+    mimeType: string;
+    size: number;
+    attachmentId: string;
+  }>;
+}
+
 export interface GoogleEvent {
   id: string;
   title?: string;

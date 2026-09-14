@@ -6,3 +6,7 @@ dist/
 vite.config.js
 vite.config.d.ts
 *.log
+.env
+.env.*
+!.env.example
+supabase/functions/.env

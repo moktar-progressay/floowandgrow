@@ -1,9 +1,8 @@
 import { useState, type FormEvent } from 'react';
-import { Accordion, AccordionDetails, AccordionSummary, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress, List, Stack, TextField, Typography } from '@mui/material';
+import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress, List, Stack, TextField, Typography } from '@mui/material';
 import { Add, ArrowBack, DeleteOutline, Edit, ExpandMore, Flag, FolderOpen, PlaylistAdd } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { EmptyState } from '../../components/common/EmptyState';
-import { PageHeader } from '../../components/common/PageHeader';
 import { SurfaceCard } from '../../components/common/SurfaceCard';
 import { TaskRow } from '../tasks/TaskRow';
 import { useOrganisationMutations } from '../data/useFocusData';
@@ -14,13 +13,14 @@ type ProjectDetailProps = {
   projects: FocusProject[];
   goals: FocusGoal[];
   tasks: FocusTask[];
+  onAddTask: (projectId: string, goalId: string) => void;
   onEdit: (task: FocusTask) => void;
   onToggle: (task: FocusTask) => void;
   onHide: (task: FocusTask) => void;
   onFocus: (task: FocusTask) => void;
 };
 
-export function ProjectDetailPage({ projects, goals, tasks, onEdit, onToggle, onHide, onFocus }: ProjectDetailProps) {
+export function ProjectDetailPage({ projects, goals, tasks, onAddTask, onEdit, onToggle, onHide, onFocus }: ProjectDetailProps) {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const project = projects.find((item) => item.id === projectId);
@@ -122,12 +122,17 @@ export function ProjectDetailPage({ projects, goals, tasks, onEdit, onToggle, on
   ) : <Typography variant="body2" color="text.secondary" py={1}>No tasks linked to this goal.</Typography>;
 
   return <>
-    <PageHeader
-      eyebrow="Project"
-      title={project.name}
-      description={`${completed} of ${projectTasks.length} tasks completed`}
-      action={<Stack direction="row" gap={1}><IconButton onClick={() => navigate('/projects')} aria-label="Back to projects"><ArrowBack /></IconButton><Button startIcon={<Edit />} onClick={beginProjectEdit}>Edit</Button><Button variant="contained" startIcon={<Add />} onClick={() => setGoalOpen(true)}>Add goal</Button></Stack>}
-    />
+    <Box mb={3}>
+      <Stack direction="row" alignItems="center" gap={0.5} minWidth={0}>
+        <IconButton onClick={() => navigate('/projects')} aria-label="Back to projects" edge="start"><ArrowBack /></IconButton>
+        <Typography component="h1" variant="h4" fontWeight={800} noWrap flex={1}>{project.name}</Typography>
+        <IconButton onClick={beginProjectEdit} aria-label="Edit project" size="small"><Edit /></IconButton>
+      </Stack>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" gap={2} mt={0.75} ml={{ xs: 0, sm: 5 }}>
+        <Typography color="text.secondary">{completed} of {projectTasks.length} tasks completed</Typography>
+        <Button startIcon={<Add />} onClick={() => setGoalOpen(true)}>Goal</Button>
+      </Stack>
+    </Box>
     {editingProject && <SurfaceCard sx={{ mb: 2.5 }}>
       <Stack component="form" onSubmit={updateProject} gap={2}>
         <Typography fontWeight={800}>Edit project</Typography>
@@ -154,7 +159,15 @@ export function ProjectDetailPage({ projects, goals, tasks, onEdit, onToggle, on
             <Stack direction="row" alignItems="center" gap={1.5} width="100%" minWidth={0} mr={1}>
               <Flag sx={{ color: project.colour || 'primary.main' }} />
               <Stack minWidth={0} flex={1}>
-                <Typography fontWeight={800} noWrap>{goal.title}</Typography>
+                <Stack direction="row" alignItems="center" gap={0.25} minWidth={0}>
+                  <Typography fontWeight={800} noWrap>{goal.title}</Typography>
+                  <IconButton
+                    aria-label={`Edit ${goal.title}`}
+                    size="small"
+                    onClick={(event) => { event.stopPropagation(); beginGoalEdit(goal); }}
+                    onFocus={(event) => event.stopPropagation()}
+                  ><Edit fontSize="small" /></IconButton>
+                </Stack>
                 <Typography variant="caption" color="text.secondary">{goalComplete} of {goalTasks.length} tasks completed</Typography>
               </Stack>
             </Stack>
@@ -168,11 +181,9 @@ export function ProjectDetailPage({ projects, goals, tasks, onEdit, onToggle, on
                 <Stack direction="row" gap={1}><Button onClick={() => setEditingGoalId(null)}>Cancel</Button><Button variant="contained" disabled={saveGoal.isPending || !editGoalTitle.trim()} onClick={() => updateGoal(goal)}>Save</Button></Stack>
               </Stack>
             </Stack> : <>
-              <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1} mb={1.5}>
-                {goal.why_this_matters ? <Typography variant="body2" color="text.secondary">{goal.why_this_matters}</Typography> : <Typography variant="body2" color="text.secondary">No reason added.</Typography>}
-                <Button size="small" startIcon={<Edit />} onClick={() => beginGoalEdit(goal)}>Edit</Button>
-              </Stack>
+              <Box mb={1.5}>{goal.why_this_matters ? <Typography variant="body2" color="text.secondary">{goal.why_this_matters}</Typography> : <Typography variant="body2" color="text.secondary">No reason added.</Typography>}</Box>
               {taskList(goalTasks)}
+              <Button size="small" startIcon={<Add />} onClick={() => onAddTask(project.id, goal.id)} sx={{ mt: 1 }}>Task</Button>
             </>}
           </AccordionDetails>
         </Accordion>;

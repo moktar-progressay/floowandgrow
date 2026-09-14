@@ -70,6 +70,7 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
   const bottomValue = location.pathname.startsWith('/projects')
     ? '/projects'
     : nav.find((item) => item.to === location.pathname)?.to ?? false;
+  const showFloatingAdd = !location.pathname.startsWith('/projects/');
   return (
     <Box minHeight="100dvh" display="flex">
       {desktop ? (
@@ -111,14 +112,14 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
           <BottomNavigationAction label="More" value="/more" icon={<MoreHoriz />} />
         </BottomNavigation>
       )}
-      <Button
+      {showFloatingAdd && <Button
         variant="contained"
         onClick={onAddTask}
         aria-label="Add task"
         sx={{ position: 'fixed', right: { xs: 18, md: 30 }, bottom: { xs: 88, md: 28 }, minWidth: 58, width: 58, height: 58, borderRadius: '50%', zIndex: theme.zIndex.speedDial }}
       >
         <AddTask />
-      </Button>
+      </Button>}
     </Box>
   );
 }
