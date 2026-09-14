@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Box, Button, Chip, Grid, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, Grid, Stack, Typography } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
 import { PageHeader } from '../../components/common/PageHeader';
 import { SurfaceCard } from '../../components/common/SurfaceCard';
+import { GoogleSourceChip } from '../../components/common/GoogleSourceChip';
 import type { FocusProject, FocusTask, GoogleEvent } from '../../types/models';
 
 const keyFor = (date: Date = new Date()) => {
@@ -10,7 +11,16 @@ const keyFor = (date: Date = new Date()) => {
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 };
 
-export function CalendarPage({ tasks, projects, events }: { tasks: FocusTask[]; projects: FocusProject[]; events: GoogleEvent[] }) {
+export function CalendarPage({
+  tasks, projects, events, googleConnected, googleError, onGoogleConnect,
+}: {
+  tasks: FocusTask[];
+  projects: FocusProject[];
+  events: GoogleEvent[];
+  googleConnected: boolean;
+  googleError?: string;
+  onGoogleConnect: () => void;
+}) {
   const [cursor, setCursor] = useState(() => new Date());
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
@@ -25,7 +35,14 @@ export function CalendarPage({ tasks, projects, events }: { tasks: FocusTask[]; 
   const projectFor = (id: string | null) => projects.find((project) => project.id === id);
 
   return <>
-    <PageHeader title="Calendar" description="Your tasks and connected Google Calendar in one view." />
+    <PageHeader
+      title="Calendar"
+      description="Your tasks and connected Google Calendar in one view."
+      action={googleConnected
+        ? <GoogleSourceChip service="calendar" color="success" />
+        : <Button variant="contained" onClick={onGoogleConnect}>Connect Google Calendar</Button>}
+    />
+    {googleError && <Alert severity="warning" sx={{ mb: 2 }}>{googleError}</Alert>}
     <SurfaceCard>
       <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
         <Button onClick={() => move(-1)} aria-label="Previous month"><ChevronLeft /></Button>
@@ -43,8 +60,8 @@ export function CalendarPage({ tasks, projects, events }: { tasks: FocusTask[]; 
             <Box minHeight={{ xs: 74, sm: 110 }} p={0.75} border={1} borderColor={key === keyFor() ? 'primary.main' : 'divider'} borderRadius={2} sx={{ opacity: outside ? 0.45 : 1, overflow: 'hidden' }}>
               <Typography variant="caption" fontWeight={key === keyFor() ? 800 : 500}>{day.getDate()}</Typography>
               <Stack gap={0.5} mt={0.5}>
-                {dayTasks.slice(0, 2).map((task) => <Chip key={task.id} size="small" label={task.title} title={task.title} sx={{ justifyContent: 'flex-start', bgcolor: projectFor(task.project_id)?.colour || undefined, color: projectFor(task.project_id)?.colour ? '#fff' : undefined, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }} />)}
-                {dayEvents.slice(0, 1).map((event) => <Chip key={event.id} size="small" variant="outlined" color="secondary" label={event.title || event.summary || 'Calendar event'} />)}
+                {dayTasks.slice(0, 2).map((task) => <Chip key={task.id} size="small" label={task.source === 'google_tasks' ? `Google • ${task.title}` : task.title} title={task.source === 'google_tasks' ? `Google Tasks: ${task.title}` : task.title} sx={{ justifyContent: 'flex-start', bgcolor: projectFor(task.project_id)?.colour || undefined, color: projectFor(task.project_id)?.colour ? '#fff' : undefined, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }} />)}
+                {dayEvents.slice(0, 1).map((event) => <Chip key={event.id} size="small" variant="outlined" color="secondary" label={`Google • ${event.title || event.summary || 'Calendar event'}`} title={`Google Calendar: ${event.title || event.summary || 'Calendar event'}`} />)}
                 {dayTasks.length + dayEvents.length > 3 && <Typography variant="caption" color="text.secondary">+{dayTasks.length + dayEvents.length - 3}</Typography>}
               </Stack>
             </Box>

@@ -76,7 +76,12 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
         <Drawer open={mobileOpen} onClose={() => setMobileOpen(false)} ModalProps={{ keepMounted: true }} sx={{ '& .MuiDrawer-paper': { width: drawerWidth } }}>{drawer}</Drawer>
       )}
       <Box component="main" flex={1} minWidth={0} pb={{ xs: 10, md: 0 }}>
-        <AppBar position="sticky" color="transparent" elevation={0} sx={{ backdropFilter: 'blur(16px)', borderBottom: 1, borderColor: 'divider' }}>
+        <AppBar
+          position="sticky"
+          color="transparent"
+          elevation={0}
+          sx={{ bgcolor: 'background.default', backgroundImage: 'none', borderBottom: 1, borderColor: 'divider' }}
+        >
           <Toolbar sx={{ gap: 2 }}>
             {!desktop && <IconButton onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu /></IconButton>}
             <Box flex={1}>
