@@ -8,6 +8,8 @@ import type {
   FocusTag,
   FocusTask,
   DailyCompletion,
+  RewardEvent,
+  RewardKind,
   TaskDraft,
   TaskTag,
 } from '../../types/models';
@@ -27,7 +29,7 @@ export function useFocusData() {
     queryKey: focusKey(userId),
     enabled: Boolean(userId),
     queryFn: async () => {
-      const [stateResult, tasks, projects, goals, tags, taskTags, dailyCompletions] = await Promise.all([
+      const [stateResult, tasks, projects, goals, tags, taskTags, dailyCompletions, rewardEvents] = await Promise.all([
         checked(supabase.from('focusos_state').select('*').eq('user_id', userId).maybeSingle()),
         checked(
           supabase
@@ -63,6 +65,13 @@ export function useFocusData() {
             .eq('user_id', userId)
             .order('completion_date', { ascending: false }),
         ),
+        checked(
+          supabase
+            .from('focusos_reward_events')
+            .select('id,event_key,kind,source,points,metadata,occurred_at')
+            .eq('user_id', userId)
+            .order('occurred_at', { ascending: false }),
+        ),
       ]);
 
       let state = stateResult as FocusState | null;
@@ -86,6 +95,7 @@ export function useFocusData() {
         tags: (tags ?? []) as FocusTag[],
         taskTags: (taskTags ?? []) as TaskTag[],
         dailyCompletions: (dailyCompletions ?? []) as DailyCompletion[],
+        rewardEvents: (rewardEvents ?? []) as RewardEvent[],
       };
     },
   });
@@ -199,24 +209,29 @@ export function useRewardMutation() {
   const queryClient = useQueryClient();
   const userId = session?.user.id ?? '';
   return useMutation({
-    mutationFn: async ({ rewardKey, points }: { rewardKey: string; points: number }) => {
-      const current = await checked(
-        supabase
-          .from('focusos_state')
-          .select('xp,workspace')
-          .eq('user_id', userId)
-          .single(),
-      ) as Pick<FocusState, 'xp' | 'workspace'>;
-      const rewards = current.workspace?.taskTownRewards ?? [];
-      if (rewards.includes(rewardKey)) return false;
-      const workspace = { ...(current.workspace ?? {}), taskTownRewards: [...rewards, rewardKey] };
-      await checked(
-        supabase
-          .from('focusos_state')
-          .update({ xp: Number(current.xp || 0) + points, workspace })
-          .eq('user_id', userId),
-      );
-      return true;
+    mutationFn: async ({
+      rewardKey,
+      kind,
+      source = 'focusos',
+      metadata = {},
+      occurredAt,
+    }: {
+      rewardKey: string;
+      kind: Exclude<RewardKind, 'legacy_reward'>;
+      source?: string;
+      metadata?: Record<string, unknown>;
+      occurredAt?: string;
+    }) => {
+      const result = await checked(
+        supabase.rpc('record_focusos_reward', {
+          p_event_key: rewardKey,
+          p_kind: kind,
+          p_source: source,
+          p_metadata: metadata,
+          ...(occurredAt ? { p_occurred_at: occurredAt } : {}),
+        }),
+      ) as { awarded?: boolean; points?: number; total_xp?: number } | null;
+      return { awarded: Boolean(result?.awarded), points: Number(result?.points || 0), totalXp: Number(result?.total_xp || 0) };
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: focusKey(userId) }),
   });
