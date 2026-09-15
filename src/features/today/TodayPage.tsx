@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button, List, Stack, Typography } from '@mui/material';
 import { Add, Anchor, CalendarToday, History } from '@mui/icons-material';
-import type { DailyCompletion, FocusProject, FocusTask } from '../../types/models';
+import type { DailyCompletion, FocusProject, FocusTask, RewardEvent } from '../../types/models';
 import { FocusOrb } from '../../components/brand/FocusOrb';
 import { EmptyState } from '../../components/common/EmptyState';
 import { SectionAccordion } from '../../components/common/SectionAccordion';
@@ -10,13 +10,15 @@ import { CompactDateStrip } from './CompactDateStrip';
 import { TaskRow } from '../tasks/TaskRow';
 import { localDate, overdueTasks } from '../tasks/taskDates';
 import { useAuth } from '../auth/AuthProvider';
+import { YesterdayRecap } from '../gamification/YesterdayRecap';
 
 export function TodayPage({
-  tasks, projects, dailyCompletions, onAdd, onEdit, onToggle, onHide, onFocus, onRelax,
+  tasks, projects, dailyCompletions, rewardEvents, onAdd, onEdit, onToggle, onHide, onFocus, onRelax,
 }: {
   tasks: FocusTask[];
   projects: FocusProject[];
   dailyCompletions: DailyCompletion[];
+  rewardEvents: RewardEvent[];
   onAdd: () => void;
   onEdit: (task: FocusTask) => void;
   onToggle: (task: FocusTask, completionDate?: string) => void;
@@ -73,6 +75,7 @@ export function TodayPage({
       </Button>
       <Typography textAlign="center" color="text.secondary" variant="caption" mt={-5}>Tap the orb to relax</Typography>
       <CompactDateStrip selectedDate={selectedDate} onChange={setSelectedDate} />
+      <YesterdayRecap events={rewardEvents} />
       {!showAllTasks && (
         <SectionAccordion title="Next task" icon={<CalendarToday color="primary" />} defaultExpanded sx={{ borderColor: 'primary.main' }}>
           {nextTask ? (

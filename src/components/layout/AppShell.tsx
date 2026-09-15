@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import {
   AddTask, CalendarMonth, DarkMode, Description, Home, Inbox, LightMode, Menu,
-  MoreHoriz, Settings, TaskAlt, TrackChanges, Workspaces, Logout,
+  MoreHoriz, Settings, TaskAlt, TrackChanges, Workspaces, Logout, EmojiEvents,
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useColourMode } from '../../app/AppProviders';
@@ -23,6 +23,7 @@ const nav = [
   { to: '/vault', label: 'Second Brain Vault', icon: <Description /> },
   { to: '/inbox', label: 'Inbox', icon: <Inbox /> },
   { to: '/assistant', label: 'Focus assistant', icon: <TrackChanges /> },
+  { to: '/progress', label: 'Progress & awards', icon: <EmojiEvents /> },
   { to: '/more', label: 'More', icon: <MoreHoriz /> },
 ];
 

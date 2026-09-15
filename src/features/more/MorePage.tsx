@@ -1,10 +1,11 @@
 import { Grid, CardActionArea, Stack, Typography } from '@mui/material';
-import { CalendarMonth, Description, Inbox, Settings, TrackChanges } from '@mui/icons-material';
+import { CalendarMonth, Description, EmojiEvents, Inbox, Settings, TrackChanges } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/common/PageHeader';
 import { SurfaceCard } from '../../components/common/SurfaceCard';
 
 const items = [
+  { to: '/progress', label: 'Progress & awards', detail: 'XP, streaks, insights and achievements', icon: <EmojiEvents /> },
   { to: '/calendar', label: 'Calendar', detail: 'Tasks and events', icon: <CalendarMonth /> },
   { to: '/vault', label: 'Second Brain Vault', detail: 'Files and documents', icon: <Description /> },
   { to: '/inbox', label: 'Inbox', detail: 'Messages that need action', icon: <Inbox /> },
