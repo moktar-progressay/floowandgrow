@@ -22,7 +22,7 @@ function normalisedTaskTitle(task: FocusTask) {
 function isAutomaticInboxItem(task: FocusTask) {
   return task.source === 'gmail'
     || task.source === 'google_gmail'
-    || (task.source === 'google_tasks' && normalisedTaskTitle(task).startsWith('inbox follow-up:'));
+    || normalisedTaskTitle(task).startsWith('inbox follow-up:');
 }
 
 export function TodayPage({
