@@ -61,6 +61,18 @@ export function useGoogleWorkspace() {
     queryFn: () => requestGoogleWorkspace<Pick<GoogleWorkspaceData, 'connected' | 'email' | 'gmail' | 'services'>>(token, '/gmail-data'),
     retry: 2,
   });
+  const calendar = useQuery({
+    queryKey: ['google-workspace-calendar', session?.user.id],
+    enabled: Boolean(token) && status.data?.connected === true,
+    queryFn: async () => {
+      const data = await requestGoogleWorkspace<Pick<GoogleWorkspaceData, 'connected' | 'email' | 'calendar' | 'services'>>(token, '/calendar-data');
+      if (data.connected && session?.user.id) {
+        await client.invalidateQueries({ queryKey: ['focusos', session.user.id] });
+      }
+      return data;
+    },
+    retry: 2,
+  });
   const connect = useMutation({
     mutationFn: () => requestGoogleWorkspace<{ url: string }>(token, '/start', 'POST', {
       returnTo: new URL(import.meta.env.BASE_URL, window.location.origin).toString(),
@@ -74,12 +86,21 @@ export function useGoogleWorkspace() {
         client.invalidateQueries({ queryKey: ['google-workspace'] }),
         client.invalidateQueries({ queryKey: ['google-workspace-status'] }),
         client.invalidateQueries({ queryKey: ['google-workspace-gmail'] }),
+        client.invalidateQueries({ queryKey: ['google-workspace-calendar'] }),
       ]);
     },
   });
   const action = useCallback(<T,>(path: string, body: unknown) => requestGoogleWorkspace<T>(token, path, 'POST', body), [token]);
+  const data = query.data
+    ? {
+        ...query.data,
+        calendar: calendar.data?.calendar ?? query.data.calendar,
+        services: { ...query.data.services, ...calendar.data?.services },
+      }
+    : calendar.data;
   return {
     ...query,
+    data,
     connected: status.data?.connected ?? query.data?.connected ?? false,
     email: status.data?.email ?? query.data?.email,
     checkingConnection: status.isPending,
@@ -88,6 +109,9 @@ export function useGoogleWorkspace() {
     gmailError: gmail.error,
     gmailLoading: gmail.isPending || gmail.isFetching,
     refetchGmail: gmail.refetch,
+    calendarError: calendar.error,
+    calendarLoading: calendar.isPending || calendar.isFetching,
+    refetchCalendar: calendar.refetch,
     connect,
     disconnect,
     action,
