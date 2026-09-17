@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button, ButtonBase, Dialog, DialogContent, DialogTitle, List, ListItemButton, ListItemText, Stack, Typography } from '@mui/material';
-import { Add, Anchor, CalendarToday, History, SwapHoriz } from '@mui/icons-material';
+import { Box, Button, ButtonBase, Dialog, DialogContent, DialogTitle, List, ListItemButton, ListItemText, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { Add, Anchor, CalendarToday, History, LocalFireDepartment, Star, SwapHoriz, TaskAlt } from '@mui/icons-material';
 import type { DailyCompletion, FocusProject, FocusTask, GoogleEvent, RewardEvent } from '../../types/models';
 import { FocusOrb } from '../../components/brand/FocusOrb';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -14,6 +14,10 @@ import { YesterdayRecap } from '../gamification/YesterdayRecap';
 import { eventDateKey, eventTime } from '../calendar/calendarDates';
 import { GoogleSourceChip } from '../../components/common/GoogleSourceChip';
 import { CalendarEventDialog } from '../calendar/CalendarEventDialog';
+import { HomeAssistant } from './HomeAssistant';
+import { UpcomingNotices } from './UpcomingNotices';
+import { useHomePreferences } from './uiPreferences';
+import { momentumStreak, progressBounds, summariseProgress } from '../gamification/gamification';
 
 function normalisedTaskTitle(task: FocusTask) {
   return task.title.trim().toLocaleLowerCase();
@@ -26,11 +30,14 @@ function isAutomaticInboxItem(task: FocusTask) {
 }
 
 export function TodayPage({
-  tasks, projects, events, dailyCompletions, rewardEvents, onAdd, onEdit, onToggle, onHide, onFocus, onRelax,
+  tasks, projects, events, noticeEvents, unreadEmails, xp, dailyCompletions, rewardEvents, onAdd, onEdit, onToggle, onHide, onFocus, onRelax,
 }: {
   tasks: FocusTask[];
   projects: FocusProject[];
   events: GoogleEvent[];
+  noticeEvents: GoogleEvent[];
+  unreadEmails: number;
+  xp: number;
   dailyCompletions: DailyCompletion[];
   rewardEvents: RewardEvent[];
   onAdd: () => void;
@@ -41,8 +48,8 @@ export function TodayPage({
   onRelax: () => void;
 }) {
   const { session } = useAuth();
+  const preferences = useHomePreferences();
   const [selectedDate, setSelectedDate] = useState(localDate());
-  const [showAllTasks, setShowAllTasks] = useState(false);
   const [focusTaskId, setFocusTaskId] = useState(() => window.localStorage.getItem('focusos-selected-focus-task'));
   const [switchFocusOpen, setSwitchFocusOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<GoogleEvent | null>(null);
@@ -109,25 +116,40 @@ export function TodayPage({
   const projectFor = (id: string | null) => projects.find((project) => project.id === id);
   const selectedDateLabel = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
     .format(new Date(`${selectedDate}T12:00:00`));
+  const selectedDayTasks = tasks.filter((task) => task.status !== 'archived' && !task.is_daily_anchor && !isAutomaticInboxItem(task) && task.scheduled_date === selectedDate);
+  const completedAgendaCount = selectedDayTasks.filter((task) => task.status === 'completed').length;
+  const todayProgress = summariseProgress(rewardEvents, progressBounds('day'));
+  const todayTotal = visibleTaskCount + todayProgress.tasks;
+  const streak = momentumStreak(rewardEvents);
 
   return (
-    <Stack width="100%" maxWidth={980} mx="auto" gap={2.5}>
-      <Box>
-        <Typography variant="h4" component="h1" fontWeight={800}>{greeting}{firstName ? `, ${firstName}` : ''}</Typography>
-        <Typography color="text.secondary">Let’s make today feel lighter.</Typography>
+    <Stack width="100%" maxWidth={980} mx="auto" gap={{ xs: 3, md: 4 }} pb={{ xs: 10, md: 14 }} position="relative">
+      <Box position="absolute" top={0} right={0}><UpcomingNotices tasks={tasks} events={noticeEvents} unreadEmails={unreadEmails} onEditTask={onEdit} onOpenEvent={setSelectedEvent} /></Box>
+      <Box textAlign="center" px={{ xs: 6, sm: 0 }}>
+        <Typography variant="caption" color="text.secondary">{new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())}</Typography>
+        <Typography variant="h4" component="h1" fontWeight={850}>{greeting}{firstName ? `, ${firstName}` : ''}</Typography>
+        <Typography color="text.secondary">Small steps. Big progress.</Typography>
       </Box>
-      <Button onClick={onRelax} aria-label="Open guided breathing" sx={{ alignSelf: 'center', borderRadius: '50%', my: 3 }}>
-        <FocusOrb size="clamp(145px, 38vw, 195px)" />
-      </Button>
-      <Typography textAlign="center" color="text.secondary" variant="caption" mt={-5}>Tap the orb to relax</Typography>
+      <Stack alignItems="center" gap={1}>
+        <Button onClick={() => preferences.setAssistantExpanded(!preferences.assistantExpanded)} aria-label="Open Focus Assistant quick entry" sx={{ borderRadius: '50%', p: 0.5 }}>
+          <FocusOrb size="clamp(112px, 28vw, 145px)" />
+        </Button>
+        <Stack direction="row" alignItems="center" gap={1}>
+          <Typography color="text.secondary" variant="caption">Ready when you are</Typography>
+          <Button size="small" color="inherit" onClick={onRelax} sx={{ minWidth: 0, px: 1 }}>Breathe</Button>
+        </Stack>
+        <HomeAssistant expanded={preferences.assistantExpanded} onExpandedChange={preferences.setAssistantExpanded} />
+      </Stack>
       <CompactDateStrip selectedDate={selectedDate} onChange={setSelectedDate} />
       <YesterdayRecap events={rewardEvents} />
       <SectionAccordion
         title="Focus task"
         icon={<CalendarToday color="primary" />}
+        meta={<Typography variant="caption" color="text.secondary">{nextTask ? '0 / 1' : '0 / 0'}</Typography>}
         action={focusCandidates.length > 1 ? <Button size="small" startIcon={<SwapHoriz />} onClick={() => setSwitchFocusOpen(true)}>Switch</Button> : undefined}
-        defaultExpanded
-        sx={{ borderColor: 'primary.main' }}
+        appearance="plain"
+        expanded={preferences.sections.focusTask}
+        onExpandedChange={(expanded) => preferences.setSection('focusTask', expanded)}
       >
           {nextTask ? (
             <List disablePadding>
@@ -144,12 +166,14 @@ export function TodayPage({
           ) : <EmptyState icon={<CalendarToday />} title="You are clear" description="There is nothing else asking for your attention." actionLabel="Add task" onAction={onAdd} />}
       </SectionAccordion>
       {visibleTaskCount > 1 && (
-        <Button onClick={() => setShowAllTasks((value) => !value)}>
-          {showAllTasks ? 'Show only next task' : `Show more tasks (${visibleTaskCount - 1})`}
-        </Button>
+        <ToggleButtonGroup exclusive size="small" value={preferences.taskMode} onChange={(_, value) => value && preferences.setTaskMode(value)} sx={{ alignSelf: 'center', bgcolor: 'action.hover', borderRadius: 999, '& .MuiToggleButton-root': { border: 0, borderRadius: '999px !important', px: 2 } }}>
+          <ToggleButton value="one">One task</ToggleButton>
+          <ToggleButton value="all">All today ({visibleTaskCount})</ToggleButton>
+        </ToggleButtonGroup>
       )}
-      {showAllTasks && <>
-      <SectionAccordion title="Agenda" icon={<CalendarToday color="primary" />} meta={<Typography variant="caption" color="text.secondary">{selectedDateLabel} · {agendaTasks.length + calendarEvents.length} items</Typography>} action={<Button size="small" startIcon={<Add />} onClick={onAdd}>Add</Button>} defaultExpanded>
+      {preferences.taskMode === 'all' && <>
+      <SectionAccordion title="Agenda" icon={<CalendarToday color="primary" />} meta={<Typography variant="caption" color="text.secondary">{completedAgendaCount} / {selectedDayTasks.length + calendarEvents.length}</Typography>} action={<Button size="small" startIcon={<Add />} onClick={onAdd}>Add</Button>} appearance="plain" expanded={preferences.sections.agenda} onExpandedChange={(expanded) => preferences.setSection('agenda', expanded)}>
+        <Typography variant="caption" color="text.secondary">{selectedDateLabel}</Typography>
         {agendaTasks.length > 0 && <List disablePadding sx={{ mt: 1 }}>{agendaTasks.map((task) => <TaskRow key={task.id} task={task} project={projectFor(task.project_id)} onToggle={() => onToggle(task)} onEdit={() => onEdit(task)} onHide={() => onHide(task)} onFocus={() => onFocus(task)} />)}</List>}
         {calendarEvents.map((event) => <ButtonBase key={event.id} onClick={() => setSelectedEvent(event)} sx={{ width: '100%', display: 'grid', gridTemplateColumns: { xs: '54px minmax(0, 1fr)', sm: '72px minmax(0, 1fr)' }, gap: 1.25, py: 0.75, textAlign: 'left', alignItems: 'stretch' }}>
           <Typography variant="caption" color="text.secondary" fontWeight={750} pt={1.25} textAlign="right">{eventTime(event)}</Typography>
@@ -163,8 +187,10 @@ export function TodayPage({
       <SectionAccordion
         title="Daily Anchors"
         icon={<Anchor color="secondary" />}
-        meta={<Typography variant="caption" color="text.secondary">{anchors.filter((task) => completedAnchorIds.has(task.id)).length} of {anchors.length} done</Typography>}
-        defaultExpanded
+        meta={<Typography variant="caption" color="text.secondary">{anchors.filter((task) => completedAnchorIds.has(task.id)).length} / {anchors.length}</Typography>}
+        appearance="plain"
+        expanded={preferences.sections.anchors}
+        onExpandedChange={(expanded) => preferences.setSection('anchors', expanded)}
       >
         {anchorTasks.length ? <List disablePadding sx={{ mt: 1 }}>{anchorTasks.map((task) => <TaskRow key={task.id} task={task} project={projectFor(task.project_id)} onToggle={() => onToggle(task, selectedDate)} onEdit={() => onEdit(task)} onHide={() => onHide(task)} onFocus={() => onFocus(task)} />)}</List> : <EmptyState icon={<Anchor />} title={anchors.length ? 'Anchors complete' : 'No Daily Anchors'} description={anchors.length ? 'Today’s anchors are safely recorded.' : 'Add the small routines that steady your day.'} actionLabel={anchors.length ? undefined : 'Add anchor'} onAction={anchors.length ? undefined : onAdd} />}
       </SectionAccordion>
@@ -173,7 +199,9 @@ export function TodayPage({
           title="Carried forward"
           icon={<History color="warning" />}
           meta={<Typography variant="caption" color="text.secondary">{allCarriedForward.length} unfinished</Typography>}
-          sx={{ borderColor: 'warning.main' }}
+          appearance="plain"
+          expanded={preferences.sections.carriedForward}
+          onExpandedChange={(expanded) => preferences.setSection('carriedForward', expanded)}
         >
           <Typography variant="body2" color="text.secondary" mt={0.75}>
             These remain visible until you complete or reschedule them.
@@ -198,6 +226,11 @@ export function TodayPage({
         </SectionAccordion>
       )}
       </>}
+      <Stack direction="row" justifyContent="center" gap={{ xs: 2, sm: 4 }} flexWrap="wrap" color="text.secondary" pt={1}>
+        <Stack direction="row" gap={0.75} alignItems="center"><LocalFireDepartment color="warning" fontSize="small" /><Typography variant="caption">{streak} day streak</Typography></Stack>
+        <Stack direction="row" gap={0.75} alignItems="center"><TaskAlt color="success" fontSize="small" /><Typography variant="caption">{todayProgress.tasks} / {todayTotal} today</Typography></Stack>
+        <Stack direction="row" gap={0.75} alignItems="center"><Star color="primary" fontSize="small" /><Typography variant="caption">{xp} XP</Typography></Stack>
+      </Stack>
       <CalendarEventDialog event={selectedEvent} onClose={() => setSelectedEvent(null)} />
       <Dialog open={switchFocusOpen} onClose={() => setSwitchFocusOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Switch focus task</DialogTitle>

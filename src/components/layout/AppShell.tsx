@@ -13,8 +13,10 @@ import { useColourMode } from '../../app/AppProviders';
 import { useAuth } from '../../features/auth/AuthProvider';
 import { supabase } from '../../services/supabase/client';
 import { BrandMark } from '../brand/BrandMark';
+import { persistSidebarMode, readSidebarMode, type SidebarMode } from '../../features/today/uiPreferences';
 
 const drawerWidth = 280;
+const collapsedDrawerWidth = 84;
 const nav = [
   { to: '/today', label: 'Today', icon: <Home /> },
   { to: '/tasks', label: 'Tasks', icon: <TaskAlt /> },
@@ -31,22 +33,26 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [desktopNavOpen, setDesktopNavOpen] = useState(() => window.localStorage.getItem('focusos-desktop-nav') !== 'hidden');
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(readSidebarMode);
   const navigate = useNavigate();
   const location = useLocation();
   const { session } = useAuth();
   const { mode, toggleMode } = useColourMode();
   const level = Math.floor(xp / 300) + 1;
   const progress = ((xp % 300) / 300) * 100;
+  const desktopNavOpen = sidebarMode !== 'hidden';
+  const sidebarCollapsed = sidebarMode === 'collapsed';
+  const sidebarWidth = sidebarCollapsed ? collapsedDrawerWidth : drawerWidth;
+  const changeSidebar = (mode: SidebarMode) => { setSidebarMode(mode); persistSidebarMode(mode); };
 
   const drawer = (
     <Stack height="100%">
-      <Stack p={2.5} gap={1}>
+      <Stack p={sidebarCollapsed ? 2 : 2.5} gap={1}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
-          <BrandMark />
-          {desktop && <Tooltip title="Hide navigation"><IconButton aria-label="Hide navigation" onClick={() => { setDesktopNavOpen(false); window.localStorage.setItem('focusos-desktop-nav', 'hidden'); }}><ChevronLeft /></IconButton></Tooltip>}
+          <BrandMark compact={sidebarCollapsed} />
+          {desktop && <Tooltip title="Hide navigation"><IconButton size={sidebarCollapsed ? 'small' : 'medium'} aria-label="Hide navigation" onClick={() => changeSidebar('hidden')}><ChevronLeft /></IconButton></Tooltip>}
         </Stack>
-        <Typography variant="caption" color="text.secondary" noWrap>{session?.user.email}</Typography>
+        {!sidebarCollapsed && <Typography variant="caption" color="text.secondary" noWrap>{session?.user.email}</Typography>}
       </Stack>
       <Divider />
       <List sx={{ px: 1.5, py: 2 }}>
@@ -55,15 +61,16 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
             key={item.to}
             selected={location.pathname === item.to || (item.to === '/projects' && location.pathname.startsWith('/projects/'))}
             onClick={() => { navigate(item.to); setMobileOpen(false); }}
-            sx={{ borderRadius: 2.5, mb: 0.5, minHeight: 48 }}
+            title={sidebarCollapsed ? item.label : undefined}
+            sx={{ borderRadius: 2.5, mb: 0.5, minHeight: 48, px: sidebarCollapsed ? 1.5 : 2, justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}
           >
-            <ListItemIcon sx={{ minWidth: 42 }}>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.label} />
+            <ListItemIcon sx={{ minWidth: sidebarCollapsed ? 0 : 42, justifyContent: 'center' }}>{item.icon}</ListItemIcon>
+            {!sidebarCollapsed && <ListItemText primary={item.label} />}
           </ListItemButton>
         ))}
       </List>
       <Box mt="auto" p={2}>
-        <Stack direction="row" gap={1}>
+        <Stack direction={sidebarCollapsed ? 'column' : 'row'} gap={1} alignItems={sidebarCollapsed ? 'center' : 'stretch'}>
           <Tooltip title="Connections"><IconButton onClick={() => navigate('/settings')}><Settings /></IconButton></Tooltip>
           <Tooltip title="Change theme"><IconButton onClick={toggleMode}>{mode === 'dark' ? <LightMode /> : <DarkMode />}</IconButton></Tooltip>
           <Tooltip title="Sign out"><IconButton color="error" onClick={() => void supabase.auth.signOut()}><Logout /></IconButton></Tooltip>
@@ -83,14 +90,14 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
           variant="permanent"
           open={desktopNavOpen}
           sx={{
-            width: desktopNavOpen ? drawerWidth : 0,
+            width: desktopNavOpen ? sidebarWidth : 0,
             flexShrink: 0,
             transition: theme.transitions.create('width'),
             '& .MuiDrawer-paper': {
-              width: drawerWidth,
+              width: sidebarWidth,
               borderRightColor: 'divider',
               transform: desktopNavOpen ? 'translateX(0)' : `translateX(-${drawerWidth}px)`,
-              transition: theme.transitions.create('transform'),
+              transition: theme.transitions.create(['transform', 'width']),
             },
           }}
         >{drawer}</Drawer>
@@ -105,17 +112,16 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
           sx={{ bgcolor: 'background.paper', backgroundImage: 'none', borderBottom: 1, borderColor: 'divider' }}
         >
           <Toolbar sx={{ gap: 2 }}>
-            <Tooltip title={desktop && desktopNavOpen ? 'Close navigation' : 'Open navigation'}>
+            <Tooltip title={desktopNavOpen ? (sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation') : 'Open navigation'}>
               <IconButton onClick={() => {
                 if (desktop) {
-                  const next = !desktopNavOpen;
-                  setDesktopNavOpen(next);
-                  window.localStorage.setItem('focusos-desktop-nav', next ? 'open' : 'hidden');
+                  changeSidebar(sidebarMode === 'expanded' ? 'collapsed' : 'expanded');
                 } else setMobileOpen(true);
-              }} aria-label={desktop && desktopNavOpen ? 'Close navigation' : 'Open navigation'}>
-                {desktop && desktopNavOpen ? <MenuOpen /> : <Menu />}
+              }} aria-label={desktopNavOpen ? (sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation') : 'Open navigation'}>
+                {desktop && desktopNavOpen && !sidebarCollapsed ? <MenuOpen /> : <Menu />}
               </IconButton>
             </Tooltip>
+            {desktop && sidebarMode === 'hidden' && <BrandMark compact />}
             <Box flex={1}>
               <Stack direction="row" alignItems="center" justifyContent="space-between">
                 <Typography variant="body2" fontWeight={700}>Level {level} Autonomous Agent</Typography>
