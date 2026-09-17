@@ -274,11 +274,11 @@ export function TaskTown({
                 </Stack>
               )}
 
-              <Box display="grid" gridTemplateColumns="repeat(3, 44px)" gridTemplateRows="repeat(2, 44px)" gap={.5}>
-                <IconButton aria-label="Move up" disabled={!playing} onClick={() => movePlayer('up')} sx={{ gridColumn: 2 }}><ArrowUpward /></IconButton>
-                <IconButton aria-label="Move left" disabled={!playing} onClick={() => movePlayer('left')}><ArrowLeft /></IconButton>
-                <IconButton aria-label="Move down" disabled={!playing} onClick={() => movePlayer('down')}><ArrowDownward /></IconButton>
-                <IconButton aria-label="Move right" disabled={!playing} onClick={() => movePlayer('right')}><ArrowRight /></IconButton>
+              <Box display="grid" gridTemplateColumns="repeat(3, 44px)" gridTemplateRows="repeat(3, 44px)" gap={.5}>
+                <IconButton aria-label="Move up" disabled={!playing} onClick={() => movePlayer('up')} sx={{ gridColumn: 2, gridRow: 1 }}><ArrowUpward /></IconButton>
+                <IconButton aria-label="Move left" disabled={!playing} onClick={() => movePlayer('left')} sx={{ gridColumn: 1, gridRow: 2 }}><ArrowLeft /></IconButton>
+                <IconButton aria-label="Move right" disabled={!playing} onClick={() => movePlayer('right')} sx={{ gridColumn: 3, gridRow: 2 }}><ArrowRight /></IconButton>
+                <IconButton aria-label="Move down" disabled={!playing} onClick={() => movePlayer('down')} sx={{ gridColumn: 2, gridRow: 3 }}><ArrowDownward /></IconButton>
               </Box>
             </Stack>
           </>
