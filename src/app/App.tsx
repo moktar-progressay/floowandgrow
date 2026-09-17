@@ -146,7 +146,9 @@ export function ProtectedApp() {
     }
   };
   const messages = google.gmail?.messages ?? [];
-  const events = google.data?.calendar?.events ?? [];
+  const events = (google.data?.calendar?.events ?? []).filter(
+    (event) => !(event.title || event.summary || '').trim().toLocaleLowerCase().startsWith('inbox follow-up:'),
+  );
   const linkedCalendarEventIds = new Set(
     tasks
       .filter((task) => task.source === 'google_calendar' && task.legacy_key)
