@@ -15,6 +15,16 @@ import { eventDateKey, eventTime } from '../calendar/calendarDates';
 import { GoogleSourceChip } from '../../components/common/GoogleSourceChip';
 import { CalendarEventDialog } from '../calendar/CalendarEventDialog';
 
+function normalisedTaskTitle(task: FocusTask) {
+  return task.title.trim().toLocaleLowerCase();
+}
+
+function isAutomaticInboxItem(task: FocusTask) {
+  return task.source === 'gmail'
+    || task.source === 'google_gmail'
+    || (task.source === 'google_tasks' && normalisedTaskTitle(task).startsWith('inbox follow-up:'));
+}
+
 export function TodayPage({
   tasks, projects, events, dailyCompletions, rewardEvents, onAdd, onEdit, onToggle, onHide, onFocus, onRelax,
 }: {
@@ -46,10 +56,9 @@ export function TodayPage({
     ),
     [dailyCompletions, selectedDate],
   );
-  const isInboxItem = (task: FocusTask) => task.source === 'gmail' || task.source === 'google_gmail';
   const visible = useMemo(
     () => tasks.filter((task) =>
-      task.status === 'open' && !isInboxItem(task) && (
+      task.status === 'open' && !isAutomaticInboxItem(task) && (
         task.scheduled_date === selectedDate ||
         (task.is_daily_anchor && task.recurrence === 'daily' && (!task.scheduled_date || task.scheduled_date <= selectedDate))
       )),
@@ -57,7 +66,8 @@ export function TodayPage({
   );
   const anchors = visible.filter((task) => task.is_daily_anchor);
   const activeAnchors = anchors.filter((task) => !completedAnchorIds.has(task.id));
-  const agenda = visible.filter((task) => !task.is_daily_anchor);
+  const anchorTitles = new Set(anchors.map(normalisedTaskTitle));
+  const agenda = visible.filter((task) => !task.is_daily_anchor && !anchorTitles.has(normalisedTaskTitle(task)));
   const calendarEvents = useMemo(
     () => events
       .filter((event) => eventDateKey(event) === selectedDate)
@@ -65,7 +75,7 @@ export function TodayPage({
     [events, selectedDate],
   );
   const allCarriedForward = useMemo(
-    () => overdueTasks(tasks, selectedDate).filter((task) => task.source !== 'google_tasks' && !isInboxItem(task)),
+    () => overdueTasks(tasks, selectedDate).filter((task) => task.source !== 'google_tasks' && !isAutomaticInboxItem(task)),
     [tasks, selectedDate],
   );
   const carriedForward = allCarriedForward.slice(0, 5);
