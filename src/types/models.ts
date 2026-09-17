@@ -135,6 +135,8 @@ export interface GoogleMessageDetail extends GoogleMessage {
 
 export interface GoogleEvent {
   id: string;
+  googleEventId?: string;
+  calendarId?: string;
   title?: string;
   summary?: string;
   start: string;
