@@ -17,6 +17,9 @@ export function SectionAccordion({
   action,
   children,
   defaultExpanded = false,
+  expanded,
+  onExpandedChange,
+  appearance = 'card',
   sx,
 }: {
   title: string;
@@ -25,26 +28,36 @@ export function SectionAccordion({
   action?: ReactNode;
   children: ReactNode;
   defaultExpanded?: boolean;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
+  appearance?: 'card' | 'plain';
   sx?: AccordionProps['sx'];
 }) {
   return (
     <Accordion
-      defaultExpanded={defaultExpanded}
+      defaultExpanded={expanded === undefined ? defaultExpanded : undefined}
+      expanded={expanded}
+      onChange={(_, nextExpanded) => onExpandedChange?.(nextExpanded)}
       disableGutters
-      variant="outlined"
+      variant={appearance === 'plain' ? undefined : 'outlined'}
       sx={{
-        borderRadius: 3,
+        borderRadius: appearance === 'plain' ? 0 : 3,
         overflow: 'hidden',
+        border: appearance === 'plain' ? 0 : undefined,
+        borderBottom: appearance === 'plain' ? 1 : undefined,
+        borderColor: appearance === 'plain' ? 'divider' : undefined,
+        boxShadow: 'none',
+        bgcolor: 'transparent',
         '&::before': { display: 'none' },
         '&.Mui-expanded': { m: 0 },
         ...sx,
       }}
     >
-      <AccordionSummary expandIcon={<ExpandMore />} sx={{ px: { xs: 2, sm: 2.5 }, minHeight: 64 }}>
+      <AccordionSummary expandIcon={<ExpandMore />} sx={{ px: appearance === 'plain' ? 0 : { xs: 2, sm: 2.5 }, minHeight: appearance === 'plain' ? 58 : 64 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2} width="100%" pr={1}>
           <Stack direction="row" alignItems="center" gap={1}>
             {icon}
-            <Typography variant="h6" fontWeight={800}>{title}</Typography>
+            <Typography variant={appearance === 'plain' ? 'subtitle1' : 'h6'} fontWeight={800}>{title}</Typography>
           </Stack>
           {(meta || action) && (
             <Box
@@ -60,7 +73,7 @@ export function SectionAccordion({
           )}
         </Stack>
       </AccordionSummary>
-      <AccordionDetails sx={{ px: { xs: 2, sm: 2.5 }, pt: 0, pb: { xs: 2, sm: 2.5 } }}>
+      <AccordionDetails sx={{ px: appearance === 'plain' ? 0 : { xs: 2, sm: 2.5 }, pt: 0, pb: appearance === 'plain' ? 3 : { xs: 2, sm: 2.5 } }}>
         {children}
       </AccordionDetails>
     </Accordion>
