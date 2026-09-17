@@ -331,7 +331,13 @@ export function useOrganisationMutations() {
 
   const saveTag = useMutation({
     mutationFn: async ({ name, colour }: { name: string; colour: string }) =>
-      checked(supabase.from('focusos_tags').insert({ user_id: userId, name: name.trim(), colour })),
+      checked(
+        supabase
+          .from('focusos_tags')
+          .insert({ user_id: userId, name: name.trim(), colour })
+          .select('id,name,colour,created_at,updated_at')
+          .single(),
+      ) as Promise<FocusTag>,
     onSuccess: refresh,
   });
 

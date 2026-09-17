@@ -260,7 +260,7 @@ export function ProtectedApp() {
   };
   return <AppShell xp={state.xp} onAddTask={openAdd}>
     <Suspense fallback={<LoadingScreen label="Opening page…" />}><Routes>
-      <Route path="/today" element={<TodayPage tasks={tasks} projects={projects} dailyCompletions={dailyCompletions} rewardEvents={rewardEvents} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onRelax={() => setRelaxOpen(true)} />} />
+      <Route path="/today" element={<TodayPage tasks={tasks} projects={projects} events={events} dailyCompletions={dailyCompletions} rewardEvents={rewardEvents} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onRelax={() => setRelaxOpen(true)} />} />
       <Route path="/tasks" element={<TasksPage tasks={tasksForToday} projects={projects} events={events} xp={state.xp} streak={sharedStreak} googleConnected={google.connected} googleEmail={google.email} googleLoading={googleLoading} googleError={google.data?.services?.tasks?.error || google.data?.services?.calendar?.error || google.data?.services?.gmail?.error || googleError} onGoogleConnect={connect} onGoogleRefresh={() => void google.refetch()} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onChallenge={(task) => { if (task.source === 'gmail' || task.source === 'google_gmail') void openEdit(task); else setFocusTask(task); }} />} />
       <Route path="/projects" element={<ProjectsPage tasks={tasksForToday} projects={projects} goals={goals} />} />
       <Route path="/projects/:projectId" element={<ProjectDetailPage tasks={tasksForToday} projects={projects} goals={goals} onAddTask={openAddForGoal} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} />} />
@@ -274,7 +274,7 @@ export function ProtectedApp() {
       <Route path="*" element={<Navigate to="/today" replace />} />
     </Routes></Suspense>
     <TaskDialog open={taskDialogOpen} onClose={() => setTaskDialogOpen(false)} task={editingTask} initialDate={newTaskDate} initialProjectId={newTaskProjectId} initialGoalId={newTaskGoalId} projects={projects} goals={goals} tags={tags} taskTags={taskTags} onSaved={google.connected ? syncTaskToGoogle : undefined} onBeforeDelete={google.connected ? removeTaskFromGoogle : undefined} />
-    <FocusMode task={focusTask} open={Boolean(focusTask)} onClose={() => setFocusTask(null)} onComplete={(task) => { void toggle(task); setFocusTask(null); }} onRename={renameFocusTask} onSprintComplete={(task, minutes, sessionId) => {
+    <FocusMode task={focusTask} open={Boolean(focusTask)} onClose={() => setFocusTask(null)} onComplete={(task) => { void toggle(task); setFocusTask(null); }} onAddTask={openAdd} onRename={renameFocusTask} onSprintComplete={(task, minutes, sessionId) => {
       void awardReward.mutateAsync({ rewardKey: `focus:${task.id}:${sessionId}`, kind: 'focus_sprint_completed', source: 'focus_mode', metadata: { entityId: task.id, title: task.title, minutes } })
         .then((reward) => notify(reward.awarded ? `Focus sprint complete. +${reward.points} XP` : 'Focus sprint complete.'))
         .catch((error) => notify(error instanceof Error ? error.message : 'Could not save focus reward.', 'error'));

@@ -3,7 +3,7 @@ import {
   Accordion, AccordionDetails, AccordionSummary, Box, Button, CircularProgress,
   Dialog, IconButton, Stack, TextField, Typography,
 } from '@mui/material';
-import { Check, Close, Edit, ExpandMore, Pause, PlayArrow, Refresh } from '@mui/icons-material';
+import { AddTask, Check, Close, Edit, ExpandMore, Pause, PlayArrow, Refresh } from '@mui/icons-material';
 import { FocusOrb } from '../../components/brand/FocusOrb';
 import type { FocusTask } from '../../types/models';
 
@@ -12,11 +12,12 @@ type FocusModeProps = {
   open: boolean;
   onClose: () => void;
   onComplete: (task: FocusTask) => void;
+  onAddTask: () => void;
   onRename?: (task: FocusTask, title: string) => Promise<void>;
   onSprintComplete?: (task: FocusTask, minutes: number, sessionId: string) => void;
 };
 
-export function FocusMode({ task, open, onClose, onComplete, onRename, onSprintComplete }: FocusModeProps) {
+export function FocusMode({ task, open, onClose, onComplete, onAddTask, onRename, onSprintComplete }: FocusModeProps) {
   const [durationMinutes, setDurationMinutes] = useState(25);
   const [seconds, setSeconds] = useState(25 * 60);
   const [running, setRunning] = useState(false);
@@ -97,14 +98,15 @@ export function FocusMode({ task, open, onClose, onComplete, onRename, onSprintC
   };
 
   return (
-    <Dialog open={open} onClose={running ? undefined : onClose} fullScreen>
+    <Dialog open={open} onClose={running ? undefined : onClose} fullScreen PaperProps={{ sx: { bgcolor: 'background.default', backgroundImage: 'none' } }}>
       <Box
         minHeight="100dvh"
         width="100%"
         overflow="hidden"
         display="grid"
         sx={{
-          background: 'radial-gradient(circle at 50% 52%, rgba(37,185,244,.16), transparent 38%)',
+          bgcolor: 'background.default',
+          backgroundImage: 'radial-gradient(circle at 50% 52%, rgba(37,185,244,.16), transparent 38%)',
           px: { xs: 2, sm: 4 },
           pt: 'max(24px, env(safe-area-inset-top))',
           pb: 'max(24px, env(safe-area-inset-bottom))',
@@ -176,6 +178,7 @@ export function FocusMode({ task, open, onClose, onComplete, onRename, onSprintC
           <Stack direction="row" alignItems="center" justifyContent="center" gap={0.5} flexWrap="wrap">
             <Button size="small" color="inherit" startIcon={<Refresh />} onClick={() => reset()}>Reset</Button>
             {task && <Button size="small" color="success" onClick={() => onComplete(task)}>Complete</Button>}
+            <Button size="small" startIcon={<AddTask />} onClick={onAddTask}>Add task</Button>
           </Stack>
 
           {task && (
