@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Alert, Button, ButtonGroup, Divider, List, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { Add, ChevronLeft, ChevronRight, OpenInNew, Today } from '@mui/icons-material';
+import { Add, ChevronLeft, ChevronRight, Today } from '@mui/icons-material';
 import { PageHeader } from '../../components/common/PageHeader';
 import { SurfaceCard } from '../../components/common/SurfaceCard';
 import { GoogleSourceChip } from '../../components/common/GoogleSourceChip';
 import { TaskRow } from '../tasks/TaskRow';
 import { CalendarMonthView } from './CalendarMonthView';
 import { CalendarTimeGrid } from './CalendarTimeGrid';
+import { CalendarEventDialog } from './CalendarEventDialog';
 import { dateFromKey, dateKey, daysForView, eventDateKey, eventTime, startOfWeek, type CalendarView } from './calendarDates';
 import type { FocusProject, FocusTask, GoogleEvent } from '../../types/models';
 
@@ -29,6 +30,7 @@ export function CalendarPage({ tasks, projects, events, googleConnected, googleE
   const [view, setView] = useState<CalendarView>('month');
   const [selectedDate, setSelectedDate] = useState(today);
   const [cursor, setCursor] = useState(() => dateFromKey(today));
+  const [selectedEvent, setSelectedEvent] = useState<GoogleEvent | null>(null);
   const selected = dateFromKey(selectedDate);
 
   const selectedTasks = useMemo(() => tasks
@@ -52,7 +54,7 @@ export function CalendarPage({ tasks, projects, events, googleConnected, googleE
   };
   const goToday = () => { setSelectedDate(today); setCursor(dateFromKey(today)); };
   const selectDate = (key: string) => { setSelectedDate(key); setCursor(new Date(dateFromKey(key).getFullYear(), dateFromKey(key).getMonth(), 1)); };
-  const openEvent = (event: GoogleEvent) => { if (event.link) window.open(event.link, '_blank', 'noopener,noreferrer'); };
+  const openEvent = (event: GoogleEvent) => setSelectedEvent(event);
   const projectFor = (id: string | null) => projects.find((project) => project.id === id);
 
   return <>
@@ -92,9 +94,10 @@ export function CalendarPage({ tasks, projects, events, googleConnected, googleE
       {selectedEvents.map((event) => <Stack key={event.id} direction="row" alignItems="center" gap={1.5} py={1.5} borderBottom={1} borderColor="divider">
         <GoogleSourceChip service="calendar" />
         <Stack flex={1} minWidth={0}><Typography fontWeight={700} noWrap>{event.title || event.summary || 'Calendar event'}</Typography><Typography variant="caption" color="text.secondary">{eventTime(event)}{event.location ? ` · ${event.location}` : ''}</Typography></Stack>
-        {event.link && <Button component="a" href={event.link} target="_blank" rel="noopener" size="small" startIcon={<OpenInNew />}>Open</Button>}
+        <Button onClick={() => setSelectedEvent(event)} size="small">View</Button>
       </Stack>)}
       {!selectedTasks.length && !selectedEvents.length && <Typography color="text.secondary" py={3} textAlign="center">Nothing scheduled. Add a task for this day.</Typography>}
     </SurfaceCard>
+    <CalendarEventDialog event={selectedEvent} onClose={() => setSelectedEvent(null)} />
   </>;
 }

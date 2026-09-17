@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button, Dialog, DialogContent, DialogTitle, List, ListItemButton, ListItemText, Stack, Typography } from '@mui/material';
-import { Add, Anchor, CalendarToday, History, OpenInNew, SwapHoriz } from '@mui/icons-material';
+import { Box, Button, ButtonBase, Dialog, DialogContent, DialogTitle, List, ListItemButton, ListItemText, Stack, Typography } from '@mui/material';
+import { Add, Anchor, CalendarToday, History, SwapHoriz } from '@mui/icons-material';
 import type { DailyCompletion, FocusProject, FocusTask, GoogleEvent, RewardEvent } from '../../types/models';
 import { FocusOrb } from '../../components/brand/FocusOrb';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -13,6 +13,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { YesterdayRecap } from '../gamification/YesterdayRecap';
 import { eventDateKey, eventTime } from '../calendar/calendarDates';
 import { GoogleSourceChip } from '../../components/common/GoogleSourceChip';
+import { CalendarEventDialog } from '../calendar/CalendarEventDialog';
 
 export function TodayPage({
   tasks, projects, events, dailyCompletions, rewardEvents, onAdd, onEdit, onToggle, onHide, onFocus, onRelax,
@@ -34,6 +35,7 @@ export function TodayPage({
   const [showAllTasks, setShowAllTasks] = useState(false);
   const [focusTaskId, setFocusTaskId] = useState(() => window.localStorage.getItem('focusos-selected-focus-task'));
   const [switchFocusOpen, setSwitchFocusOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<GoogleEvent | null>(null);
   const firstName = String(session?.user.user_metadata.first_name || session?.user.user_metadata.full_name || session?.user.email?.split('@')[0] || '').split(' ')[0];
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening';
   const completedAnchorIds = useMemo(
@@ -138,16 +140,13 @@ export function TodayPage({
       {showAllTasks && <>
       <SectionAccordion title="Agenda" icon={<CalendarToday color="primary" />} meta={<Typography variant="caption" color="text.secondary">{selectedDateLabel} · {agendaTasks.length + calendarEvents.length} items</Typography>} action={<Button size="small" startIcon={<Add />} onClick={onAdd}>Add</Button>} defaultExpanded>
         {agendaTasks.length > 0 && <List disablePadding sx={{ mt: 1 }}>{agendaTasks.map((task) => <TaskRow key={task.id} task={task} project={projectFor(task.project_id)} onToggle={() => onToggle(task)} onEdit={() => onEdit(task)} onHide={() => onHide(task)} onFocus={() => onFocus(task)} />)}</List>}
-        {calendarEvents.map((event) => (
-          <Stack key={event.id} direction="row" alignItems="center" gap={1.25} py={1.5} borderBottom={1} borderColor="divider" minWidth={0}>
-            <GoogleSourceChip service="calendar" sx={{ display: { xs: 'none', sm: 'inline-flex' }, flexShrink: 0 }} />
-            <Stack flex={1} minWidth={0}>
-              <Typography fontWeight={700} sx={{ overflowWrap: 'anywhere' }}>{event.title || event.summary || 'Calendar event'}</Typography>
-              <Typography variant="caption" color="text.secondary">{eventTime(event)}{event.location ? ` · ${event.location}` : ''}</Typography>
-            </Stack>
-            {event.link && <Button component="a" href={event.link} target="_blank" rel="noopener" size="small" startIcon={<OpenInNew />} sx={{ flexShrink: 0 }}>Open</Button>}
+        {calendarEvents.map((event) => <ButtonBase key={event.id} onClick={() => setSelectedEvent(event)} sx={{ width: '100%', display: 'grid', gridTemplateColumns: { xs: '54px minmax(0, 1fr)', sm: '72px minmax(0, 1fr)' }, gap: 1.25, py: 0.75, textAlign: 'left', alignItems: 'stretch' }}>
+          <Typography variant="caption" color="text.secondary" fontWeight={750} pt={1.25} textAlign="right">{eventTime(event)}</Typography>
+          <Stack minWidth={0} gap={0.5} px={1.5} py={1.1} bgcolor="action.hover" borderLeft={4} borderColor="secondary.main" borderRadius={1.5}>
+            <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap"><Typography fontWeight={800} sx={{ overflowWrap: 'anywhere' }}>{event.title || event.summary || 'Calendar event'}</Typography><GoogleSourceChip service="calendar" /></Stack>
+            {(event.location || event.calendarName) && <Typography variant="caption" color="text.secondary" noWrap>{event.location || event.calendarName}</Typography>}
           </Stack>
-        ))}
+        </ButtonBase>)}
         {!agendaTasks.length && !calendarEvents.length && <EmptyState icon={<CalendarToday />} title="Nothing else scheduled" description={nextTask ? 'Your focus task is the only item scheduled for this day.' : 'There are no tasks or Google Calendar events for this day.'} actionLabel="Add task" onAction={onAdd} />}
       </SectionAccordion>
       <SectionAccordion
@@ -188,6 +187,7 @@ export function TodayPage({
         </SectionAccordion>
       )}
       </>}
+      <CalendarEventDialog event={selectedEvent} onClose={() => setSelectedEvent(null)} />
       <Dialog open={switchFocusOpen} onClose={() => setSwitchFocusOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Switch focus task</DialogTitle>
         <DialogContent sx={{ px: 1.5, pb: 2 }}>
