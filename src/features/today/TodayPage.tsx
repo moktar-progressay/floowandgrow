@@ -46,9 +46,10 @@ export function TodayPage({
     ),
     [dailyCompletions, selectedDate],
   );
+  const isInboxItem = (task: FocusTask) => task.source === 'gmail' || task.source === 'google_gmail';
   const visible = useMemo(
     () => tasks.filter((task) =>
-      task.status === 'open' && (
+      task.status === 'open' && !isInboxItem(task) && (
         task.scheduled_date === selectedDate ||
         (task.is_daily_anchor && task.recurrence === 'daily' && (!task.scheduled_date || task.scheduled_date <= selectedDate))
       )),
@@ -64,7 +65,7 @@ export function TodayPage({
     [events, selectedDate],
   );
   const allCarriedForward = useMemo(
-    () => overdueTasks(tasks, selectedDate).filter((task) => task.source !== 'google_tasks'),
+    () => overdueTasks(tasks, selectedDate).filter((task) => task.source !== 'google_tasks' && !isInboxItem(task)),
     [tasks, selectedDate],
   );
   const carriedForward = allCarriedForward.slice(0, 5);
