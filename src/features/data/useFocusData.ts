@@ -22,6 +22,27 @@ async function checked<T>(promise: PromiseLike<{ data: T; error: { message: stri
   return data;
 }
 
+const taskPageSize = 1000;
+
+async function loadAllTasks(userId: string) {
+  const allTasks: FocusTask[] = [];
+  for (let from = 0; ; from += taskPageSize) {
+    const page = await checked(
+      supabase
+        .from('focusos_tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .order('sort_order')
+        .order('created_at')
+        .order('id')
+        .range(from, from + taskPageSize - 1),
+    ) as FocusTask[] | null;
+    allTasks.push(...(page ?? []));
+    if (!page || page.length < taskPageSize) break;
+  }
+  return allTasks;
+}
+
 async function ensureDailyAnchorsProject(userId: string) {
   const existing = await checked(
     supabase.from('focusos_projects').select('id').eq('user_id', userId).eq('name', 'Daily Anchors').eq('status', 'active').limit(1).maybeSingle(),
@@ -43,14 +64,7 @@ export function useFocusData() {
     queryFn: async () => {
       const [stateResult, tasks, projects, goals, tags, taskTags, dailyCompletions, rewardEvents] = await Promise.all([
         checked(supabase.from('focusos_state').select('*').eq('user_id', userId).maybeSingle()),
-        checked(
-          supabase
-            .from('focusos_tasks')
-            .select('*')
-            .eq('user_id', userId)
-            .order('sort_order')
-            .order('created_at'),
-        ),
+        loadAllTasks(userId),
         checked(
           supabase
             .from('focusos_projects')
