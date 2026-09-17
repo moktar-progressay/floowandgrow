@@ -13,7 +13,7 @@ import { RelaxMode } from '../features/focus/RelaxMode';
 import { EmailReaderDialog } from '../features/inbox/EmailReaderDialog';
 import { localDate } from '../features/tasks/taskDates';
 import { momentumStreak } from '../features/gamification/gamification';
-import type { FocusTask, GoogleMessage, GoogleMessageDetail, TaskDraft } from '../types/models';
+import type { FocusTask, GoogleEvent, GoogleMessage, GoogleMessageDetail, TaskDraft } from '../types/models';
 import { useNotice } from './AppProviders';
 import type { AgentProposal } from '../features/assistant/agentClient';
 import { draftReply } from '../features/assistant/agentClient';
@@ -146,17 +146,11 @@ export function ProtectedApp() {
     }
   };
   const messages = google.gmail?.messages ?? [];
-  const events = (google.data?.calendar?.events ?? []).filter(
-    (event) => !(event.title || event.summary || '').trim().toLocaleLowerCase().startsWith('inbox follow-up:'),
-  );
-  const linkedCalendarEventIds = new Set(
-    tasks
-      .filter((task) => task.source === 'google_calendar' && task.legacy_key)
-      .map((task) => task.legacy_key!.split(':').at(-1)),
-  );
-  const unlinkedEvents = events.filter(
-    (event) => !linkedCalendarEventIds.has(event.googleEventId || event.id.split(':').at(-1)),
-  );
+  // Calendar events are synchronised into FocusOS tasks before this query is
+  // refreshed. Render the task records only so every scheduled item has the
+  // same checkbox, project, goal, tags and CRUD controls. Rendering the raw
+  // Google payload as well creates a second, read-only row with different UI.
+  const unlinkedEvents: GoogleEvent[] = [];
   const sharedStreak = momentumStreak(rewardEvents);
   const documents = [...mapDriveFiles(google.data), ...(state.docs ?? [])];
   const refreshInboxAndRecordZero = async () => {
