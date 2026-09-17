@@ -1,6 +1,6 @@
 import { Box, Typography } from '@mui/material';
 
-export function BrandMark() {
+export function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
     <Box display="flex" alignItems="center" gap={1.25}>
       <Box
@@ -9,9 +9,9 @@ export function BrandMark() {
         borderRadius="50%"
         sx={{ bgcolor: 'success.main', boxShadow: '0 0 18px rgba(45,212,161,.55)' }}
       />
-      <Typography variant="h5" fontWeight={800} letterSpacing={-0.7}>
+      {!compact && <Typography variant="h5" fontWeight={800} letterSpacing={-0.7}>
         Focus<Box component="span" color="primary.main">OS</Box>
-      </Typography>
+      </Typography>}
     </Box>
   );
 }
