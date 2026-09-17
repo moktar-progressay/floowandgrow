@@ -59,6 +59,27 @@ export interface DailyCompletion {
   completed_at: string;
 }
 
+export type RewardKind =
+  | 'task_completed'
+  | 'anchor_completed'
+  | 'email_read'
+  | 'email_archived'
+  | 'email_replied'
+  | 'follow_up_created'
+  | 'focus_sprint_completed'
+  | 'inbox_zero'
+  | 'legacy_reward';
+
+export interface RewardEvent {
+  id: string;
+  event_key: string;
+  kind: RewardKind;
+  source: string;
+  points: number;
+  metadata: Record<string, unknown>;
+  occurred_at: string;
+}
+
 export interface FocusState {
   user_id: string;
   xp: number;
@@ -70,6 +91,7 @@ export interface FocusState {
     timeline: unknown[];
     completed: unknown[];
     inboxZeroDates: string[];
+    /** Retained only to migrate rewards created before the shared event ledger. */
     taskTownRewards?: string[];
   };
 }

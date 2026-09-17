@@ -13,14 +13,14 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={2} mb={3}>
-      <Box>
+    <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'flex-start' }} gap={2} mb={{ xs: 2.5, md: 3.5 }}>
+      <Box minWidth={0}>
         {eyebrow && (
           <Typography variant="overline" color="primary.main" fontWeight={800} letterSpacing={2}>
             {eyebrow}
           </Typography>
         )}
-        <Typography component="h1" variant="h4" fontWeight={800}>
+        <Typography component="h1" fontWeight={800} sx={{ fontSize: { xs: '2rem', md: '2.35rem' }, lineHeight: 1.15 }}>
           {title}
         </Typography>
         {description && (
@@ -29,7 +29,7 @@ export function PageHeader({
           </Typography>
         )}
       </Box>
-      {action}
+      {action && <Box sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' }, '& > .MuiButton-root': { width: { xs: '100%', sm: 'auto' } } }}>{action}</Box>}
     </Stack>
   );
 }

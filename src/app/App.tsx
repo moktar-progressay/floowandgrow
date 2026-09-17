@@ -12,6 +12,7 @@ import { FocusMode } from '../features/focus/FocusMode';
 import { RelaxMode } from '../features/focus/RelaxMode';
 import { EmailReaderDialog } from '../features/inbox/EmailReaderDialog';
 import { localDate } from '../features/tasks/taskDates';
+import { momentumStreak } from '../features/gamification/gamification';
 import type { FocusTask, GoogleMessage, GoogleMessageDetail, TaskDraft } from '../types/models';
 import { useNotice } from './AppProviders';
 import type { AgentProposal } from '../features/assistant/agentClient';
@@ -42,6 +43,7 @@ const InboxPage = lazyWithRecovery(() => import('../features/inbox/InboxPage').t
 const AssistantPage = lazyWithRecovery(() => import('../features/assistant/AssistantPage').then((module) => ({ default: module.AssistantPage })));
 const SettingsPage = lazyWithRecovery(() => import('../features/settings/SettingsPage').then((module) => ({ default: module.SettingsPage })));
 const MorePage = lazyWithRecovery(() => import('../features/more/MorePage').then((module) => ({ default: module.MorePage })));
+const ProgressPage = lazyWithRecovery(() => import('../features/gamification/ProgressPage').then((module) => ({ default: module.ProgressPage })));
 
 export function ProtectedApp() {
   const focus = useFocusData();
@@ -60,7 +62,7 @@ export function ProtectedApp() {
   const loadEmail = useCallback((messageId: string) => google.action<GoogleMessageDetail>('/gmail-message', { messageId }), [google.action]);
   if (focus.isLoading) return <LoadingScreen label="Loading your workspace…" />;
   if (focus.error || !focus.data) return <LoadingScreen label={focus.error instanceof Error ? focus.error.message : 'Could not load FocusOS.'} />;
-  const { state, tasks, projects, goals, tags, taskTags, dailyCompletions } = focus.data;
+  const { state, tasks, projects, goals, tags, taskTags, dailyCompletions, rewardEvents = [] } = focus.data;
   const localToday = localDate();
   const anchorCompletedOn = (taskId: string, date: string) =>
     dailyCompletions.some((completion) => completion.task_id === taskId && completion.completion_date === date);
@@ -78,18 +80,20 @@ export function ProtectedApp() {
     setNewTaskGoalId(goalId);
     setTaskDialogOpen(true);
   };
+  const gmailMessageIdForTask = async (task: FocusTask) => {
+    const legacyId = task.legacy_key?.startsWith('gmail:') ? task.legacy_key.slice('gmail:'.length) : '';
+    if (legacyId) return legacyId;
+    const { data } = await supabase
+      .from('focusos_external_links')
+      .select('external_id')
+      .eq('task_id', task.id)
+      .eq('provider', 'gmail')
+      .maybeSingle();
+    return data?.external_id || '';
+  };
   const openEdit = async (task: FocusTask) => {
     if (task.source === 'gmail' || task.source === 'google_gmail') {
-      let messageId = task.legacy_key?.startsWith('gmail:') ? task.legacy_key.slice('gmail:'.length) : '';
-      if (!messageId) {
-        const { data } = await supabase
-          .from('focusos_external_links')
-          .select('external_id')
-          .eq('task_id', task.id)
-          .eq('provider', 'gmail')
-          .maybeSingle();
-        messageId = data?.external_id || '';
-      }
+      const messageId = await gmailMessageIdForTask(task);
       if (!messageId) { notify('This email is missing its Google reference.', 'error'); return; }
       setEmailReader({ task, message: { id: messageId, subject: task.title.replace(/^Read email:\s*/i, ''), from: '', unread: task.status === 'open' } });
       return;
@@ -101,13 +105,25 @@ export function ProtectedApp() {
     const wasCompleted = task.is_daily_anchor ? anchorCompletedOn(task.id, completionDate) : task.status === 'completed';
     try {
       await toggleTask.mutateAsync({ task, completionDate, completed: wasCompleted });
-      const points = task.source === 'gmail' || task.source === 'google_gmail' ? 10 : task.is_daily_anchor ? 20 : 30;
-      const awarded = !wasCompleted && await awardReward.mutateAsync({ rewardKey: `${task.id}:complete`, points });
+      const kind = task.source === 'gmail' || task.source === 'google_gmail'
+        ? 'email_read' as const
+        : task.is_daily_anchor ? 'anchor_completed' as const : 'task_completed' as const;
+      const gmailMessageId = kind === 'email_read' ? await gmailMessageIdForTask(task) : '';
+      const rewardKey = task.is_daily_anchor
+        ? `${task.id}:complete:${completionDate}`
+        : gmailMessageId ? `gmail:${gmailMessageId}:read` : `${task.id}:complete`;
+      const reward = !wasCompleted ? await awardReward.mutateAsync({
+        rewardKey,
+        kind,
+        source: task.source || 'focusos',
+        metadata: { entityId: gmailMessageId || task.id, taskId: task.id, title: task.title, completionDate },
+      }) : null;
       if (google.connected && !task.is_daily_anchor) {
         try { await google.action('/sync-focus-task', { taskId: task.id }); }
         catch { notify('Task updated in FocusOS. Tap Sync now to retry Google.', 'warning'); return; }
       }
-      notify(wasCompleted ? 'Task reopened.' : awarded ? `Task completed. +${points} XP` : 'Task completed.');
+      if (kind === 'email_read' && !wasCompleted) void refreshInboxAndRecordZero();
+      notify(wasCompleted ? 'Task reopened.' : reward?.awarded ? `Task completed. +${reward.points} XP` : 'Task completed.');
     }
     catch (error) { notify(error instanceof Error ? error.message : 'Could not update task.', 'error'); }
   };
@@ -131,44 +147,55 @@ export function ProtectedApp() {
   };
   const messages = google.gmail?.messages ?? [];
   const events = google.data?.calendar?.events ?? [];
-  const taskTownStreak = state.workspace?.inboxZeroDates?.length ?? 0;
+  const sharedStreak = momentumStreak(rewardEvents);
   const documents = [...mapDriveFiles(google.data), ...(state.docs ?? [])];
+  const refreshInboxAndRecordZero = async () => {
+    try {
+      const refreshed = await google.refetchGmail();
+      if (refreshed.data?.gmail?.messages?.length === 0) {
+        const date = localDate();
+        await awardReward.mutateAsync({ rewardKey: `inbox-zero:${date}`, kind: 'inbox_zero', source: 'gmail', metadata: { date } });
+      }
+    } catch {
+      // The main action is already complete. A later refresh can safely retry this daily reward.
+    }
+  };
   const createMessageTask = async (message: GoogleMessage) => {
     const draft: TaskDraft = { title: `Follow up: ${message.subject || 'Email'}`, priority: null, project_id: null, goal_id: null, scheduled_date: new Date().toISOString().slice(0, 10), scheduled_time: null, is_daily_anchor: false, tag_ids: [] };
     try {
       const taskId = await saveTask.mutateAsync({ draft });
       if (google.connected) await syncTaskToGoogle(taskId);
-      const awarded = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:follow-up`, points: 20 });
-      notify(awarded ? 'Email added as a task. +20 XP' : 'Email added as a task.');
+      const reward = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:follow-up`, kind: 'follow_up_created', source: 'gmail', metadata: { entityId: message.id, subject: message.subject } });
+      notify(reward.awarded ? `Email added as a task. +${reward.points} XP` : 'Email added as a task.');
     }
     catch (error) { notify(error instanceof Error ? error.message : 'Could not create task.', 'error'); }
   };
   const archiveMessage = async (message: GoogleMessage) => {
     try {
       await google.action('/gmail-action', { messageId: message.id, action: 'archive' });
-      const awarded = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:archive`, points: 10 });
-      void Promise.allSettled([google.refetchGmail(), focus.refetch()]);
-      notify(awarded ? 'Email archived. +10 XP' : 'Email archived.');
+      const reward = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:archive`, kind: 'email_archived', source: 'gmail', metadata: { entityId: message.id, subject: message.subject } });
+      void Promise.allSettled([refreshInboxAndRecordZero(), focus.refetch()]);
+      notify(reward.awarded ? `Email archived. +${reward.points} XP` : 'Email archived.');
     }
     catch (error) { notify(error instanceof Error ? error.message : 'Could not archive email.', 'error'); }
   };
   const completeEmail = async (message: GoogleMessage) => {
     await google.action('/gmail-action', { messageId: message.id, action: 'read' });
-    const awarded = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:read`, points: 10 });
-    void Promise.allSettled([google.refetchGmail(), focus.refetch()]);
-    notify(awarded ? 'Email completed. +10 XP' : 'Email marked as read and completed.');
+    const reward = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:read`, kind: 'email_read', source: 'gmail', metadata: { entityId: message.id, subject: message.subject } });
+    void Promise.allSettled([refreshInboxAndRecordZero(), focus.refetch()]);
+    notify(reward.awarded ? `Email completed. +${reward.points} XP` : 'Email marked as read and completed.');
   };
   const archiveEmailFromReader = async (message: GoogleMessage) => {
     await google.action('/gmail-action', { messageId: message.id, action: 'archive' });
-    const awarded = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:archive`, points: 10 });
-    void Promise.allSettled([google.refetchGmail(), focus.refetch()]);
-    notify(awarded ? 'Email archived and task completed. +10 XP' : 'Email archived and task completed.');
+    const reward = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:archive`, kind: 'email_archived', source: 'gmail', metadata: { entityId: message.id, subject: message.subject } });
+    void Promise.allSettled([refreshInboxAndRecordZero(), focus.refetch()]);
+    notify(reward.awarded ? `Email archived and task completed. +${reward.points} XP` : 'Email archived and task completed.');
   };
   const replyToEmail = async (message: GoogleMessageDetail, reply: string) => {
     const subject = /^re:/i.test(message.subject) ? message.subject : `Re: ${message.subject}`;
     await google.action('/gmail-reply', { to: message.replyTo || message.from, subject, message: reply, threadId: message.threadId, confirm: true });
-    const awarded = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:reply`, points: 30 });
-    notify(awarded ? 'Reply sent. +30 XP' : 'Reply sent.');
+    const reward = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:reply`, kind: 'email_replied', source: 'gmail', metadata: { entityId: message.id, subject: message.subject } });
+    notify(reward.awarded ? `Reply sent. +${reward.points} XP` : 'Reply sent.');
   };
   const draftEmailReply = (message: GoogleMessageDetail) => draftReply({
     channel: 'email',
@@ -233,20 +260,25 @@ export function ProtectedApp() {
   };
   return <AppShell xp={state.xp} onAddTask={openAdd}>
     <Suspense fallback={<LoadingScreen label="Opening page…" />}><Routes>
-      <Route path="/today" element={<TodayPage tasks={tasks} projects={projects} dailyCompletions={dailyCompletions} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onRelax={() => setRelaxOpen(true)} />} />
-      <Route path="/tasks" element={<TasksPage tasks={tasksForToday} projects={projects} events={events} xp={state.xp} streak={taskTownStreak} googleConnected={google.connected} googleEmail={google.email} googleLoading={googleLoading} googleError={google.data?.services?.tasks?.error || google.data?.services?.calendar?.error || google.data?.services?.gmail?.error || googleError} onGoogleConnect={connect} onGoogleRefresh={() => void google.refetch()} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onChallenge={(task) => { if (task.source === 'gmail' || task.source === 'google_gmail') void openEdit(task); else setFocusTask(task); }} />} />
+      <Route path="/today" element={<TodayPage tasks={tasks} projects={projects} events={events} dailyCompletions={dailyCompletions} rewardEvents={rewardEvents} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onRelax={() => setRelaxOpen(true)} />} />
+      <Route path="/tasks" element={<TasksPage tasks={tasksForToday} projects={projects} events={events} xp={state.xp} streak={sharedStreak} googleConnected={google.connected} googleEmail={google.email} googleLoading={googleLoading} googleError={google.data?.services?.tasks?.error || google.data?.services?.calendar?.error || google.data?.services?.gmail?.error || googleError} onGoogleConnect={connect} onGoogleRefresh={() => void google.refetch()} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onChallenge={(task) => { if (task.source === 'gmail' || task.source === 'google_gmail') void openEdit(task); else setFocusTask(task); }} />} />
       <Route path="/projects" element={<ProjectsPage tasks={tasksForToday} projects={projects} goals={goals} />} />
       <Route path="/projects/:projectId" element={<ProjectDetailPage tasks={tasksForToday} projects={projects} goals={goals} onAddTask={openAddForGoal} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} />} />
       <Route path="/calendar" element={<CalendarPage tasks={tasks} projects={projects} events={events} googleConnected={google.connected} googleError={google.data?.services?.calendar?.error || googleError} onGoogleConnect={connect} onAddTask={openAddOnDate} onEditTask={openEdit} onToggleTask={toggle} onHideTask={hideTask} onFocusTask={setFocusTask} />} />
       <Route path="/vault" element={<VaultPage documents={documents} connected={google.connected} onConnect={connect} />} />
       <Route path="/inbox" element={<InboxPage messages={messages} connected={google.connected} loading={google.gmailLoading} error={google.gmailError instanceof Error ? google.gmailError.message : google.data?.services?.gmail?.error || googleError} onConnect={connect} onRefresh={() => void google.refetchGmail()} onOpen={(message) => setEmailReader({ message, task: null })} onArchive={archiveMessage} onCreateTask={createMessageTask} />} />
       <Route path="/assistant" element={<AssistantPage tasks={tasksForToday} onApproveProposal={approveAgentProposal} />} />
+      <Route path="/progress" element={<ProgressPage events={rewardEvents} totalXp={state.xp} />} />
       <Route path="/settings" element={<SettingsPage connected={google.connected} email={google.email} error={googleError} onConnect={connect} onRefresh={() => void google.refetch()} onDisconnect={() => google.disconnect.mutate()} />} />
       <Route path="/more" element={<MorePage />} />
       <Route path="*" element={<Navigate to="/today" replace />} />
     </Routes></Suspense>
     <TaskDialog open={taskDialogOpen} onClose={() => setTaskDialogOpen(false)} task={editingTask} initialDate={newTaskDate} initialProjectId={newTaskProjectId} initialGoalId={newTaskGoalId} projects={projects} goals={goals} tags={tags} taskTags={taskTags} onSaved={google.connected ? syncTaskToGoogle : undefined} onBeforeDelete={google.connected ? removeTaskFromGoogle : undefined} />
-    <FocusMode task={focusTask} open={Boolean(focusTask)} onClose={() => setFocusTask(null)} onComplete={(task) => { void toggle(task); setFocusTask(null); }} onRename={renameFocusTask} />
+    <FocusMode task={focusTask} open={Boolean(focusTask)} onClose={() => setFocusTask(null)} onComplete={(task) => { void toggle(task); setFocusTask(null); }} onAddTask={openAdd} onRename={renameFocusTask} onSprintComplete={(task, minutes, sessionId) => {
+      void awardReward.mutateAsync({ rewardKey: `focus:${task.id}:${sessionId}`, kind: 'focus_sprint_completed', source: 'focus_mode', metadata: { entityId: task.id, title: task.title, minutes } })
+        .then((reward) => notify(reward.awarded ? `Focus sprint complete. +${reward.points} XP` : 'Focus sprint complete.'))
+        .catch((error) => notify(error instanceof Error ? error.message : 'Could not save focus reward.', 'error'));
+    }} />
     <RelaxMode open={relaxOpen} onClose={() => setRelaxOpen(false)} />
     <EmailReaderDialog open={Boolean(emailReader)} message={emailReader?.message ?? null} onClose={() => setEmailReader(null)} onLoad={loadEmail} onComplete={completeEmail} onArchive={archiveEmailFromReader} onCreateTask={createMessageTask} onReply={replyToEmail} onDraftReply={draftEmailReply} />
   </AppShell>;

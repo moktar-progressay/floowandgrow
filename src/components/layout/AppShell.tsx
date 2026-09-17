@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import {
   AddTask, CalendarMonth, DarkMode, Description, Home, Inbox, LightMode, Menu,
-  MoreHoriz, Settings, TaskAlt, TrackChanges, Workspaces, Logout,
+  MenuOpen, MoreHoriz, Settings, TaskAlt, TrackChanges, Workspaces, Logout, EmojiEvents, ChevronLeft,
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useColourMode } from '../../app/AppProviders';
@@ -23,6 +23,7 @@ const nav = [
   { to: '/vault', label: 'Second Brain Vault', icon: <Description /> },
   { to: '/inbox', label: 'Inbox', icon: <Inbox /> },
   { to: '/assistant', label: 'Focus assistant', icon: <TrackChanges /> },
+  { to: '/progress', label: 'Progress & awards', icon: <EmojiEvents /> },
   { to: '/more', label: 'More', icon: <MoreHoriz /> },
 ];
 
@@ -30,6 +31,7 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopNavOpen, setDesktopNavOpen] = useState(() => window.localStorage.getItem('focusos-desktop-nav') !== 'hidden');
   const navigate = useNavigate();
   const location = useLocation();
   const { session } = useAuth();
@@ -39,8 +41,11 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
 
   const drawer = (
     <Stack height="100%">
-      <Stack p={3} gap={1}>
-        <BrandMark />
+      <Stack p={2.5} gap={1}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
+          <BrandMark />
+          {desktop && <Tooltip title="Hide navigation"><IconButton aria-label="Hide navigation" onClick={() => { setDesktopNavOpen(false); window.localStorage.setItem('focusos-desktop-nav', 'hidden'); }}><ChevronLeft /></IconButton></Tooltip>}
+        </Stack>
         <Typography variant="caption" color="text.secondary" noWrap>{session?.user.email}</Typography>
       </Stack>
       <Divider />
@@ -72,21 +77,45 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
     : nav.find((item) => item.to === location.pathname)?.to ?? false;
   const showFloatingAdd = !location.pathname.startsWith('/projects/');
   return (
-    <Box minHeight="100dvh" display="flex">
+    <Box minHeight="100dvh" display="flex" bgcolor="background.default">
       {desktop ? (
-        <Drawer variant="permanent" sx={{ width: drawerWidth, '& .MuiDrawer-paper': { width: drawerWidth, borderRightColor: 'divider' } }}>{drawer}</Drawer>
+        <Drawer
+          variant="permanent"
+          open={desktopNavOpen}
+          sx={{
+            width: desktopNavOpen ? drawerWidth : 0,
+            flexShrink: 0,
+            transition: theme.transitions.create('width'),
+            '& .MuiDrawer-paper': {
+              width: drawerWidth,
+              borderRightColor: 'divider',
+              transform: desktopNavOpen ? 'translateX(0)' : `translateX(-${drawerWidth}px)`,
+              transition: theme.transitions.create('transform'),
+            },
+          }}
+        >{drawer}</Drawer>
       ) : (
         <Drawer open={mobileOpen} onClose={() => setMobileOpen(false)} ModalProps={{ keepMounted: true }} sx={{ '& .MuiDrawer-paper': { width: drawerWidth } }}>{drawer}</Drawer>
       )}
-      <Box component="main" flex={1} minWidth={0} pb={{ xs: 10, md: 0 }}>
+      <Box component="main" flex={1} width="100%" minWidth={0} pb={{ xs: 10, md: 0 }}>
         <AppBar
           position="sticky"
           color="transparent"
           elevation={0}
-          sx={{ bgcolor: 'background.default', backgroundImage: 'none', borderBottom: 1, borderColor: 'divider' }}
+          sx={{ bgcolor: 'background.paper', backgroundImage: 'none', borderBottom: 1, borderColor: 'divider' }}
         >
           <Toolbar sx={{ gap: 2 }}>
-            {!desktop && <IconButton onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu /></IconButton>}
+            <Tooltip title={desktop && desktopNavOpen ? 'Close navigation' : 'Open navigation'}>
+              <IconButton onClick={() => {
+                if (desktop) {
+                  const next = !desktopNavOpen;
+                  setDesktopNavOpen(next);
+                  window.localStorage.setItem('focusos-desktop-nav', next ? 'open' : 'hidden');
+                } else setMobileOpen(true);
+              }} aria-label={desktop && desktopNavOpen ? 'Close navigation' : 'Open navigation'}>
+                {desktop && desktopNavOpen ? <MenuOpen /> : <Menu />}
+              </IconButton>
+            </Tooltip>
             <Box flex={1}>
               <Stack direction="row" alignItems="center" justifyContent="space-between">
                 <Typography variant="body2" fontWeight={700}>Level {level} Autonomous Agent</Typography>
@@ -97,7 +126,7 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
             <Avatar sx={{ width: 36, height: 36, bgcolor: 'primary.dark' }}>{session?.user.email?.[0]?.toUpperCase()}</Avatar>
           </Toolbar>
         </AppBar>
-        <Box maxWidth={1180} mx="auto" p={{ xs: 2, sm: 3, lg: 4 }}>{children}</Box>
+        <Box width="100%" p={{ xs: 2, sm: 3, lg: 4, xl: 5 }}>{children}</Box>
       </Box>
       {!desktop && (
         <BottomNavigation

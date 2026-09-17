@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Accordion, AccordionDetails, AccordionSummary, Box, Button, CircularProgress,
   Dialog, IconButton, Stack, TextField, Typography,
 } from '@mui/material';
-import { Check, Close, Edit, ExpandMore, Pause, PlayArrow, Refresh } from '@mui/icons-material';
+import { AddTask, Check, Close, Edit, ExpandMore, Pause, PlayArrow, Refresh } from '@mui/icons-material';
 import { FocusOrb } from '../../components/brand/FocusOrb';
 import type { FocusTask } from '../../types/models';
 
@@ -12,10 +12,12 @@ type FocusModeProps = {
   open: boolean;
   onClose: () => void;
   onComplete: (task: FocusTask) => void;
+  onAddTask: () => void;
   onRename?: (task: FocusTask, title: string) => Promise<void>;
+  onSprintComplete?: (task: FocusTask, minutes: number, sessionId: string) => void;
 };
 
-export function FocusMode({ task, open, onClose, onComplete, onRename }: FocusModeProps) {
+export function FocusMode({ task, open, onClose, onComplete, onAddTask, onRename, onSprintComplete }: FocusModeProps) {
   const [durationMinutes, setDurationMinutes] = useState(25);
   const [seconds, setSeconds] = useState(25 * 60);
   const [running, setRunning] = useState(false);
@@ -23,6 +25,8 @@ export function FocusMode({ task, open, onClose, onComplete, onRename }: FocusMo
   const [editingTimer, setEditingTimer] = useState(false);
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
+  const sessionId = useRef<string | null>(null);
+  const rewardedSessionId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -31,8 +35,13 @@ export function FocusMode({ task, open, onClose, onComplete, onRename }: FocusMo
     }
     setTitle(task?.title || 'Take a breath');
     setNotes(task ? window.localStorage.getItem(`focusos-notes:${task.id}`) || '' : '');
+    setDurationMinutes(25);
+    setSeconds(25 * 60);
+    setRunning(false);
     setEditingTitle(false);
     setEditingTimer(false);
+    sessionId.current = null;
+    rewardedSessionId.current = null;
   }, [open, task?.id, task?.title]);
 
   useEffect(() => {
@@ -47,6 +56,12 @@ export function FocusMode({ task, open, onClose, onComplete, onRename }: FocusMo
     return () => window.clearInterval(timer);
   }, [running]);
 
+  useEffect(() => {
+    if (seconds !== 0 || !task || !sessionId.current || rewardedSessionId.current === sessionId.current) return;
+    rewardedSessionId.current = sessionId.current;
+    onSprintComplete?.(task, durationMinutes, sessionId.current);
+  }, [durationMinutes, onSprintComplete, seconds, task]);
+
   const totalSeconds = durationMinutes * 60;
   const progress = totalSeconds ? Math.min(100, Math.max(0, ((totalSeconds - seconds) / totalSeconds) * 100)) : 0;
   const minutes = String(Math.floor(seconds / 60)).padStart(2, '0');
@@ -56,6 +71,8 @@ export function FocusMode({ task, open, onClose, onComplete, onRename }: FocusMo
     setDurationMinutes(minutesValue);
     setSeconds(minutesValue * 60);
     setRunning(false);
+    sessionId.current = null;
+    rewardedSessionId.current = null;
   };
 
   const saveTitle = async () => {
@@ -81,14 +98,15 @@ export function FocusMode({ task, open, onClose, onComplete, onRename }: FocusMo
   };
 
   return (
-    <Dialog open={open} onClose={running ? undefined : onClose} fullScreen>
+    <Dialog open={open} onClose={running ? undefined : onClose} fullScreen PaperProps={{ sx: { bgcolor: 'background.default', backgroundImage: 'none' } }}>
       <Box
         minHeight="100dvh"
         width="100%"
         overflow="hidden"
         display="grid"
         sx={{
-          background: 'radial-gradient(circle at 50% 52%, rgba(37,185,244,.16), transparent 38%)',
+          bgcolor: 'background.default',
+          backgroundImage: 'radial-gradient(circle at 50% 52%, rgba(37,185,244,.16), transparent 38%)',
           px: { xs: 2, sm: 4 },
           pt: 'max(24px, env(safe-area-inset-top))',
           pb: 'max(24px, env(safe-area-inset-bottom))',
@@ -150,13 +168,17 @@ export function FocusMode({ task, open, onClose, onComplete, onRename }: FocusMo
             </Stack>
           )}
 
-          <Button fullWidth variant="contained" size="large" startIcon={running ? <Pause /> : <PlayArrow />} onClick={() => setRunning((value) => !value)} sx={{ maxWidth: 340, minHeight: 54, fontSize: '1.05rem' }}>
+          <Button fullWidth variant="contained" size="large" startIcon={running ? <Pause /> : <PlayArrow />} onClick={() => {
+            if (!running && !sessionId.current) sessionId.current = crypto.randomUUID();
+            setRunning((value) => !value);
+          }} sx={{ maxWidth: 340, minHeight: 54, fontSize: '1.05rem' }}>
             {running ? 'Pause' : seconds === totalSeconds ? 'Start' : 'Continue'}
           </Button>
 
           <Stack direction="row" alignItems="center" justifyContent="center" gap={0.5} flexWrap="wrap">
             <Button size="small" color="inherit" startIcon={<Refresh />} onClick={() => reset()}>Reset</Button>
             {task && <Button size="small" color="success" onClick={() => onComplete(task)}>Complete</Button>}
+            <Button size="small" startIcon={<AddTask />} onClick={onAddTask}>Add task</Button>
           </Stack>
 
           {task && (
