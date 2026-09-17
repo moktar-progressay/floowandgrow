@@ -10,4 +10,11 @@ describe('FocusOrb', () => {
     expect(orb).toHaveAttribute('aria-hidden', 'true');
     expect(orb).toHaveAttribute('data-orb-activity', 'active');
   });
+
+  it('uses the approved ten-second breathing rhythm', () => {
+    const { container } = render(<FocusOrb activity="breathing" />);
+    const orb = container.firstElementChild as HTMLElement;
+
+    expect(orb.style.getPropertyValue('--orb-breathe')).toBe('10s');
+  });
 });
