@@ -141,6 +141,11 @@ export interface GoogleEvent {
   end?: string;
   link?: string;
   location?: string;
+  calendarName?: string;
+  description?: string;
+  organiser?: string;
+  attendees?: string[];
+  meetingLink?: string;
 }
 
 export interface GoogleTask {
