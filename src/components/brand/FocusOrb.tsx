@@ -1,7 +1,7 @@
 import { useId, type CSSProperties } from 'react';
 import { Box, type BoxProps } from '@mui/material';
 
-export type OrbActivity = 'calm' | 'active' | 'breathing';
+export type OrbActivity = 'calm' | 'active' | 'breathing' | 'listening' | 'thinking' | 'focus' | 'alert';
 
 export interface FocusOrbProps extends Omit<BoxProps, 'children'> {
   size?: number | string;
@@ -9,9 +9,13 @@ export interface FocusOrbProps extends Omit<BoxProps, 'children'> {
 }
 
 const activitySettings: Record<OrbActivity, { flow: number; breathe: string; glow: number }> = {
-  calm: { flow: 18, breathe: '7s', glow: 0.72 },
-  active: { flow: 8, breathe: '3.4s', glow: 0.92 },
-  breathing: { flow: 14, breathe: '14s', glow: 0.82 },
+  calm: { flow: 20, breathe: '10s', glow: 0.68 },
+  active: { flow: 12, breathe: '10s', glow: 0.86 },
+  breathing: { flow: 18, breathe: '10s', glow: 0.82 },
+  listening: { flow: 22, breathe: '11s', glow: 0.82 },
+  thinking: { flow: 14, breathe: '10s', glow: 0.84 },
+  focus: { flow: 24, breathe: '12s', glow: 0.58 },
+  alert: { flow: 18, breathe: '10s', glow: 0.78 },
 };
 
 const particles = [
@@ -56,11 +60,15 @@ export function FocusOrb({ size = 220, activity = 'calm', sx, ...props }: FocusO
         display: 'grid',
         placeItems: 'center',
         isolation: 'isolate',
-        animation: 'focusos-orb-breathe var(--orb-breathe) ease-in-out infinite',
+        animation: 'focusos-orb-breathe var(--orb-breathe) cubic-bezier(.4, 0, .2, 1) infinite',
         willChange: 'transform',
         '@keyframes focusos-orb-breathe': {
-          '0%, 100%': { transform: 'translateY(3px) scale(.985)' },
-          '50%': { transform: 'translateY(-7px) scale(1.035)' },
+          '0%, 100%': { transform: 'scale(1)' },
+          '40%, 50%': { transform: 'scale(1.055)' },
+        },
+        '@keyframes focusos-orb-glow': {
+          '0%, 100%': { opacity: 0.72 },
+          '40%, 50%': { opacity: 1 },
         },
         '@keyframes focusos-orb-flow-a': {
           '0%': { transform: 'rotate(0deg) scale(1)' },
@@ -87,6 +95,7 @@ export function FocusOrb({ size = 220, activity = 'calm', sx, ...props }: FocusO
           borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(88,229,255,calc(var(--orb-glow) * .54)) 0%, rgba(73,158,255,.20) 43%, transparent 70%)',
           zIndex: -2,
+          animation: 'focusos-orb-glow var(--orb-breathe) cubic-bezier(.4, 0, .2, 1) infinite',
         },
         '&::after': {
           content: '""',
@@ -109,9 +118,23 @@ export function FocusOrb({ size = 220, activity = 'calm', sx, ...props }: FocusO
           animation: 'focusos-orb-core calc(var(--orb-breathe) * .72) ease-in-out infinite',
         },
         '& .orb-particle': { animation: 'focusos-orb-particle 6s ease-in-out infinite' },
+        '& .focusos-orb-surface': {
+          transition: 'filter 320ms ease, transform 320ms cubic-bezier(.4, 0, .2, 1)',
+        },
+        '&:hover .focusos-orb-surface': {
+          filter: 'brightness(1.06)',
+          transform: 'translateZ(0) scale(1.01)',
+        },
+        '&:active .focusos-orb-surface': {
+          filter: 'brightness(1.14)',
+          transform: 'translateZ(0) scale(.985)',
+        },
         '@media (prefers-reduced-motion: reduce)': {
           animation: 'none',
+          transform: 'none',
+          '&::before': { animation: 'none', opacity: 0.78 },
           '& *': { animation: 'none !important' },
+          '& .focusos-orb-surface': { transitionDuration: '120ms' },
         },
         ...sx,
       }}
