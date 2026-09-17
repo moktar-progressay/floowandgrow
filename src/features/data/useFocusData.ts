@@ -22,6 +22,18 @@ async function checked<T>(promise: PromiseLike<{ data: T; error: { message: stri
   return data;
 }
 
+async function ensureDailyAnchorsProject(userId: string) {
+  const existing = await checked(
+    supabase.from('focusos_projects').select('id').eq('user_id', userId).eq('name', 'Daily Anchors').eq('status', 'active').limit(1).maybeSingle(),
+  );
+  if (existing?.id) return existing.id as string;
+  const created = await checked(
+    supabase.from('focusos_projects').insert({ user_id: userId, name: 'Daily Anchors', colour: '#7c5cff', status: 'active' }).select('id').single(),
+  );
+  if (!created?.id) throw new Error('Daily Anchors project could not be created.');
+  return created.id as string;
+}
+
 export function useFocusData() {
   const { session } = useAuth();
   const userId = session?.user.id ?? '';
@@ -109,11 +121,12 @@ export function useTaskMutations() {
 
   const saveTask = useMutation({
     mutationFn: async ({ id, draft }: { id?: string; draft: TaskDraft }) => {
+      const projectId = draft.is_daily_anchor ? await ensureDailyAnchorsProject(userId) : draft.project_id;
       const payload = {
         user_id: userId,
         title: draft.title.trim(),
         priority: draft.priority,
-        project_id: draft.project_id || null,
+        project_id: projectId || null,
         goal_id: draft.goal_id || null,
         scheduled_date: draft.scheduled_date || null,
         scheduled_time: draft.scheduled_time || null,
