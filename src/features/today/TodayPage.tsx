@@ -123,14 +123,22 @@ export function TodayPage({
   const streak = momentumStreak(rewardEvents);
 
   return (
-    <Stack width="100%" maxWidth={980} mx="auto" gap={{ xs: 3, md: 4 }} pb={{ xs: 10, md: 14 }} position="relative">
+    <Stack
+      width="100%"
+      maxWidth={980}
+      mx="auto"
+      gap={{ xs: 3, md: 4 }}
+      pb={{ xs: 16, sm: 14, md: 16 }}
+      position="relative"
+      sx={{ overflowX: 'clip' }}
+    >
       <Box position="absolute" top={0} right={0}><UpcomingNotices tasks={tasks} events={noticeEvents} unreadEmails={unreadEmails} onEditTask={onEdit} onOpenEvent={setSelectedEvent} /></Box>
       <Box textAlign="center" px={{ xs: 6, sm: 0 }}>
         <Typography variant="caption" color="text.secondary">{new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())}</Typography>
         <Typography variant="h4" component="h1" fontWeight={850}>{greeting}{firstName ? `, ${firstName}` : ''}</Typography>
         <Typography color="text.secondary">Small steps. Big progress.</Typography>
       </Box>
-      <Stack alignItems="center" gap={1}>
+      <Stack alignItems="center" gap={1} mb={{ xs: 2, sm: 3 }} minWidth={0}>
         <Button onClick={() => preferences.setAssistantExpanded(!preferences.assistantExpanded)} aria-label="Open Focus Assistant quick entry" sx={{ borderRadius: '50%', p: 0.5 }}>
           <FocusOrb size="clamp(112px, 28vw, 145px)" />
         </Button>
@@ -145,7 +153,7 @@ export function TodayPage({
       <SectionAccordion
         title="Focus task"
         icon={<CalendarToday color="primary" />}
-        meta={<Typography variant="caption" color="text.secondary">{nextTask ? '0 / 1' : '0 / 0'}</Typography>}
+        meta={<Typography variant="caption" color="text.secondary">{nextTask ? '0 of 1' : '0 of 0'}</Typography>}
         action={focusCandidates.length > 1 ? <Button size="small" startIcon={<SwapHoriz />} onClick={() => setSwitchFocusOpen(true)}>Switch</Button> : undefined}
         appearance="plain"
         expanded={preferences.sections.focusTask}
@@ -172,7 +180,7 @@ export function TodayPage({
         </ToggleButtonGroup>
       )}
       {preferences.taskMode === 'all' && <>
-      <SectionAccordion title="Agenda" icon={<CalendarToday color="primary" />} meta={<Typography variant="caption" color="text.secondary">{completedAgendaCount} / {selectedDayTasks.length + calendarEvents.length}</Typography>} action={<Button size="small" startIcon={<Add />} onClick={onAdd}>Add</Button>} appearance="plain" expanded={preferences.sections.agenda} onExpandedChange={(expanded) => preferences.setSection('agenda', expanded)}>
+      <SectionAccordion title="Agenda" icon={<CalendarToday color="primary" />} meta={<Typography variant="caption" color="text.secondary">{completedAgendaCount} of {selectedDayTasks.length + calendarEvents.length}</Typography>} action={<Button size="small" startIcon={<Add />} onClick={onAdd}>Add</Button>} appearance="plain" expanded={preferences.sections.agenda} onExpandedChange={(expanded) => preferences.setSection('agenda', expanded)}>
         <Typography variant="caption" color="text.secondary">{selectedDateLabel}</Typography>
         {agendaTasks.length > 0 && <List disablePadding sx={{ mt: 1 }}>{agendaTasks.map((task) => <TaskRow key={task.id} task={task} project={projectFor(task.project_id)} onToggle={() => onToggle(task)} onEdit={() => onEdit(task)} onHide={() => onHide(task)} onFocus={() => onFocus(task)} />)}</List>}
         {calendarEvents.map((event) => <ButtonBase key={event.id} onClick={() => setSelectedEvent(event)} sx={{ width: '100%', display: 'grid', gridTemplateColumns: { xs: '54px minmax(0, 1fr)', sm: '72px minmax(0, 1fr)' }, gap: 1.25, py: 0.75, textAlign: 'left', alignItems: 'stretch' }}>
@@ -187,7 +195,7 @@ export function TodayPage({
       <SectionAccordion
         title="Daily Anchors"
         icon={<Anchor color="secondary" />}
-        meta={<Typography variant="caption" color="text.secondary">{anchors.filter((task) => completedAnchorIds.has(task.id)).length} / {anchors.length}</Typography>}
+        meta={<Typography variant="caption" color="text.secondary">{anchors.filter((task) => completedAnchorIds.has(task.id)).length} of {anchors.length}</Typography>}
         appearance="plain"
         expanded={preferences.sections.anchors}
         onExpandedChange={(expanded) => preferences.setSection('anchors', expanded)}

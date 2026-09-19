@@ -19,10 +19,7 @@ export function TaskRow({
 }) {
   const complete = completed ?? task.status === 'completed';
   return (
-    <ListItem
-      disablePadding
-      sx={{ borderBottom: 1, borderColor: 'divider' }}
-    >
+    <ListItem disablePadding>
       {!hidden && <Checkbox checked={complete} onChange={onToggle} inputProps={{ 'aria-label': `${complete ? 'Reopen' : 'Complete'} ${task.title}` }} />}
       <ListItemButton onClick={onEdit} sx={{ minWidth: 0, px: 1, py: 1.5 }}>
         <ListItemText
