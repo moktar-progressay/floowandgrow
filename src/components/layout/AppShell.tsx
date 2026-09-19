@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import {
-  AppBar, Avatar, BottomNavigation, BottomNavigationAction, Box, Button, Divider, Drawer,
+  AppBar, Avatar, BottomNavigation, BottomNavigationAction, Box, Divider, Drawer,
   IconButton, LinearProgress, List, ListItemButton, ListItemIcon, ListItemText, Stack,
   Toolbar, Tooltip, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
@@ -147,14 +147,26 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
           <BottomNavigationAction label="More" value="/more" icon={<MoreHoriz />} />
         </BottomNavigation>
       )}
-      {showFloatingAdd && <Button
-        variant="contained"
+      {showFloatingAdd && <IconButton
         onClick={onAddTask}
         aria-label="Add task"
-        sx={{ position: 'fixed', right: { xs: 18, md: 30 }, bottom: { xs: 88, md: 28 }, minWidth: 58, width: 58, height: 58, borderRadius: '50%', zIndex: theme.zIndex.speedDial }}
+        sx={{
+          position: 'fixed',
+          right: { xs: 18, sm: 24, md: 30 },
+          bottom: { xs: 90, md: 28 },
+          width: { xs: 54, sm: 58 },
+          height: { xs: 54, sm: 58 },
+          bgcolor: 'background.paper',
+          color: 'primary.main',
+          border: 1,
+          borderColor: 'divider',
+          boxShadow: '0 12px 32px rgba(32,84,170,.18)',
+          zIndex: theme.zIndex.speedDial,
+          '&:hover': { bgcolor: 'background.paper', color: 'primary.dark' },
+        }}
       >
         <AddTask />
-      </Button>}
+      </IconButton>}
     </Box>
   );
 }
