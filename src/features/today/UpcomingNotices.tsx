@@ -86,7 +86,7 @@ export function UpcomingNotices({ tasks, events, unreadEmails = 0, onEditTask, o
             <Button size="small" startIcon={<AccessAlarm />} onClick={() => dismiss(notice.id)}>Got it</Button>
           </Stack>}
         </Box>)}
-        <Button component={RouterLink} to="/calendar" onClick={() => setAnchor(null)}>View all</Button>
+        <Button component={RouterLink} to="/tasks?layout=calendar" onClick={() => setAnchor(null)}>View all</Button>
       </Stack>
     </Popover>
   </>;

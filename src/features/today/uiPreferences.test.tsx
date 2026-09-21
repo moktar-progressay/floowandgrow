@@ -13,18 +13,16 @@ describe('Home UI preferences', () => {
     expect(readSidebarMode()).toBe('expanded');
   });
 
-  it('persists task mode, section state and progress visibility', () => {
+  it('persists task mode and section state', () => {
     const { result, unmount } = renderHook(() => useHomePreferences());
     act(() => {
       result.current.setTaskMode('all');
       result.current.setSection('carriedForward', true);
-      result.current.setProgressVisible(false);
     });
     unmount();
 
     const next = renderHook(() => useHomePreferences()).result.current;
     expect(next.taskMode).toBe('all');
     expect(next.sections.carriedForward).toBe(true);
-    expect(next.progressVisible).toBe(false);
   });
 });

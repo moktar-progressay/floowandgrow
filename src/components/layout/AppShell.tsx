@@ -5,7 +5,7 @@ import {
   Toolbar, Tooltip, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
 import {
-  AddTask, CalendarMonth, DarkMode, Description, Home, Inbox, LightMode, Menu,
+  AddTask, DarkMode, Description, Home, Inbox, LightMode, Menu,
   MenuOpen, MoreHoriz, Settings, TaskAlt, TrackChanges, Workspaces, Logout, EmojiEvents, ChevronLeft,
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -21,8 +21,7 @@ const nav = [
   { to: '/today', label: 'Today', icon: <Home /> },
   { to: '/tasks', label: 'Tasks', icon: <TaskAlt /> },
   { to: '/projects', label: 'Projects', icon: <Workspaces /> },
-  { to: '/calendar', label: 'Calendar', icon: <CalendarMonth /> },
-  { to: '/vault', label: 'Second Brain Vault', icon: <Description /> },
+  { to: '/vault', label: 'Second Brain', icon: <Description /> },
   { to: '/inbox', label: 'Inbox', icon: <Inbox /> },
   { to: '/assistant', label: 'Focus assistant', icon: <TrackChanges /> },
   { to: '/progress', label: 'Progress & awards', icon: <EmojiEvents /> },
@@ -121,7 +120,7 @@ export function AppShell({ children, onAddTask }: { children: ReactNode; xp?: nu
             </Tooltip>
             {desktop && sidebarMode === 'hidden' && <BrandMark compact />}
             <Box flex={1} />
-            <Avatar sx={{ width: 36, height: 36, bgcolor: 'primary.dark' }}>{session?.user.email?.[0]?.toUpperCase()}</Avatar>
+            <Tooltip title="Profile"><IconButton onClick={() => navigate('/profile')} aria-label="Open profile" sx={{ p: 0 }}><Avatar sx={{ width: 36, height: 36, bgcolor: 'primary.dark' }}>{session?.user.email?.[0]?.toUpperCase()}</Avatar></IconButton></Tooltip>
           </Toolbar>
         </AppBar>
         <Box width="100%" p={{ xs: 2, sm: 3, lg: 4, xl: 5 }}>{children}</Box>

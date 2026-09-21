@@ -1,13 +1,13 @@
 import { Grid, CardActionArea, Stack, Typography } from '@mui/material';
-import { CalendarMonth, Description, EmojiEvents, Inbox, Settings, TrackChanges } from '@mui/icons-material';
+import { AccountCircle, Description, EmojiEvents, Inbox, Settings, TrackChanges } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/common/PageHeader';
 import { SurfaceCard } from '../../components/common/SurfaceCard';
 
 const items = [
   { to: '/progress', label: 'Progress & awards', detail: 'XP, streaks, insights and achievements', icon: <EmojiEvents /> },
-  { to: '/calendar', label: 'Calendar', detail: 'Tasks and events', icon: <CalendarMonth /> },
-  { to: '/vault', label: 'Second Brain Vault', detail: 'Files and documents', icon: <Description /> },
+  { to: '/profile', label: 'Profile', detail: 'Name, email, password and plan', icon: <AccountCircle /> },
+  { to: '/vault', label: 'Second Brain', detail: 'Brain dumps, notes and files', icon: <Description /> },
   { to: '/inbox', label: 'Inbox', detail: 'Messages that need action', icon: <Inbox /> },
   { to: '/assistant', label: 'Focus assistant', detail: 'Choose the next right thing', icon: <TrackChanges /> },
   { to: '/settings', label: 'Connections', detail: 'Connected services', icon: <Settings /> },

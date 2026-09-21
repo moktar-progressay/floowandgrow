@@ -18,6 +18,13 @@ export function overdueTasks(tasks: FocusTask[], date: string) {
     .sort((a, b) => (a.scheduled_date ?? '').localeCompare(b.scheduled_date ?? ''));
 }
 
+export function sortTasksChronologically(tasks: FocusTask[]) {
+  return [...tasks].sort((a, b) =>
+    String(a.scheduled_date || '9999-12-31').localeCompare(String(b.scheduled_date || '9999-12-31'))
+      || String(a.scheduled_time || '99:99').localeCompare(String(b.scheduled_time || '99:99'))
+      || a.title.localeCompare(b.title));
+}
+
 export function addLocalDays(date: string, days: number) {
   const value = new Date(`${date}T12:00:00`);
   value.setDate(value.getDate() + days);

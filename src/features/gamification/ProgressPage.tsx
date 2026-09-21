@@ -15,6 +15,7 @@ import {
   awardsFor, dailyXp, eventsInBounds, momentumStreak, progressBounds, summariseProgress,
   type AwardDefinition, type ProgressRange,
 } from './gamification';
+import { YesterdayRecap } from './YesterdayRecap';
 
 function inputDate(date: Date) {
   const year = date.getFullYear();
@@ -97,6 +98,7 @@ export function ProgressPage({ events, totalXp }: { events: RewardEvent[]; total
       </Tabs>
 
       {section === 'progress' ? <>
+        <YesterdayRecap events={events} showLauncher />
         <ToggleButtonGroup exclusive fullWidth size="small" value={range} onChange={(_, value: ProgressRange | null) => value && setRange(value)} aria-label="Progress range">
           <ToggleButton value="day">Day</ToggleButton>
           <ToggleButton value="week">Week</ToggleButton>

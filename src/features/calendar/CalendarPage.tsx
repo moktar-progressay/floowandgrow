@@ -23,9 +23,10 @@ type CalendarPageProps = {
   onToggleTask: (task: FocusTask) => void;
   onHideTask: (task: FocusTask) => void;
   onFocusTask: (task: FocusTask) => void;
+  embedded?: boolean;
 };
 
-export function CalendarPage({ tasks, projects, events, googleConnected, googleError, onGoogleConnect, onAddTask, onEditTask, onToggleTask, onHideTask, onFocusTask }: CalendarPageProps) {
+export function CalendarPage({ tasks, projects, events, googleConnected, googleError, onGoogleConnect, onAddTask, onEditTask, onToggleTask, onHideTask, onFocusTask, embedded = false }: CalendarPageProps) {
   const today = dateKey();
   const [view, setView] = useState<CalendarView>('month');
   const [selectedDate, setSelectedDate] = useState(today);
@@ -58,13 +59,13 @@ export function CalendarPage({ tasks, projects, events, googleConnected, googleE
   const projectFor = (id: string | null) => projects.find((project) => project.id === id);
 
   return <>
-    <PageHeader
+    {!embedded && <PageHeader
       title="Calendar"
       description="Plan tasks beside your Google Calendar."
       action={<Button variant="contained" startIcon={<Add />} onClick={() => onAddTask(selectedDate)}>Add task</Button>}
-    />
-    {googleError && <Alert severity="warning" sx={{ mb: 2 }}>{googleError}</Alert>}
-    {!googleConnected && <Alert severity="info" action={<Button color="inherit" onClick={onGoogleConnect}>Connect</Button>} sx={{ mb: 2 }}>Connect Google Calendar to include your events.</Alert>}
+    />}
+    {!embedded && googleError && <Alert severity="warning" sx={{ mb: 2 }}>{googleError}</Alert>}
+    {!embedded && !googleConnected && <Alert severity="info" action={<Button color="inherit" onClick={onGoogleConnect}>Connect</Button>} sx={{ mb: 2 }}>Connect Google Calendar to include your events.</Alert>}
     <SurfaceCard>
       <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} mb={2}>
         <ToggleButtonGroup exclusive fullWidth={false} size="small" value={view} onChange={(_, next: CalendarView | null) => next && setView(next)} aria-label="Calendar view">

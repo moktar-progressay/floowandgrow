@@ -34,6 +34,7 @@ export function CompactDateStrip({
       icon={<CalendarToday color="primary" />}
       meta={<Typography variant="caption" color="text.secondary">{selectedLabel}</Typography>}
       defaultExpanded
+      appearance="plain"
     >
       <Stack direction="row" alignItems="center" gap={{ xs: 0.25, sm: 1 }}>
         <IconButton aria-label="Previous day" onClick={() => onChange(shiftDate(selectedDate, -1))}>

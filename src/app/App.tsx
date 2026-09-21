@@ -37,8 +37,8 @@ const TodayPage = lazyWithRecovery(() => import('../features/today/TodayPage').t
 const TasksPage = lazyWithRecovery(() => import('../features/tasks/TasksPage').then((module) => ({ default: module.TasksPage })));
 const ProjectsPage = lazyWithRecovery(() => import('../features/projects/ProjectsPage').then((module) => ({ default: module.ProjectsPage })));
 const ProjectDetailPage = lazyWithRecovery(() => import('../features/projects/ProjectDetailPage').then((module) => ({ default: module.ProjectDetailPage })));
-const CalendarPage = lazyWithRecovery(() => import('../features/calendar/CalendarPage').then((module) => ({ default: module.CalendarPage })));
 const VaultPage = lazyWithRecovery(() => import('../features/vault/VaultPage').then((module) => ({ default: module.VaultPage })));
+const ProfilePage = lazyWithRecovery(() => import('../features/profile/ProfilePage').then((module) => ({ default: module.ProfilePage })));
 const InboxPage = lazyWithRecovery(() => import('../features/inbox/InboxPage').then((module) => ({ default: module.InboxPage })));
 const AssistantPage = lazyWithRecovery(() => import('../features/assistant/AssistantPage').then((module) => ({ default: module.AssistantPage })));
 const SettingsPage = lazyWithRecovery(() => import('../features/settings/SettingsPage').then((module) => ({ default: module.SettingsPage })));
@@ -62,7 +62,7 @@ export function ProtectedApp() {
   const loadEmail = useCallback((messageId: string) => google.action<GoogleMessageDetail>('/gmail-message', { messageId }), [google.action]);
   if (focus.isLoading) return <LoadingScreen label="Loading your workspace…" />;
   if (focus.error || !focus.data) return <LoadingScreen label={focus.error instanceof Error ? focus.error.message : 'Could not load FocusOS.'} />;
-  const { state, tasks, projects, goals, tags, taskTags, dailyCompletions, rewardEvents = [] } = focus.data;
+  const { state, tasks, projects, goals, tags, taskTags, notes, noteTags, dailyCompletions, rewardEvents = [] } = focus.data;
   const localToday = localDate();
   const anchorCompletedOn = (taskId: string, date: string) =>
     dailyCompletions.some((completion) => completion.task_id === taskId && completion.completion_date === date);
@@ -265,11 +265,12 @@ export function ProtectedApp() {
   return <AppShell xp={state.xp} onAddTask={openAdd}>
     <Suspense fallback={<LoadingScreen label="Opening page…" />}><Routes>
       <Route path="/today" element={<TodayPage tasks={tasks} projects={projects} events={unlinkedEvents} noticeEvents={google.data?.calendar?.events ?? []} unreadEmails={google.gmail?.unread ?? 0} xp={state.xp} dailyCompletions={dailyCompletions} rewardEvents={rewardEvents} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onRelax={() => setRelaxOpen(true)} />} />
-      <Route path="/tasks" element={<TasksPage tasks={tasksForToday} projects={projects} events={unlinkedEvents} xp={state.xp} streak={sharedStreak} googleConnected={google.connected} googleEmail={google.email} googleLoading={googleLoading} googleError={google.data?.services?.tasks?.error || google.data?.services?.calendar?.error || google.data?.services?.gmail?.error || googleError} onGoogleConnect={connect} onGoogleRefresh={() => void google.refetch()} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onChallenge={(task) => { if (task.source === 'gmail' || task.source === 'google_gmail') void openEdit(task); else setFocusTask(task); }} />} />
+      <Route path="/tasks" element={<TasksPage tasks={tasksForToday} projects={projects} events={unlinkedEvents} xp={state.xp} streak={sharedStreak} googleConnected={google.connected} googleEmail={google.email} googleLoading={googleLoading} googleError={google.data?.services?.tasks?.error || google.data?.services?.calendar?.error || google.data?.services?.gmail?.error || googleError} onGoogleConnect={connect} onGoogleRefresh={() => void google.refetch()} onAdd={openAdd} onAddOnDate={openAddOnDate} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onChallenge={(task) => { if (task.source === 'gmail' || task.source === 'google_gmail') void openEdit(task); else setFocusTask(task); }} />} />
       <Route path="/projects" element={<ProjectsPage tasks={tasksForToday} projects={projects} goals={goals} />} />
       <Route path="/projects/:projectId" element={<ProjectDetailPage tasks={tasksForToday} projects={projects} goals={goals} onAddTask={openAddForGoal} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} />} />
-      <Route path="/calendar" element={<CalendarPage tasks={tasks} projects={projects} events={unlinkedEvents} googleConnected={google.connected} googleError={google.data?.services?.calendar?.error || googleError} onGoogleConnect={connect} onAddTask={openAddOnDate} onEditTask={openEdit} onToggleTask={toggle} onHideTask={hideTask} onFocusTask={setFocusTask} />} />
-      <Route path="/vault" element={<VaultPage documents={documents} connected={google.connected} onConnect={connect} />} />
+      <Route path="/calendar" element={<Navigate to="/tasks?layout=calendar" replace />} />
+      <Route path="/vault" element={<VaultPage documents={documents} notes={notes} projects={projects} goals={goals} tags={tags} noteTags={noteTags} connected={google.connected} onConnect={connect} />} />
+      <Route path="/profile" element={<ProfilePage />} />
       <Route path="/inbox" element={<InboxPage messages={messages} connected={google.connected} loading={google.gmailLoading} error={google.gmailError instanceof Error ? google.gmailError.message : google.data?.services?.gmail?.error || googleError} onConnect={connect} onRefresh={() => void google.refetchGmail()} onOpen={(message) => setEmailReader({ message, task: null })} onArchive={archiveMessage} onCreateTask={createMessageTask} />} />
       <Route path="/assistant" element={<AssistantPage tasks={tasksForToday} onApproveProposal={approveAgentProposal} />} />
       <Route path="/progress" element={<ProgressPage events={rewardEvents} totalXp={state.xp} />} />

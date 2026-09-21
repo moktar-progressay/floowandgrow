@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FocusTask } from '../../types/models';
-import { matchesDueDate, overdueTasks } from './taskDates';
+import { matchesDueDate, overdueTasks, sortTasksChronologically } from './taskDates';
 
 const task = (overrides: Partial<FocusTask>): FocusTask => ({
   id: 'task-1', legacy_key: null, title: 'Task', priority: null, status: 'open',
@@ -33,5 +33,16 @@ describe('matchesDueDate', () => {
     expect(matchesDueDate(task({ scheduled_date: '2026-09-21' }), 'next_7_days', today)).toBe(true);
     expect(matchesDueDate(task({ scheduled_date: '2026-09-22' }), 'next_7_days', today)).toBe(false);
     expect(matchesDueDate(task({ scheduled_date: null }), 'no_date', today)).toBe(true);
+  });
+});
+
+describe('sortTasksChronologically', () => {
+  it('orders agenda items by date and time, with untimed tasks last', () => {
+    const result = sortTasksChronologically([
+      task({ id: 'untimed', title: 'Untimed', scheduled_date: '2026-09-14', scheduled_time: null }),
+      task({ id: 'late', title: 'Late', scheduled_date: '2026-09-14', scheduled_time: '14:30:00' }),
+      task({ id: 'early', title: 'Early', scheduled_date: '2026-09-14', scheduled_time: '09:00:00' }),
+    ]);
+    expect(result.map(({ id }) => id)).toEqual(['early', 'late', 'untimed']);
   });
 });

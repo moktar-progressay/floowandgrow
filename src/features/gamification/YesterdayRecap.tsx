@@ -19,7 +19,7 @@ function focusLabel(minutes: number) {
   return hours ? `${hours}h ${remainder ? `${remainder}m` : ''}`.trim() : `${minutes}m`;
 }
 
-export function YesterdayRecap({ events }: { events: RewardEvent[] }) {
+export function YesterdayRecap({ events, autoOpen = false, showLauncher = false }: { events: RewardEvent[]; autoOpen?: boolean; showLauncher?: boolean }) {
   const date = useMemo(() => yesterdayDate(), []);
   const dateKey = date.toISOString().slice(0, 10);
   const summary = useMemo(() => summariseProgress(events, progressBounds('day', date)), [events, date]);
@@ -27,8 +27,8 @@ export function YesterdayRecap({ events }: { events: RewardEvent[] }) {
   const hasProgress = summary.events.length > 0;
 
   useEffect(() => {
-    if (hasProgress && window.localStorage.getItem(`focusos-recap-seen:${dateKey}`) !== 'yes') setOpen(true);
-  }, [dateKey, hasProgress]);
+    if (autoOpen && hasProgress && window.localStorage.getItem(`focusos-recap-seen:${dateKey}`) !== 'yes') setOpen(true);
+  }, [autoOpen, dateKey, hasProgress]);
 
   const close = () => {
     window.localStorage.setItem(`focusos-recap-seen:${dateKey}`, 'yes');
@@ -45,12 +45,10 @@ export function YesterdayRecap({ events }: { events: RewardEvent[] }) {
   ];
 
   return <>
-    <SurfaceCard sx={{ p: 0 }}>
-      <Button fullWidth onClick={() => setOpen(true)} sx={{ justifyContent: 'space-between', px: 2, py: 1.5 }}>
+    {showLauncher && <Button fullWidth onClick={() => setOpen(true)} sx={{ justifyContent: 'space-between', px: 1, py: 1.25 }}>
         <Stack direction="row" alignItems="center" gap={1}><Star /><span>Yesterday recap</span></Stack>
         <Chip size="small" label={`+${summary.xp} XP`} color="success" />
-      </Button>
-    </SurfaceCard>
+      </Button>}
     <Dialog open={open} onClose={close} fullScreen>
       <DialogContent sx={{ p: { xs: 2, sm: 4 }, background: 'radial-gradient(circle at 50% 20%, rgba(37,185,244,.16), transparent 35%)' }}>
         <IconButton aria-label="Close recap" onClick={close} sx={{ position: 'absolute', right: 12, top: 12 }}><Close /></IconButton>

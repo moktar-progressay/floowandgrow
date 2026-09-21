@@ -3,11 +3,14 @@ import { supabase } from '../../services/supabase/client';
 import { useAuth } from '../auth/AuthProvider';
 import type {
   FocusGoal,
+  FocusNote,
   FocusProject,
   FocusState,
   FocusTag,
   FocusTask,
   DailyCompletion,
+  NoteDraft,
+  NoteTag,
   RewardEvent,
   RewardKind,
   TaskDraft,
@@ -62,7 +65,7 @@ export function useFocusData() {
     queryKey: focusKey(userId),
     enabled: Boolean(userId),
     queryFn: async () => {
-      const [stateResult, tasks, projects, goals, tags, taskTags, dailyCompletions, rewardEvents] = await Promise.all([
+      const [stateResult, tasks, projects, goals, tags, taskTags, notes, noteTags, dailyCompletions, rewardEvents] = await Promise.all([
         checked(supabase.from('focusos_state').select('*').eq('user_id', userId).maybeSingle()),
         loadAllTasks(userId),
         checked(
@@ -84,6 +87,15 @@ export function useFocusData() {
         ),
         checked(supabase.from('focusos_tags').select('*').eq('user_id', userId).order('name')),
         checked(supabase.from('focusos_task_tags').select('task_id,tag_id').eq('user_id', userId)),
+        checked(
+          supabase
+            .from('focusos_notes')
+            .select('id,title,content,project_id,goal_id,status,created_at,updated_at')
+            .eq('user_id', userId)
+            .eq('status', 'active')
+            .order('updated_at', { ascending: false }),
+        ),
+        checked(supabase.from('focusos_note_tags').select('note_id,tag_id').eq('user_id', userId)),
         checked(
           supabase
             .from('focusos_daily_completions')
@@ -120,11 +132,60 @@ export function useFocusData() {
         goals: (goals ?? []) as FocusGoal[],
         tags: (tags ?? []) as FocusTag[],
         taskTags: (taskTags ?? []) as TaskTag[],
+        notes: (notes ?? []) as FocusNote[],
+        noteTags: (noteTags ?? []) as NoteTag[],
         dailyCompletions: (dailyCompletions ?? []) as DailyCompletion[],
         rewardEvents: (rewardEvents ?? []) as RewardEvent[],
       };
     },
   });
+}
+
+export function useNoteMutations() {
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = session?.user.id ?? '';
+  const refresh = () => queryClient.invalidateQueries({ queryKey: focusKey(userId) });
+
+  const saveNote = useMutation({
+    mutationFn: async ({ id, draft }: { id?: string; draft: NoteDraft }) => {
+      const payload = {
+        user_id: userId,
+        title: draft.title.trim(),
+        content: draft.content.trim(),
+        project_id: draft.project_id || null,
+        goal_id: draft.goal_id || null,
+        updated_at: new Date().toISOString(),
+      };
+      const saved = id
+        ? await checked(
+            supabase.from('focusos_notes').update(payload).eq('id', id).eq('user_id', userId).select('id').single(),
+          )
+        : await checked(
+            supabase.from('focusos_notes').insert({ ...payload, status: 'active' }).select('id').single(),
+          );
+      if (!saved?.id) throw new Error('Note was not saved.');
+      const noteId = saved.id as string;
+      await checked(supabase.from('focusos_note_tags').delete().eq('note_id', noteId).eq('user_id', userId));
+      if (draft.tag_ids.length) {
+        await checked(
+          supabase.from('focusos_note_tags').insert(
+            draft.tag_ids.map((tagId) => ({ user_id: userId, note_id: noteId, tag_id: tagId })),
+          ),
+        );
+      }
+      return noteId;
+    },
+    onSuccess: refresh,
+  });
+
+  const deleteNote = useMutation({
+    mutationFn: async (id: string) =>
+      checked(supabase.from('focusos_notes').delete().eq('id', id).eq('user_id', userId)),
+    onSuccess: refresh,
+  });
+
+  return { saveNote, deleteNote };
 }
 
 export function useTaskMutations() {

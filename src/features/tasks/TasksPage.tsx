@@ -9,7 +9,7 @@ import {
   Add, CalendarMonth, CloudDone, ExpandMore, FormatListBulleted, Google,
   Refresh, Search, SportsEsports, SwapHoriz, TaskAlt,
 } from '@mui/icons-material';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../../components/common/PageHeader';
 import { SurfaceCard } from '../../components/common/SurfaceCard';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -17,14 +17,15 @@ import { FilterButton, FilterDrawer } from '../../components/common/FilterDrawer
 import type { FocusProject, FocusTask, GoogleEvent } from '../../types/models';
 import { TaskRow } from './TaskRow';
 import { TaskTown } from './TaskTown';
-import { localDate, matchesDueDate, overdueTasks, type DueDateFilter } from './taskDates';
+import { CalendarPage } from '../calendar/CalendarPage';
+import { localDate, matchesDueDate, overdueTasks, sortTasksChronologically, type DueDateFilter } from './taskDates';
 
 type TaskView = 'today' | 'overdue' | 'upcoming' | 'active' | 'completed' | 'hidden';
 type TaskSource = 'all' | 'focusos' | 'daily_anchors' | 'google_tasks' | 'google_calendar' | 'gmail';
 
 export function TasksPage({
   tasks, projects, events, xp, streak, googleConnected, googleEmail, googleLoading, googleError,
-  onGoogleConnect, onGoogleRefresh, onEdit, onToggle, onHide, onFocus, onChallenge, onAdd,
+  onGoogleConnect, onGoogleRefresh, onEdit, onToggle, onHide, onFocus, onChallenge, onAdd, onAddOnDate,
 }: {
   tasks: FocusTask[];
   projects: FocusProject[];
@@ -43,11 +44,14 @@ export function TasksPage({
   onFocus: (task: FocusTask) => void;
   onChallenge: (task: FocusTask) => void;
   onAdd: () => void;
+  onAddOnDate: (date: string) => void;
 }) {
-  const navigate = useNavigate();
   const [params] = useSearchParams();
   const requestedView = params.get('view');
-  const initialTab: TaskView = requestedView === 'overdue' || requestedView === 'completed' || requestedView === 'hidden' ? requestedView : 'today';
+  const requestedLayout = params.get('layout');
+  const initialTab: TaskView = ['today', 'overdue', 'upcoming', 'active', 'completed', 'hidden'].includes(String(requestedView))
+    ? requestedView as TaskView
+    : requestedLayout === 'calendar' ? 'active' : 'today';
   const [tab, setTab] = useState<TaskView>(initialTab);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [googleOpen, setGoogleOpen] = useState(false);
@@ -59,7 +63,7 @@ export function TasksPage({
   const [source, setSource] = useState<TaskSource>('all');
   const [dueDate, setDueDate] = useState<DueDateFilter>('all');
   const [priority, setPriority] = useState<'all' | 'red' | 'yellow' | 'green' | 'standard'>('all');
-  const [layout, setLayout] = useState<'list' | 'town'>('list');
+  const [layout, setLayout] = useState<'list' | 'calendar' | 'town'>(() => requestedLayout === 'calendar' ? 'calendar' : requestedLayout === 'town' ? 'town' : 'list');
   const today = localDate();
   const overdueIds = useMemo(() => new Set(overdueTasks(tasks, today).map((task) => task.id)), [tasks, today]);
   const projectFor = (id: string | null) => projects.find((project) => project.id === id);
@@ -75,7 +79,7 @@ export function TasksPage({
   const focusTask = focusCandidates.find((task) => task.id === selectedFocusId) ?? focusCandidates[0] ?? null;
   const pickerTasks = focusCandidates.filter((task) => `${task.title} ${projectFor(task.project_id)?.name || ''}`.toLowerCase().includes(focusQuery.trim().toLowerCase())).slice(0, 60);
 
-  const filtered = useMemo(() => tasks.filter((task) => {
+  const filtered = useMemo(() => sortTasksChronologically(tasks.filter((task) => {
     if (query && !task.title.toLowerCase().includes(query.toLowerCase())) return false;
     if (projectId !== 'all' && (task.project_id ?? 'inbox') !== projectId) return false;
     if (source === 'google_tasks' && task.source !== 'google_tasks') return false;
@@ -93,7 +97,7 @@ export function TasksPage({
     if (tab === 'overdue') return overdueIds.has(task.id);
     if (tab === 'upcoming') return Boolean(task.scheduled_date && task.scheduled_date > today);
     return true;
-  }), [tasks, query, projectId, source, dueDate, priority, tab, today, overdueIds]);
+  })), [tasks, query, projectId, source, dueDate, priority, tab, today, overdueIds]);
   const otherTasks = filtered.filter((task) => task.id !== focusTask?.id);
   const googleTaskCount = tasks.filter((task) => task.source === 'google_tasks' && task.status !== 'archived').length;
   const googleCalendarCount = tasks.filter((task) => task.source === 'google_calendar' && task.status !== 'archived').length;
@@ -114,8 +118,10 @@ export function TasksPage({
         exclusive value={layout} size="small" aria-label="Task view"
         sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' }, '& .MuiToggleButton-root': { flex: { xs: 1, sm: 'initial' }, px: { xs: 1, sm: 2 } } }}
         onChange={(_, value: 'list' | 'town' | 'calendar' | null) => {
-          if (value === 'calendar') navigate('/calendar');
-          else if (value) setLayout(value);
+          if (value) {
+            setLayout(value);
+            if (value === 'calendar' && tab === 'today') setTab('active');
+          }
         }}
       >
         <ToggleButton value="list"><FormatListBulleted sx={{ mr: .75 }} />List</ToggleButton>
@@ -123,7 +129,28 @@ export function TasksPage({
         <ToggleButton value="town"><SportsEsports sx={{ mr: .75 }} />Task Town</ToggleButton>
       </ToggleButtonGroup>
 
-      {layout === 'town' ? <TaskTown tasks={tasks} events={events} xp={xp} streak={streak} onChallenge={onChallenge} /> : <>
+      <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.25} alignItems="stretch">
+        <TextField placeholder="Search tasks" value={query} onChange={(event) => setQuery(event.target.value)} slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search /></InputAdornment> } }} sx={{ flex: 1 }} />
+        <Stack direction="row" gap={1} sx={{ '& > *': { flex: { xs: 1, sm: 'initial' } } }}>
+          <FilterButton activeCount={activeFilterCount} onClick={() => setFiltersOpen(true)} />
+          <Button variant="outlined" startIcon={<Google />} onClick={() => setGoogleOpen(true)}>Google</Button>
+        </Stack>
+      </Stack>
+
+      {layout === 'town' ? <TaskTown tasks={filtered} events={events} xp={xp} streak={streak} onChallenge={onChallenge} /> : layout === 'calendar' ? <CalendarPage
+        embedded
+        tasks={filtered}
+        projects={projects}
+        events={events}
+        googleConnected={googleConnected}
+        googleError={googleError}
+        onGoogleConnect={onGoogleConnect}
+        onAddTask={onAddOnDate}
+        onEditTask={onEdit}
+        onToggleTask={onToggle}
+        onHideTask={onHide}
+        onFocusTask={onFocus}
+      /> : <>
         <SurfaceCard sx={{ bgcolor: 'rgba(37,185,244,.055)', borderColor: 'rgba(37,185,244,.22)' }}>
           <Stack gap={2}>
             <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
@@ -147,14 +174,6 @@ export function TasksPage({
             </> : <EmptyState icon={<TaskAlt />} title="Nothing needs your attention" description="Add a task when you are ready." actionLabel="Add task" onAction={onAdd} />}
           </Stack>
         </SurfaceCard>
-
-        <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.25} alignItems="stretch">
-          <TextField placeholder="Search tasks" value={query} onChange={(event) => setQuery(event.target.value)} slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search /></InputAdornment> } }} sx={{ flex: 1 }} />
-          <Stack direction="row" gap={1} sx={{ '& > *': { flex: { xs: 1, sm: 'initial' } } }}>
-            <FilterButton activeCount={activeFilterCount} onClick={() => setFiltersOpen(true)} />
-            <Button variant="outlined" startIcon={<Google />} onClick={() => setGoogleOpen(true)}>Google</Button>
-          </Stack>
-        </Stack>
 
         <Accordion defaultExpanded={false} disableGutters>
           <AccordionSummary expandIcon={<ExpandMore />}>

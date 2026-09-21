@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button, ButtonBase, Dialog, DialogContent, DialogTitle, LinearProgress, List, ListItemButton, ListItemText, Stack, Typography } from '@mui/material';
-import { Add, Anchor, CalendarToday, EmojiEvents, History, LocalFireDepartment, Star, SwapHoriz, TaskAlt, VisibilityOff } from '@mui/icons-material';
+import { Add, Anchor, CalendarToday, Close, History, LocalFireDepartment, Star, SwapHoriz, TaskAlt } from '@mui/icons-material';
 import type { DailyCompletion, FocusProject, FocusTask, GoogleEvent, RewardEvent } from '../../types/models';
 import { FocusOrb } from '../../components/brand/FocusOrb';
 import { EmptyState } from '../../components/common/EmptyState';
 import { SectionAccordion } from '../../components/common/SectionAccordion';
 import { CompactDateStrip } from './CompactDateStrip';
 import { TaskRow } from '../tasks/TaskRow';
-import { localDate, overdueTasks } from '../tasks/taskDates';
+import { localDate, overdueTasks, sortTasksChronologically } from '../tasks/taskDates';
 import { useAuth } from '../auth/AuthProvider';
 import { YesterdayRecap } from '../gamification/YesterdayRecap';
 import { eventDateKey, eventTime } from '../calendar/calendarDates';
@@ -51,6 +51,7 @@ export function TodayPage({
   const [selectedDate, setSelectedDate] = useState(localDate());
   const [focusTaskId, setFocusTaskId] = useState(() => window.localStorage.getItem('focusos-selected-focus-task'));
   const [switchFocusOpen, setSwitchFocusOpen] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<GoogleEvent | null>(null);
   const firstName = String(session?.user.user_metadata.first_name || session?.user.user_metadata.full_name || session?.user.email?.split('@')[0] || '').split(' ')[0];
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening';
@@ -73,7 +74,8 @@ export function TodayPage({
   const anchors = visible.filter((task) => task.is_daily_anchor);
   const activeAnchors = anchors.filter((task) => !completedAnchorIds.has(task.id));
   const anchorTitles = new Set(anchors.map(normalisedTaskTitle));
-  const agenda = visible.filter((task) => !task.is_daily_anchor && !anchorTitles.has(normalisedTaskTitle(task)));
+  const agenda = sortTasksChronologically(visible
+    .filter((task) => !task.is_daily_anchor && !anchorTitles.has(normalisedTaskTitle(task))));
   const calendarEvents = useMemo(
     () => events
       .filter((event) => eventDateKey(event) === selectedDate)
@@ -119,6 +121,7 @@ export function TodayPage({
   const completedAgendaCount = selectedDayTasks.filter((task) => task.status === 'completed').length;
   const todayProgress = summariseProgress(rewardEvents, progressBounds('day'));
   const todayTotal = visibleTaskCount + todayProgress.tasks;
+  const focusScore = todayTotal > 0 ? Math.round((todayProgress.tasks / todayTotal) * 100) : 100;
   const streak = momentumStreak(rewardEvents);
   const level = Math.floor(xp / 300) + 1;
   const levelXp = xp % 300;
@@ -139,33 +142,29 @@ export function TodayPage({
         <Typography variant="h4" component="h1" fontWeight={850}>{greeting}{firstName ? `, ${firstName}` : ''}</Typography>
         <Typography color="text.secondary">Small steps. Big progress.</Typography>
       </Box>
-      {preferences.progressVisible ? (
-        <Stack alignItems="center" gap={0.75} width="100%">
-          <Stack direction="row" justifyContent="center" gap={{ xs: 1.5, sm: 3 }} flexWrap="wrap" color="text.secondary">
-            <Stack direction="row" gap={0.5} alignItems="center"><LocalFireDepartment color="warning" fontSize="small" /><Typography variant="caption">{streak} day streak</Typography></Stack>
-            <Stack direction="row" gap={0.5} alignItems="center"><TaskAlt color="success" fontSize="small" /><Typography variant="caption">{todayProgress.tasks} of {todayTotal} today</Typography></Stack>
-            <Stack direction="row" gap={0.5} alignItems="center"><Star color="primary" fontSize="small" /><Typography variant="caption">Level {level} · {xp} XP</Typography></Stack>
-          </Stack>
-          <Stack width="100%" maxWidth={360} gap={0.4}>
-            <LinearProgress variant="determinate" value={(levelXp / 300) * 100} sx={{ height: 5, borderRadius: 5 }} />
-            <Typography variant="caption" color="text.secondary" textAlign="center">{levelXp} of 300 XP to the next level</Typography>
-          </Stack>
-          <Button size="small" color="inherit" startIcon={<VisibilityOff fontSize="small" />} onClick={() => preferences.setProgressVisible(false)} sx={{ color: 'text.secondary', fontSize: '0.72rem' }}>Hide progress</Button>
-        </Stack>
-      ) : (
-        <Button size="small" color="inherit" startIcon={<EmojiEvents fontSize="small" />} onClick={() => preferences.setProgressVisible(true)} sx={{ alignSelf: 'center', color: 'text.secondary' }}>Show progress</Button>
-      )}
-      <Stack alignItems="center" gap={1} mb={{ xs: 2, sm: 3 }} minWidth={0}>
-        <Box aria-hidden="true" sx={{ p: 0.5 }}>
+      <Stack direction="row" justifyContent="center" alignItems="center" gap={{ xs: 3, sm: 5 }} mb={{ xs: 2, sm: 3 }} minWidth={0}>
+        <ButtonBase
+          aria-label="Open breathing exercise"
+          onClick={onRelax}
+          sx={{ borderRadius: '50%', p: 0.5, flexShrink: 0 }}
+        >
           <FocusOrb size="clamp(112px, 28vw, 145px)" />
-        </Box>
-        <Stack direction="row" alignItems="center" gap={1}>
-          <Typography color="text.secondary" variant="caption">Ready when you are</Typography>
-          <Button size="small" color="inherit" onClick={onRelax} sx={{ minWidth: 0, px: 1 }}>Breathe</Button>
-        </Stack>
+        </ButtonBase>
+        <ButtonBase
+          aria-label={`Open progress stats. Focus score ${focusScore} percent`}
+          onClick={() => setProgressOpen(true)}
+          sx={{ borderRadius: '50%' }}
+        >
+          <Box sx={{ width: 76, height: 76, borderRadius: '50%', display: 'grid', placeItems: 'center', background: `conic-gradient(#25b9f4 ${focusScore}%, rgba(37,185,244,.13) 0)`, p: '5px' }}>
+            <Stack width="100%" height="100%" borderRadius="50%" bgcolor="background.default" alignItems="center" justifyContent="center" lineHeight={1}>
+              <Typography fontWeight={900} fontSize="1.2rem">{focusScore}%</Typography>
+              <Typography variant="caption" color="text.secondary" fontSize="0.6rem">FOCUS</Typography>
+            </Stack>
+          </Box>
+        </ButtonBase>
       </Stack>
       <CompactDateStrip selectedDate={selectedDate} onChange={setSelectedDate} />
-      <YesterdayRecap events={rewardEvents} />
+      <YesterdayRecap events={rewardEvents} autoOpen />
       <SectionAccordion
         title="Focus task"
         icon={<CalendarToday color="primary" />}
@@ -258,6 +257,34 @@ export function TodayPage({
       )}
       </>}
       <CalendarEventDialog event={selectedEvent} onClose={() => setSelectedEvent(null)} />
+      <Dialog open={progressOpen} onClose={() => setProgressOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <span>Today’s progress</span>
+            <ButtonBase aria-label="Close progress stats" onClick={() => setProgressOpen(false)} sx={{ borderRadius: '50%', p: 1 }}><Close /></ButtonBase>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Stack alignItems="center" gap={2.5} pb={2}>
+            <Box sx={{ width: 150, height: 150, borderRadius: '50%', display: 'grid', placeItems: 'center', background: `conic-gradient(#25b9f4 ${focusScore}%, rgba(37,185,244,.13) 0)`, p: '8px' }}>
+              <Stack width="100%" height="100%" borderRadius="50%" bgcolor="background.paper" alignItems="center" justifyContent="center">
+                <Typography variant="h3" fontWeight={900}>{focusScore}%</Typography>
+                <Typography color="text.secondary">Focus score</Typography>
+              </Stack>
+            </Box>
+            <Stack direction="row" justifyContent="space-around" width="100%" textAlign="center">
+              <Stack alignItems="center"><LocalFireDepartment color="warning" /><Typography fontWeight={850}>{streak}</Typography><Typography variant="caption" color="text.secondary">Day streak</Typography></Stack>
+              <Stack alignItems="center"><TaskAlt color="success" /><Typography fontWeight={850}>{todayProgress.tasks}/{todayTotal}</Typography><Typography variant="caption" color="text.secondary">Tasks</Typography></Stack>
+              <Stack alignItems="center"><Star color="primary" /><Typography fontWeight={850}>{xp}</Typography><Typography variant="caption" color="text.secondary">Total XP</Typography></Stack>
+            </Stack>
+            <Stack width="100%" gap={0.5}>
+              <Stack direction="row" justifyContent="space-between"><Typography fontWeight={750}>Level {level}</Typography><Typography variant="caption" color="text.secondary">{levelXp} of 300 XP</Typography></Stack>
+              <LinearProgress variant="determinate" value={(levelXp / 300) * 100} sx={{ height: 7, borderRadius: 5 }} />
+            </Stack>
+            <Button component={RouterLink} to="/progress" fullWidth variant="contained" onClick={() => setProgressOpen(false)}>Open Progress & Awards</Button>
+          </Stack>
+        </DialogContent>
+      </Dialog>
       <Dialog open={switchFocusOpen} onClose={() => setSwitchFocusOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Switch focus task</DialogTitle>
         <DialogContent sx={{ px: 1.5, pb: 2 }}>

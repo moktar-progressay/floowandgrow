@@ -173,7 +173,7 @@ async function handleCallback(req) {
   if (googleEmail === PROTECTED_GOOGLE_EMAIL && expectedEmail !== PROTECTED_GOOGLE_EMAIL) throw new Error("This Google account is protected and cannot be linked here.");
   let previousRefreshToken = null;
   const previousRow = await getIntegration(payload.sub);
-  if (previousRow) { try { previousRefreshToken = (await decryptCredentials(previousRow.credentials_ciphertext, previousRow.credentials_iv)).refresh_token || null; } catch (_) {} }
+  if (previousRow && String(previousRow.provider_email || "").toLowerCase() === googleEmail) { try { previousRefreshToken = (await decryptCredentials(previousRow.credentials_ciphertext, previousRow.credentials_iv)).refresh_token || null; } catch (_) {} }
   const credentials = { access_token: tokens.access_token, refresh_token: tokens.refresh_token || previousRefreshToken, token_type: tokens.token_type || "Bearer", scope: tokens.scope || GOOGLE_SCOPES.join(" ") };
   if (!credentials.refresh_token) throw new Error("Google did not return long-lived access. Please reconnect and approve access.");
   const encrypted = await encryptCredentials(credentials);
@@ -191,11 +191,14 @@ async function refreshTokens(userId, row, credentials) {
   await db("focusos_integrations?user_id=eq." + encodeURIComponent(userId) + "&provider=eq.google", { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ credentials_ciphertext: encrypted.ciphertext, credentials_iv: encrypted.iv, token_expires_at: expiresAt, updated_at: new Date().toISOString() }) });
   return nextCredentials;
 }
-async function authorisedCredentials(userId) {
-  const row = await getIntegration(userId);
+async function authorisedCredentials(user) {
+  const row = await getIntegration(user.id);
   if (!row) return { row: null, credentials: null };
+  if (String(row.provider_email || "").trim().toLowerCase() !== String(user.email || "").trim().toLowerCase()) {
+    throw new Error("Reconnect Google Workspace after changing your FocusOS email.");
+  }
   let credentials = await decryptCredentials(row.credentials_ciphertext, row.credentials_iv);
-  if (!row.token_expires_at || new Date(row.token_expires_at).getTime() < Date.now() + 60000) credentials = await refreshTokens(userId, row, credentials);
+  if (!row.token_expires_at || new Date(row.token_expires_at).getTime() < Date.now() + 60000) credentials = await refreshTokens(user.id, row, credentials);
   return { row, credentials };
 }
 async function googleJson(url, accessToken) {
@@ -260,7 +263,7 @@ async function googleApi(url, accessToken, method = "GET", body: unknown = undef
 async function connectedUser(req) {
   ensureConfigured();
   const user = await requireUser(req);
-  const { row, credentials } = await authorisedCredentials(user.id);
+  const { row, credentials } = await authorisedCredentials(user);
   if (!row || !credentials) throw new Error("Connect Google Workspace first.");
   return { user, row, accessToken: credentials.access_token };
 }
@@ -687,7 +690,7 @@ async function handleGmailData(req) {
 async function handleData(req) {
   ensureConfigured();
   const user = await requireUser(req);
-  const { row, credentials } = await authorisedCredentials(user.id);
+  const { row, credentials } = await authorisedCredentials(user);
   if (!row || !credentials) return json(req, { connected: false, email: null, gmail: null, calendar: null, drive: null, tasks: null, chat: null, services: {} });
   const accessToken = credentials.access_token;
   const start = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
@@ -749,10 +752,11 @@ async function handleStatus(req) {
   ensureConfigured();
   const user = await requireUser(req);
   const row = await getIntegration(user.id);
+  const matchesAccount = Boolean(row) && String(row.provider_email || "").trim().toLowerCase() === String(user.email || "").trim().toLowerCase();
   return json(req, {
-    connected: Boolean(row),
-    email: row?.provider_email || null,
-    scopes: row?.scopes || [],
+    connected: matchesAccount,
+    email: matchesAccount ? row.provider_email : null,
+    scopes: matchesAccount ? row.scopes || [] : [],
   });
 }
 async function handleDisconnect(req) {

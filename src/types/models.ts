@@ -53,6 +53,30 @@ export interface TaskTag {
   tag_id: string;
 }
 
+export interface FocusNote {
+  id: string;
+  title: string;
+  content: string;
+  project_id: string | null;
+  goal_id: string | null;
+  status: 'active' | 'archived';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NoteTag {
+  note_id: string;
+  tag_id: string;
+}
+
+export interface NoteDraft {
+  title: string;
+  content: string;
+  project_id: string | null;
+  goal_id: string | null;
+  tag_ids: string[];
+}
+
 export interface DailyCompletion {
   task_id: string;
   completion_date: string;

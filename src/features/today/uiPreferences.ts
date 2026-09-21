@@ -8,7 +8,6 @@ const keys = {
   sidebar: 'focusos.ui.sidebar',
   taskMode: 'focusos.ui.taskMode',
   sections: 'focusos.ui.sections',
-  progressVisible: 'focusos.ui.homeProgressVisible',
 } as const;
 
 export const defaultSections: Record<HomeSection, boolean> = {
@@ -51,8 +50,6 @@ export function useHomePreferences() {
     (value): value is Record<HomeSection, boolean> => Boolean(value) && typeof value === 'object'
       && Object.keys(defaultSections).every((name) => typeof (value as Record<string, unknown>)[name] === 'boolean'),
   ));
-  const [progressVisible, setProgressVisibleState] = useState(() => readValue(keys.progressVisible, true, (value): value is boolean => typeof value === 'boolean'));
-
   const setTaskMode = useCallback((value: TaskMode) => { setTaskModeState(value); persist(keys.taskMode, value); }, []);
   const setSection = useCallback((section: HomeSection, expanded: boolean) => {
     setSectionsState((current) => {
@@ -61,7 +58,5 @@ export function useHomePreferences() {
       return next;
     });
   }, []);
-  const setProgressVisible = useCallback((value: boolean) => { setProgressVisibleState(value); persist(keys.progressVisible, value); }, []);
-
-  return { taskMode, setTaskMode, sections, setSection, progressVisible, setProgressVisible };
+  return { taskMode, setTaskMode, sections, setSection };
 }

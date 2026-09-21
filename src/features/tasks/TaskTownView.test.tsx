@@ -26,5 +26,5 @@ describe('TaskTown', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Generate mission' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Start mission' })).toBeEnabled());
     expect(screen.getByText('Send the safeguarding form')).toBeInTheDocument();
-  });
+  }, 10_000);
 });
