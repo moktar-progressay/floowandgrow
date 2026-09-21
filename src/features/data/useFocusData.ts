@@ -271,20 +271,26 @@ export function useOrganisationMutations() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: focusKey(userId) });
 
   const saveProject = useMutation({
-    mutationFn: async ({ id, name, colour }: { id?: string; name: string; colour: string }) =>
-      id
-        ? checked(
+    mutationFn: async ({ id, name, colour }: { id?: string; name: string; colour: string }) => {
+      const saved = id
+        ? await checked(
             supabase
               .from('focusos_projects')
               .update({ name: name.trim(), colour, updated_at: new Date().toISOString() })
               .eq('id', id)
-              .eq('user_id', userId),
+              .eq('user_id', userId)
+              .select('id,name,colour,status,created_at,updated_at')
+              .single(),
           )
-        : checked(
+        : await checked(
             supabase
               .from('focusos_projects')
-              .insert({ user_id: userId, name: name.trim(), colour, status: 'active' }),
-          ),
+              .insert({ user_id: userId, name: name.trim(), colour, status: 'active' })
+              .select('id,name,colour,status,created_at,updated_at')
+              .single(),
+          );
+      return saved as FocusProject;
+    },
     onSuccess: refresh,
   });
 
@@ -323,24 +329,30 @@ export function useOrganisationMutations() {
       projectId: string;
       title: string;
       why: string;
-    }) =>
-      id
-        ? checked(
+    }) => {
+      const saved = id
+        ? await checked(
             supabase
               .from('focusos_goals')
               .update({ title: title.trim(), why_this_matters: why.trim() || null, updated_at: new Date().toISOString() })
               .eq('id', id)
-              .eq('user_id', userId),
+              .eq('user_id', userId)
+              .select('id,project_id,title,why_this_matters,status,sort_order,created_at,updated_at')
+              .single(),
           )
-        : checked(
+        : await checked(
             supabase.from('focusos_goals').insert({
               user_id: userId,
               project_id: projectId,
               title: title.trim(),
               why_this_matters: why.trim() || null,
               status: 'active',
-            }),
-          ),
+            })
+              .select('id,project_id,title,why_this_matters,status,sort_order,created_at,updated_at')
+              .single(),
+          );
+      return saved as FocusGoal;
+    },
     onSuccess: refresh,
   });
 

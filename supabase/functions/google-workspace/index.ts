@@ -13,7 +13,7 @@ const APP_URLS = [
   "https://moktar-progressay.github.io/floowandgrow/",
   "https://floowandgrow.netlify.app/",
 ].map((value) => new URL(value));
-const ALLOWED_EMAIL = (Deno.env.get("FOCUSOS_GOOGLE_EMAIL") || "moktar@progressay.com").toLowerCase();
+const PROTECTED_GOOGLE_EMAIL = (Deno.env.get("FOCUSOS_GOOGLE_EMAIL") || "moktar@progressay.com").toLowerCase();
 const encoder = new TextEncoder();
 
 const GOOGLE_SCOPES = [
@@ -74,8 +74,8 @@ async function hmac(value) {
   const key = await crypto.subtle.importKey("raw", encoder.encode(STATE_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return toBase64Url(new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(value))));
 }
-async function createState(userId, returnTo) {
-  const payload = toBase64Url(encoder.encode(JSON.stringify({ sub: userId, returnTo: allowedReturnUrl(returnTo), exp: Date.now() + 10 * 60 * 1000, nonce: crypto.randomUUID() })));
+async function createState(userId, accountEmail, returnTo) {
+  const payload = toBase64Url(encoder.encode(JSON.stringify({ sub: userId, email: accountEmail, returnTo: allowedReturnUrl(returnTo), exp: Date.now() + 10 * 60 * 1000, nonce: crypto.randomUUID() })));
   return payload + "." + await hmac(payload);
 }
 async function verifyState(state) {
@@ -89,7 +89,7 @@ async function verifyState(state) {
   for (let i = 0; i < length; i += 1) mismatch |= (actualBytes[i] || 0) ^ (expectedBytes[i] || 0);
   if (mismatch !== 0) throw new Error("Invalid OAuth state signature");
   const payload = JSON.parse(new TextDecoder().decode(fromBase64Url(parts[0])));
-  if (!payload.sub || !payload.exp || Date.now() > payload.exp) throw new Error("OAuth state expired");
+  if (!payload.sub || !payload.email || !payload.exp || Date.now() > payload.exp) throw new Error("OAuth state expired");
   return payload;
 }
 async function aesKey() {
@@ -121,7 +121,9 @@ async function requireUser(req) {
   const response = await fetch(SUPABASE_URL + "/auth/v1/user", { headers: { apikey: SUPABASE_ANON_KEY, Authorization: auth } });
   if (!response.ok) throw new Error("Session expired. Please sign in again.");
   const user = await response.json();
-  if (!user.id || String(user.email || "").toLowerCase() !== ALLOWED_EMAIL) throw new Error("This Google connection is restricted to " + ALLOWED_EMAIL);
+  const email = String(user.email || "").trim().toLowerCase();
+  if (!user.id || !email) throw new Error("A verified account email is required to connect Google Workspace.");
+  user.email = email;
   return user;
 }
 function ensureConfigured() {
@@ -139,10 +141,10 @@ async function handleStart(req) {
   const user = await requireUser(req);
   let input = {};
   try { input = await req.json(); } catch (_) {}
-  const state = await createState(user.id, input.returnTo);
+  const state = await createState(user.id, user.email, input.returnTo);
   const hash = await sha256(state);
   await db("focusos_oauth_states?on_conflict=user_id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ user_id: user.id, state_hash: hash, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), created_at: new Date().toISOString() }) });
-  const params = new URLSearchParams({ client_id: GOOGLE_CLIENT_ID, redirect_uri: callbackUrl(), response_type: "code", access_type: "offline", include_granted_scopes: "true", prompt: "consent", login_hint: ALLOWED_EMAIL, scope: GOOGLE_SCOPES.join(" "), state });
+  const params = new URLSearchParams({ client_id: GOOGLE_CLIENT_ID, redirect_uri: callbackUrl(), response_type: "code", access_type: "offline", include_granted_scopes: "true", prompt: "consent", login_hint: user.email, scope: GOOGLE_SCOPES.join(" "), state });
   return json(req, { url: "https://accounts.google.com/o/oauth2/v2/auth?" + params.toString() });
 }
 async function handleCallback(req) {
@@ -165,14 +167,17 @@ async function handleCallback(req) {
   const profileResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", { headers: { Authorization: "Bearer " + tokens.access_token } });
   if (!profileResponse.ok) throw new Error("Could not confirm the Google account");
   const profile = await profileResponse.json();
-  if (String(profile.email || "").toLowerCase() !== ALLOWED_EMAIL) throw new Error("Please connect " + ALLOWED_EMAIL + ", not another Google account");
+  const expectedEmail = String(payload.email || "").trim().toLowerCase();
+  const googleEmail = String(profile.email || "").trim().toLowerCase();
+  if (!googleEmail || googleEmail !== expectedEmail) throw new Error("Please connect the Google account that matches your FocusOS sign-in email.");
+  if (googleEmail === PROTECTED_GOOGLE_EMAIL && expectedEmail !== PROTECTED_GOOGLE_EMAIL) throw new Error("This Google account is protected and cannot be linked here.");
   let previousRefreshToken = null;
   const previousRow = await getIntegration(payload.sub);
   if (previousRow) { try { previousRefreshToken = (await decryptCredentials(previousRow.credentials_ciphertext, previousRow.credentials_iv)).refresh_token || null; } catch (_) {} }
   const credentials = { access_token: tokens.access_token, refresh_token: tokens.refresh_token || previousRefreshToken, token_type: tokens.token_type || "Bearer", scope: tokens.scope || GOOGLE_SCOPES.join(" ") };
   if (!credentials.refresh_token) throw new Error("Google did not return long-lived access. Please reconnect and approve access.");
   const encrypted = await encryptCredentials(credentials);
-  await db("focusos_integrations?on_conflict=user_id,provider", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ user_id: payload.sub, provider: "google", credentials_ciphertext: encrypted.ciphertext, credentials_iv: encrypted.iv, provider_email: profile.email, scopes: String(credentials.scope).split(" "), token_expires_at: new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000).toISOString(), updated_at: new Date().toISOString() }) });
+  await db("focusos_integrations?on_conflict=user_id,provider", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ user_id: payload.sub, provider: "google", credentials_ciphertext: encrypted.ciphertext, credentials_iv: encrypted.iv, provider_email: googleEmail, scopes: String(credentials.scope).split(" "), token_expires_at: new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000).toISOString(), updated_at: new Date().toISOString() }) });
   return Response.redirect(allowedReturnUrl(payload.returnTo) + "?google=connected", 302);
 }
 async function refreshTokens(userId, row, credentials) {
@@ -683,7 +688,7 @@ async function handleData(req) {
   ensureConfigured();
   const user = await requireUser(req);
   const { row, credentials } = await authorisedCredentials(user.id);
-  if (!row || !credentials) return json(req, { connected: false, email: ALLOWED_EMAIL, gmail: null, calendar: null, drive: null, tasks: null, chat: null, services: {} });
+  if (!row || !credentials) return json(req, { connected: false, email: null, gmail: null, calendar: null, drive: null, tasks: null, chat: null, services: {} });
   const accessToken = credentials.access_token;
   const start = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
   const end = new Date(Date.now() + 366 * 24 * 60 * 60 * 1000).toISOString();
@@ -746,7 +751,7 @@ async function handleStatus(req) {
   const row = await getIntegration(user.id);
   return json(req, {
     connected: Boolean(row),
-    email: row?.provider_email || ALLOWED_EMAIL,
+    email: row?.provider_email || null,
     scopes: row?.scopes || [],
   });
 }

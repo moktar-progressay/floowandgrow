@@ -14,4 +14,17 @@ describe('Google Workspace Edge Function source', () => {
     expect(functionSource).toContain('new TextDecoder().decode(fromBase64Url(parts[0]))');
     expect(functionSource).toContain('const decoded = decodeBase64UrlText(part.body.data)');
   });
+
+  it('binds each Google connection to the signed-in account email', () => {
+    expect(functionSource).toContain('createState(user.id, user.email, input.returnTo)');
+    expect(functionSource).toContain('login_hint: user.email');
+    expect(functionSource).toContain('googleEmail !== expectedEmail');
+    expect(functionSource).toContain('email: row?.provider_email || null');
+    expect(functionSource).not.toContain('email: row?.provider_email || ALLOWED_EMAIL');
+  });
+
+  it('retains an explicit guard for the protected owner account', () => {
+    expect(functionSource).toContain('PROTECTED_GOOGLE_EMAIL');
+    expect(functionSource).toContain('This Google account is protected and cannot be linked here.');
+  });
 });
