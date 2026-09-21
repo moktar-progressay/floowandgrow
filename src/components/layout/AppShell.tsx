@@ -28,7 +28,7 @@ const nav = [
   { to: '/more', label: 'More', icon: <MoreHoriz /> },
 ];
 
-export function AppShell({ children, onAddTask }: { children: ReactNode; xp?: number; onAddTask: () => void }) {
+export function AppShell({ children, onAddTask, statusActions }: { children: ReactNode; onAddTask: () => void; statusActions?: ReactNode }) {
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -120,6 +120,7 @@ export function AppShell({ children, onAddTask }: { children: ReactNode; xp?: nu
             </Tooltip>
             {desktop && sidebarMode === 'hidden' && <BrandMark compact />}
             <Box flex={1} />
+            {statusActions}
             <Tooltip title="Profile"><IconButton onClick={() => navigate('/profile')} aria-label="Open profile" sx={{ p: 0 }}><Avatar sx={{ width: 36, height: 36, bgcolor: 'primary.dark' }}>{session?.user.email?.[0]?.toUpperCase()}</Avatar></IconButton></Tooltip>
           </Toolbar>
         </AppBar>

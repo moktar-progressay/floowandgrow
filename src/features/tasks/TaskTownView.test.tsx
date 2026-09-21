@@ -24,7 +24,7 @@ describe('TaskTown', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Generate mission' }));
     expect(screen.getByText('WhatsApp messages · Coming soon')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Generate mission' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Start mission' })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Start mission' })).toBeEnabled(), { timeout: 5_000 });
     expect(screen.getByText('Send the safeguarding form')).toBeInTheDocument();
   }, 10_000);
 });

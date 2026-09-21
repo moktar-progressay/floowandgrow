@@ -5,6 +5,7 @@ import { LandingPage } from '../features/auth/LandingPage';
 import { AuthPage } from '../features/auth/AuthPage';
 import { LoadingScreen } from '../components/common/LoadingScreen';
 import { AppShell } from '../components/layout/AppShell';
+import { AppStatusControls } from '../components/layout/AppStatusControls';
 import { useFocusData, useRewardMutation, useTaskMutations } from '../features/data/useFocusData';
 import { useGoogleWorkspace, mapDriveFiles } from '../features/integrations/googleWorkspace';
 import { TaskDialog } from '../features/tasks/TaskDialog';
@@ -262,9 +263,12 @@ export function ProtectedApp() {
     if (google.connected) await syncTaskToGoogle(task.id);
     notify('Approved. Task updated.');
   };
-  return <AppShell xp={state.xp} onAddTask={openAdd}>
+  return <AppShell
+    onAddTask={openAdd}
+    statusActions={<AppStatusControls tasks={tasksForToday} events={google.data?.calendar?.events ?? []} unreadEmails={google.gmail?.unread ?? 0} xp={state.xp} rewardEvents={rewardEvents} onEditTask={openEdit} />}
+  >
     <Suspense fallback={<LoadingScreen label="Opening page…" />}><Routes>
-      <Route path="/today" element={<TodayPage tasks={tasks} projects={projects} events={unlinkedEvents} noticeEvents={google.data?.calendar?.events ?? []} unreadEmails={google.gmail?.unread ?? 0} xp={state.xp} dailyCompletions={dailyCompletions} rewardEvents={rewardEvents} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onRelax={() => setRelaxOpen(true)} />} />
+      <Route path="/today" element={<TodayPage tasks={tasks} projects={projects} events={unlinkedEvents} dailyCompletions={dailyCompletions} rewardEvents={rewardEvents} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onRelax={() => setRelaxOpen(true)} />} />
       <Route path="/tasks" element={<TasksPage tasks={tasksForToday} projects={projects} events={unlinkedEvents} xp={state.xp} streak={sharedStreak} googleConnected={google.connected} googleEmail={google.email} googleLoading={googleLoading} googleError={google.data?.services?.tasks?.error || google.data?.services?.calendar?.error || google.data?.services?.gmail?.error || googleError} onGoogleConnect={connect} onGoogleRefresh={() => void google.refetch()} onAdd={openAdd} onAddOnDate={openAddOnDate} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onChallenge={(task) => { if (task.source === 'gmail' || task.source === 'google_gmail') void openEdit(task); else setFocusTask(task); }} />} />
       <Route path="/projects" element={<ProjectsPage tasks={tasksForToday} projects={projects} goals={goals} />} />
       <Route path="/projects/:projectId" element={<ProjectDetailPage tasks={tasksForToday} projects={projects} goals={goals} onAddTask={openAddForGoal} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} />} />

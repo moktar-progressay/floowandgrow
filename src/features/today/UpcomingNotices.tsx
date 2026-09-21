@@ -70,7 +70,7 @@ export function UpcomingNotices({ tasks, events, unreadEmails = 0, onEditTask, o
   const colourFor = (urgency: Notice['urgency']) => urgency === 'now' ? 'error.main' : urgency === 'approaching' ? 'warning.main' : 'primary.main';
 
   return <>
-    <IconButton aria-label={`Upcoming notices${notices.length ? `, ${notices.length}` : ''}`} onClick={open} sx={{ bgcolor: 'background.paper', boxShadow: '0 8px 28px rgba(27,62,125,.10)', border: 1, borderColor: 'divider' }}>
+    <IconButton aria-label={`Upcoming notices${notices.length ? `, ${notices.length}` : ''}`} onClick={open}>
       <Badge badgeContent={notices.length} color="error"><NotificationsNone /></Badge>
     </IconButton>
     <Popover open={Boolean(anchor)} anchorEl={anchor} onClose={() => setAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} slotProps={{ paper: { sx: { width: mobile ? 'calc(100vw - 32px)' : 350, maxHeight: '70vh', mt: 1, borderRadius: 3, border: 1, borderColor: 'divider', backgroundImage: 'none', bgcolor: alpha(theme.palette.background.paper, 0.94), backdropFilter: 'blur(18px)', boxShadow: '0 22px 60px rgba(28,55,105,.18)' } } }}>

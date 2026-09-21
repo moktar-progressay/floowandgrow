@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button, ButtonBase, Dialog, DialogContent, DialogTitle, LinearProgress, List, ListItemButton, ListItemText, Stack, Typography } from '@mui/material';
-import { Add, Anchor, CalendarToday, Close, History, LocalFireDepartment, Star, SwapHoriz, TaskAlt } from '@mui/icons-material';
+import { Button, ButtonBase, Dialog, DialogContent, DialogTitle, List, ListItemButton, ListItemText, Stack, Typography } from '@mui/material';
+import { Add, Anchor, CalendarToday, History, SwapHoriz } from '@mui/icons-material';
 import type { DailyCompletion, FocusProject, FocusTask, GoogleEvent, RewardEvent } from '../../types/models';
 import { FocusOrb } from '../../components/brand/FocusOrb';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -13,10 +13,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { YesterdayRecap } from '../gamification/YesterdayRecap';
 import { eventDateKey, eventTime } from '../calendar/calendarDates';
 import { GoogleSourceChip } from '../../components/common/GoogleSourceChip';
-import { CalendarEventDialog } from '../calendar/CalendarEventDialog';
-import { UpcomingNotices } from './UpcomingNotices';
 import { useHomePreferences } from './uiPreferences';
-import { momentumStreak, progressBounds, summariseProgress } from '../gamification/gamification';
 
 function normalisedTaskTitle(task: FocusTask) {
   return task.title.trim().toLocaleLowerCase();
@@ -29,14 +26,11 @@ function isAutomaticInboxItem(task: FocusTask) {
 }
 
 export function TodayPage({
-  tasks, projects, events, noticeEvents, unreadEmails, xp, dailyCompletions, rewardEvents, onAdd, onEdit, onToggle, onHide, onFocus, onRelax,
+  tasks, projects, events, dailyCompletions, rewardEvents, onAdd, onEdit, onToggle, onHide, onFocus, onRelax,
 }: {
   tasks: FocusTask[];
   projects: FocusProject[];
   events: GoogleEvent[];
-  noticeEvents: GoogleEvent[];
-  unreadEmails: number;
-  xp: number;
   dailyCompletions: DailyCompletion[];
   rewardEvents: RewardEvent[];
   onAdd: () => void;
@@ -51,8 +45,6 @@ export function TodayPage({
   const [selectedDate, setSelectedDate] = useState(localDate());
   const [focusTaskId, setFocusTaskId] = useState(() => window.localStorage.getItem('focusos-selected-focus-task'));
   const [switchFocusOpen, setSwitchFocusOpen] = useState(false);
-  const [progressOpen, setProgressOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<GoogleEvent | null>(null);
   const firstName = String(session?.user.user_metadata.first_name || session?.user.user_metadata.full_name || session?.user.email?.split('@')[0] || '').split(' ')[0];
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening';
   const completedAnchorIds = useMemo(
@@ -119,12 +111,6 @@ export function TodayPage({
     .format(new Date(`${selectedDate}T12:00:00`));
   const selectedDayTasks = tasks.filter((task) => task.status !== 'archived' && !task.is_daily_anchor && !isAutomaticInboxItem(task) && task.scheduled_date === selectedDate);
   const completedAgendaCount = selectedDayTasks.filter((task) => task.status === 'completed').length;
-  const todayProgress = summariseProgress(rewardEvents, progressBounds('day'));
-  const todayTotal = visibleTaskCount + todayProgress.tasks;
-  const focusScore = todayTotal > 0 ? Math.round((todayProgress.tasks / todayTotal) * 100) : 100;
-  const streak = momentumStreak(rewardEvents);
-  const level = Math.floor(xp / 300) + 1;
-  const levelXp = xp % 300;
 
   return (
     <Stack
@@ -136,31 +122,18 @@ export function TodayPage({
       position="relative"
       sx={{ overflowX: 'clip' }}
     >
-      <Box position="absolute" top={0} right={0}><UpcomingNotices tasks={tasks} events={noticeEvents} unreadEmails={unreadEmails} onEditTask={onEdit} onOpenEvent={setSelectedEvent} /></Box>
-      <Box textAlign="center" px={{ xs: 6, sm: 0 }}>
+      <Stack textAlign="center">
         <Typography variant="caption" color="text.secondary">{new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())}</Typography>
         <Typography variant="h4" component="h1" fontWeight={850}>{greeting}{firstName ? `, ${firstName}` : ''}</Typography>
         <Typography color="text.secondary">Small steps. Big progress.</Typography>
-      </Box>
-      <Stack direction="row" justifyContent="center" alignItems="center" gap={{ xs: 3, sm: 5 }} mb={{ xs: 2, sm: 3 }} minWidth={0}>
+      </Stack>
+      <Stack alignItems="center" mb={{ xs: 2, sm: 3 }} minWidth={0}>
         <ButtonBase
           aria-label="Open breathing exercise"
           onClick={onRelax}
           sx={{ borderRadius: '50%', p: 0.5, flexShrink: 0 }}
         >
           <FocusOrb size="clamp(112px, 28vw, 145px)" />
-        </ButtonBase>
-        <ButtonBase
-          aria-label={`Open progress stats. Focus score ${focusScore} percent`}
-          onClick={() => setProgressOpen(true)}
-          sx={{ borderRadius: '50%' }}
-        >
-          <Box sx={{ width: 76, height: 76, borderRadius: '50%', display: 'grid', placeItems: 'center', background: `conic-gradient(#25b9f4 ${focusScore}%, rgba(37,185,244,.13) 0)`, p: '5px' }}>
-            <Stack width="100%" height="100%" borderRadius="50%" bgcolor="background.default" alignItems="center" justifyContent="center" lineHeight={1}>
-              <Typography fontWeight={900} fontSize="1.2rem">{focusScore}%</Typography>
-              <Typography variant="caption" color="text.secondary" fontSize="0.6rem">FOCUS</Typography>
-            </Stack>
-          </Box>
         </ButtonBase>
       </Stack>
       <CompactDateStrip selectedDate={selectedDate} onChange={setSelectedDate} />
@@ -202,7 +175,7 @@ export function TodayPage({
       <SectionAccordion title="Agenda" icon={<CalendarToday color="primary" />} meta={<Typography variant="caption" color="text.secondary">{completedAgendaCount} of {selectedDayTasks.length + calendarEvents.length}</Typography>} action={<Button size="small" startIcon={<Add />} onClick={onAdd}>Add</Button>} appearance="plain" expanded={preferences.sections.agenda} onExpandedChange={(expanded) => preferences.setSection('agenda', expanded)}>
         <Typography variant="caption" color="text.secondary">{selectedDateLabel}</Typography>
         {agendaTasks.length > 0 && <List disablePadding sx={{ mt: 1 }}>{agendaTasks.map((task) => <TaskRow key={task.id} task={task} project={projectFor(task.project_id)} onToggle={() => onToggle(task)} onEdit={() => onEdit(task)} onHide={() => onHide(task)} onFocus={() => onFocus(task)} />)}</List>}
-        {calendarEvents.map((event) => <ButtonBase key={event.id} onClick={() => setSelectedEvent(event)} sx={{ width: '100%', display: 'grid', gridTemplateColumns: { xs: '54px minmax(0, 1fr)', sm: '72px minmax(0, 1fr)' }, gap: 1.25, py: 0.75, textAlign: 'left', alignItems: 'stretch' }}>
+        {calendarEvents.map((event) => <ButtonBase key={event.id} sx={{ width: '100%', display: 'grid', gridTemplateColumns: { xs: '54px minmax(0, 1fr)', sm: '72px minmax(0, 1fr)' }, gap: 1.25, py: 0.75, textAlign: 'left', alignItems: 'stretch' }}>
           <Typography variant="caption" color="text.secondary" fontWeight={750} pt={1.25} textAlign="right">{eventTime(event)}</Typography>
           <Stack minWidth={0} gap={0.5} px={1.5} py={1.1} bgcolor="action.hover" borderLeft={4} borderColor="secondary.main" borderRadius={1.5}>
             <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap"><Typography fontWeight={800} sx={{ overflowWrap: 'anywhere' }}>{event.title || event.summary || 'Calendar event'}</Typography><GoogleSourceChip service="calendar" /></Stack>
@@ -256,35 +229,6 @@ export function TodayPage({
         </SectionAccordion>
       )}
       </>}
-      <CalendarEventDialog event={selectedEvent} onClose={() => setSelectedEvent(null)} />
-      <Dialog open={progressOpen} onClose={() => setProgressOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <span>Today’s progress</span>
-            <ButtonBase aria-label="Close progress stats" onClick={() => setProgressOpen(false)} sx={{ borderRadius: '50%', p: 1 }}><Close /></ButtonBase>
-          </Stack>
-        </DialogTitle>
-        <DialogContent>
-          <Stack alignItems="center" gap={2.5} pb={2}>
-            <Box sx={{ width: 150, height: 150, borderRadius: '50%', display: 'grid', placeItems: 'center', background: `conic-gradient(#25b9f4 ${focusScore}%, rgba(37,185,244,.13) 0)`, p: '8px' }}>
-              <Stack width="100%" height="100%" borderRadius="50%" bgcolor="background.paper" alignItems="center" justifyContent="center">
-                <Typography variant="h3" fontWeight={900}>{focusScore}%</Typography>
-                <Typography color="text.secondary">Focus score</Typography>
-              </Stack>
-            </Box>
-            <Stack direction="row" justifyContent="space-around" width="100%" textAlign="center">
-              <Stack alignItems="center"><LocalFireDepartment color="warning" /><Typography fontWeight={850}>{streak}</Typography><Typography variant="caption" color="text.secondary">Day streak</Typography></Stack>
-              <Stack alignItems="center"><TaskAlt color="success" /><Typography fontWeight={850}>{todayProgress.tasks}/{todayTotal}</Typography><Typography variant="caption" color="text.secondary">Tasks</Typography></Stack>
-              <Stack alignItems="center"><Star color="primary" /><Typography fontWeight={850}>{xp}</Typography><Typography variant="caption" color="text.secondary">Total XP</Typography></Stack>
-            </Stack>
-            <Stack width="100%" gap={0.5}>
-              <Stack direction="row" justifyContent="space-between"><Typography fontWeight={750}>Level {level}</Typography><Typography variant="caption" color="text.secondary">{levelXp} of 300 XP</Typography></Stack>
-              <LinearProgress variant="determinate" value={(levelXp / 300) * 100} sx={{ height: 7, borderRadius: 5 }} />
-            </Stack>
-            <Button component={RouterLink} to="/progress" fullWidth variant="contained" onClick={() => setProgressOpen(false)}>Open Progress & Awards</Button>
-          </Stack>
-        </DialogContent>
-      </Dialog>
       <Dialog open={switchFocusOpen} onClose={() => setSwitchFocusOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Switch focus task</DialogTitle>
         <DialogContent sx={{ px: 1.5, pb: 2 }}>
