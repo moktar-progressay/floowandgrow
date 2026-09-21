@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button, ButtonBase, Dialog, DialogContent, DialogTitle, List, ListItemButton, ListItemText, Stack, Typography } from '@mui/material';
+import { Box, Button, ButtonBase, Dialog, DialogContent, DialogTitle, LinearProgress, List, ListItemButton, ListItemText, Stack, Typography } from '@mui/material';
 import { Add, Anchor, CalendarToday, EmojiEvents, History, LocalFireDepartment, Star, SwapHoriz, TaskAlt, VisibilityOff } from '@mui/icons-material';
 import type { DailyCompletion, FocusProject, FocusTask, GoogleEvent, RewardEvent } from '../../types/models';
 import { FocusOrb } from '../../components/brand/FocusOrb';
@@ -14,7 +14,6 @@ import { YesterdayRecap } from '../gamification/YesterdayRecap';
 import { eventDateKey, eventTime } from '../calendar/calendarDates';
 import { GoogleSourceChip } from '../../components/common/GoogleSourceChip';
 import { CalendarEventDialog } from '../calendar/CalendarEventDialog';
-import { HomeAssistant } from './HomeAssistant';
 import { UpcomingNotices } from './UpcomingNotices';
 import { useHomePreferences } from './uiPreferences';
 import { momentumStreak, progressBounds, summariseProgress } from '../gamification/gamification';
@@ -121,6 +120,8 @@ export function TodayPage({
   const todayProgress = summariseProgress(rewardEvents, progressBounds('day'));
   const todayTotal = visibleTaskCount + todayProgress.tasks;
   const streak = momentumStreak(rewardEvents);
+  const level = Math.floor(xp / 300) + 1;
+  const levelXp = xp % 300;
 
   return (
     <Stack
@@ -139,11 +140,15 @@ export function TodayPage({
         <Typography color="text.secondary">Small steps. Big progress.</Typography>
       </Box>
       {preferences.progressVisible ? (
-        <Stack alignItems="center" gap={0.75}>
+        <Stack alignItems="center" gap={0.75} width="100%">
           <Stack direction="row" justifyContent="center" gap={{ xs: 1.5, sm: 3 }} flexWrap="wrap" color="text.secondary">
             <Stack direction="row" gap={0.5} alignItems="center"><LocalFireDepartment color="warning" fontSize="small" /><Typography variant="caption">{streak} day streak</Typography></Stack>
             <Stack direction="row" gap={0.5} alignItems="center"><TaskAlt color="success" fontSize="small" /><Typography variant="caption">{todayProgress.tasks} of {todayTotal} today</Typography></Stack>
-            <Stack direction="row" gap={0.5} alignItems="center"><Star color="primary" fontSize="small" /><Typography variant="caption">{xp} XP</Typography></Stack>
+            <Stack direction="row" gap={0.5} alignItems="center"><Star color="primary" fontSize="small" /><Typography variant="caption">Level {level} · {xp} XP</Typography></Stack>
+          </Stack>
+          <Stack width="100%" maxWidth={360} gap={0.4}>
+            <LinearProgress variant="determinate" value={(levelXp / 300) * 100} sx={{ height: 5, borderRadius: 5 }} />
+            <Typography variant="caption" color="text.secondary" textAlign="center">{levelXp} of 300 XP to the next level</Typography>
           </Stack>
           <Button size="small" color="inherit" startIcon={<VisibilityOff fontSize="small" />} onClick={() => preferences.setProgressVisible(false)} sx={{ color: 'text.secondary', fontSize: '0.72rem' }}>Hide progress</Button>
         </Stack>
@@ -151,14 +156,13 @@ export function TodayPage({
         <Button size="small" color="inherit" startIcon={<EmojiEvents fontSize="small" />} onClick={() => preferences.setProgressVisible(true)} sx={{ alignSelf: 'center', color: 'text.secondary' }}>Show progress</Button>
       )}
       <Stack alignItems="center" gap={1} mb={{ xs: 2, sm: 3 }} minWidth={0}>
-        <Button onClick={() => preferences.setAssistantExpanded(!preferences.assistantExpanded)} aria-label="Open Focus Assistant quick entry" sx={{ borderRadius: '50%', p: 0.5 }}>
+        <Box aria-hidden="true" sx={{ p: 0.5 }}>
           <FocusOrb size="clamp(112px, 28vw, 145px)" />
-        </Button>
+        </Box>
         <Stack direction="row" alignItems="center" gap={1}>
           <Typography color="text.secondary" variant="caption">Ready when you are</Typography>
           <Button size="small" color="inherit" onClick={onRelax} sx={{ minWidth: 0, px: 1 }}>Breathe</Button>
         </Stack>
-        <HomeAssistant expanded={preferences.assistantExpanded} onExpandedChange={preferences.setAssistantExpanded} />
       </Stack>
       <CompactDateStrip selectedDate={selectedDate} onChange={setSelectedDate} />
       <YesterdayRecap events={rewardEvents} />

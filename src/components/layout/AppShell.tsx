@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import {
   AppBar, Avatar, BottomNavigation, BottomNavigationAction, Box, Divider, Drawer,
-  IconButton, LinearProgress, List, ListItemButton, ListItemIcon, ListItemText, Stack,
+  IconButton, List, ListItemButton, ListItemIcon, ListItemText, Stack,
   Toolbar, Tooltip, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
 import {
@@ -29,7 +29,7 @@ const nav = [
   { to: '/more', label: 'More', icon: <MoreHoriz /> },
 ];
 
-export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode; xp?: number; onAddTask: () => void }) {
+export function AppShell({ children, onAddTask }: { children: ReactNode; xp?: number; onAddTask: () => void }) {
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -38,8 +38,6 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
   const location = useLocation();
   const { session } = useAuth();
   const { mode, toggleMode } = useColourMode();
-  const level = Math.floor(xp / 300) + 1;
-  const progress = ((xp % 300) / 300) * 100;
   const desktopNavOpen = sidebarMode !== 'hidden';
   const sidebarCollapsed = sidebarMode === 'collapsed';
   const sidebarWidth = sidebarCollapsed ? collapsedDrawerWidth : drawerWidth;
@@ -122,13 +120,7 @@ export function AppShell({ children, xp = 0, onAddTask }: { children: ReactNode;
               </IconButton>
             </Tooltip>
             {desktop && sidebarMode === 'hidden' && <BrandMark compact />}
-            <Box flex={1}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between">
-                <Typography variant="body2" fontWeight={700}>Level {level} Autonomous Agent</Typography>
-                <Typography variant="caption" color="text.secondary">{xp % 300} / 300 XP</Typography>
-              </Stack>
-              <LinearProgress variant="determinate" value={progress} sx={{ mt: 0.75, height: 5, borderRadius: 5 }} />
-            </Box>
+            <Box flex={1} />
             <Avatar sx={{ width: 36, height: 36, bgcolor: 'primary.dark' }}>{session?.user.email?.[0]?.toUpperCase()}</Avatar>
           </Toolbar>
         </AppBar>
