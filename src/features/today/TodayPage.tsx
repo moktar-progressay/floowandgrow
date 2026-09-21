@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button, ButtonBase, Dialog, DialogContent, DialogTitle, List, ListItemButton, ListItemText, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { Add, Anchor, CalendarToday, History, LocalFireDepartment, Star, SwapHoriz, TaskAlt } from '@mui/icons-material';
+import { Box, Button, ButtonBase, Dialog, DialogContent, DialogTitle, List, ListItemButton, ListItemText, Stack, Typography } from '@mui/material';
+import { Add, Anchor, CalendarToday, EmojiEvents, History, LocalFireDepartment, Star, SwapHoriz, TaskAlt, VisibilityOff } from '@mui/icons-material';
 import type { DailyCompletion, FocusProject, FocusTask, GoogleEvent, RewardEvent } from '../../types/models';
 import { FocusOrb } from '../../components/brand/FocusOrb';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -138,6 +138,18 @@ export function TodayPage({
         <Typography variant="h4" component="h1" fontWeight={850}>{greeting}{firstName ? `, ${firstName}` : ''}</Typography>
         <Typography color="text.secondary">Small steps. Big progress.</Typography>
       </Box>
+      {preferences.progressVisible ? (
+        <Stack alignItems="center" gap={0.75}>
+          <Stack direction="row" justifyContent="center" gap={{ xs: 1.5, sm: 3 }} flexWrap="wrap" color="text.secondary">
+            <Stack direction="row" gap={0.5} alignItems="center"><LocalFireDepartment color="warning" fontSize="small" /><Typography variant="caption">{streak} day streak</Typography></Stack>
+            <Stack direction="row" gap={0.5} alignItems="center"><TaskAlt color="success" fontSize="small" /><Typography variant="caption">{todayProgress.tasks} of {todayTotal} today</Typography></Stack>
+            <Stack direction="row" gap={0.5} alignItems="center"><Star color="primary" fontSize="small" /><Typography variant="caption">{xp} XP</Typography></Stack>
+          </Stack>
+          <Button size="small" color="inherit" startIcon={<VisibilityOff fontSize="small" />} onClick={() => preferences.setProgressVisible(false)} sx={{ color: 'text.secondary', fontSize: '0.72rem' }}>Hide progress</Button>
+        </Stack>
+      ) : (
+        <Button size="small" color="inherit" startIcon={<EmojiEvents fontSize="small" />} onClick={() => preferences.setProgressVisible(true)} sx={{ alignSelf: 'center', color: 'text.secondary' }}>Show progress</Button>
+      )}
       <Stack alignItems="center" gap={1} mb={{ xs: 2, sm: 3 }} minWidth={0}>
         <Button onClick={() => preferences.setAssistantExpanded(!preferences.assistantExpanded)} aria-label="Open Focus Assistant quick entry" sx={{ borderRadius: '50%', p: 0.5 }}>
           <FocusOrb size="clamp(112px, 28vw, 145px)" />
@@ -174,10 +186,14 @@ export function TodayPage({
           ) : <EmptyState icon={<CalendarToday />} title="You are clear" description="There is nothing else asking for your attention." actionLabel="Add task" onAction={onAdd} />}
       </SectionAccordion>
       {visibleTaskCount > 1 && (
-        <ToggleButtonGroup exclusive size="small" value={preferences.taskMode} onChange={(_, value) => value && preferences.setTaskMode(value)} sx={{ alignSelf: 'center', bgcolor: 'action.hover', borderRadius: 999, '& .MuiToggleButton-root': { border: 0, borderRadius: '999px !important', px: 2 } }}>
-          <ToggleButton value="one">One task</ToggleButton>
-          <ToggleButton value="all">All today ({visibleTaskCount})</ToggleButton>
-        </ToggleButtonGroup>
+        <Button
+          size="small"
+          variant="text"
+          onClick={() => preferences.setTaskMode(preferences.taskMode === 'all' ? 'one' : 'all')}
+          sx={{ alignSelf: 'center' }}
+        >
+          {preferences.taskMode === 'all' ? 'Show focus task only' : `Show all tasks (${visibleTaskCount})`}
+        </Button>
       )}
       {preferences.taskMode === 'all' && <>
       <SectionAccordion title="Agenda" icon={<CalendarToday color="primary" />} meta={<Typography variant="caption" color="text.secondary">{completedAgendaCount} of {selectedDayTasks.length + calendarEvents.length}</Typography>} action={<Button size="small" startIcon={<Add />} onClick={onAdd}>Add</Button>} appearance="plain" expanded={preferences.sections.agenda} onExpandedChange={(expanded) => preferences.setSection('agenda', expanded)}>
@@ -200,6 +216,9 @@ export function TodayPage({
         expanded={preferences.sections.anchors}
         onExpandedChange={(expanded) => preferences.setSection('anchors', expanded)}
       >
+        <Typography variant="body2" color="text.secondary" mb={1}>
+          Daily Anchors are small routines that repeat each day. Tick one off today and it returns unchecked tomorrow.
+        </Typography>
         {anchorTasks.length ? <List disablePadding sx={{ mt: 1 }}>{anchorTasks.map((task) => <TaskRow key={task.id} task={task} project={projectFor(task.project_id)} onToggle={() => onToggle(task, selectedDate)} onEdit={() => onEdit(task)} onHide={() => onHide(task)} onFocus={() => onFocus(task)} />)}</List> : <EmptyState icon={<Anchor />} title={anchors.length ? 'Anchors complete' : 'No Daily Anchors'} description={anchors.length ? 'Today’s anchors are safely recorded.' : 'Add the small routines that steady your day.'} actionLabel={anchors.length ? undefined : 'Add anchor'} onAction={anchors.length ? undefined : onAdd} />}
       </SectionAccordion>
       {carriedForwardTasks.length > 0 && (
@@ -234,11 +253,6 @@ export function TodayPage({
         </SectionAccordion>
       )}
       </>}
-      <Stack direction="row" justifyContent="center" gap={{ xs: 2, sm: 4 }} flexWrap="wrap" color="text.secondary" pt={1}>
-        <Stack direction="row" gap={0.75} alignItems="center"><LocalFireDepartment color="warning" fontSize="small" /><Typography variant="caption">{streak} day streak</Typography></Stack>
-        <Stack direction="row" gap={0.75} alignItems="center"><TaskAlt color="success" fontSize="small" /><Typography variant="caption">{todayProgress.tasks} / {todayTotal} today</Typography></Stack>
-        <Stack direction="row" gap={0.75} alignItems="center"><Star color="primary" fontSize="small" /><Typography variant="caption">{xp} XP</Typography></Stack>
-      </Stack>
       <CalendarEventDialog event={selectedEvent} onClose={() => setSelectedEvent(null)} />
       <Dialog open={switchFocusOpen} onClose={() => setSwitchFocusOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Switch focus task</DialogTitle>

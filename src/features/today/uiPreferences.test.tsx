@@ -13,12 +13,13 @@ describe('Home UI preferences', () => {
     expect(readSidebarMode()).toBe('expanded');
   });
 
-  it('persists task mode, section state and Home Assistant state', () => {
+  it('persists task mode, section state, progress and Home Assistant state', () => {
     const { result, unmount } = renderHook(() => useHomePreferences());
     act(() => {
       result.current.setTaskMode('all');
       result.current.setSection('carriedForward', true);
       result.current.setAssistantExpanded(true);
+      result.current.setProgressVisible(false);
     });
     unmount();
 
@@ -26,5 +27,6 @@ describe('Home UI preferences', () => {
     expect(next.taskMode).toBe('all');
     expect(next.sections.carriedForward).toBe(true);
     expect(next.assistantExpanded).toBe(true);
+    expect(next.progressVisible).toBe(false);
   });
 });
