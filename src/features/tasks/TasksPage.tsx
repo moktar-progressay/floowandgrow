@@ -21,7 +21,7 @@ import { CalendarPage } from '../calendar/CalendarPage';
 import { localDate, matchesDueDate, overdueTasks, sortTasksChronologically, type DueDateFilter } from './taskDates';
 
 type TaskView = 'today' | 'overdue' | 'upcoming' | 'active' | 'completed' | 'hidden';
-type TaskSource = 'all' | 'focusos' | 'daily_anchors' | 'google_tasks' | 'google_calendar' | 'gmail';
+type TaskSource = 'all' | 'focusos' | 'daily_anchors' | 'google_tasks' | 'google_calendar' | 'gmail' | 'whatsapp';
 
 export function TasksPage({
   tasks, projects, events, xp, streak, googleConnected, googleEmail, googleLoading, googleError,
@@ -85,8 +85,9 @@ export function TasksPage({
     if (source === 'google_tasks' && task.source !== 'google_tasks') return false;
     if (source === 'google_calendar' && task.source !== 'google_calendar') return false;
     if (source === 'gmail' && task.source !== 'gmail' && task.source !== 'google_gmail') return false;
+    if (source === 'whatsapp' && task.source !== 'whatsapp') return false;
     if (source === 'daily_anchors' && !task.is_daily_anchor) return false;
-    if (source === 'focusos' && (task.is_daily_anchor || ['google_tasks', 'google_calendar', 'gmail', 'google_gmail'].includes(task.source))) return false;
+    if (source === 'focusos' && (task.is_daily_anchor || ['google_tasks', 'google_calendar', 'gmail', 'google_gmail', 'whatsapp'].includes(task.source))) return false;
     if (!matchesDueDate(task, dueDate, today)) return false;
     if (priority === 'standard' && task.priority !== null) return false;
     if (priority !== 'all' && priority !== 'standard' && task.priority !== priority) return false;
@@ -199,7 +200,7 @@ export function TasksPage({
           <MenuItem value="all">All projects</MenuItem><MenuItem value="inbox">Inbox</MenuItem>{projects.map((project) => <MenuItem key={project.id} value={project.id}>{project.name}</MenuItem>)}
         </TextField>
         <TextField select label="Source" value={source} onChange={(event) => setSource(event.target.value as TaskSource)}>
-          <MenuItem value="all">All sources</MenuItem><MenuItem value="focusos">FocusOS</MenuItem><MenuItem value="daily_anchors">Daily Anchors</MenuItem><MenuItem value="google_tasks">Google Tasks</MenuItem><MenuItem value="google_calendar">Google Calendar</MenuItem><MenuItem value="gmail">Google Gmail</MenuItem>
+          <MenuItem value="all">All sources</MenuItem><MenuItem value="focusos">FocusOS</MenuItem><MenuItem value="daily_anchors">Daily Anchors</MenuItem><MenuItem value="google_tasks">Google Tasks</MenuItem><MenuItem value="google_calendar">Google Calendar</MenuItem><MenuItem value="gmail">Google Gmail</MenuItem><MenuItem value="whatsapp">WhatsApp</MenuItem>
         </TextField>
         <TextField select label="Due date" value={dueDate} onChange={(event) => setDueDate(event.target.value as DueDateFilter)}>
           <MenuItem value="all">Any due date</MenuItem><MenuItem value="overdue">Overdue</MenuItem><MenuItem value="today">Today</MenuItem><MenuItem value="tomorrow">Tomorrow</MenuItem><MenuItem value="next_7_days">Next 7 days</MenuItem><MenuItem value="no_date">No due date</MenuItem>

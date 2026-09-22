@@ -1,5 +1,5 @@
 import { Checkbox, Chip, IconButton, ListItem, ListItemButton, ListItemText, Stack, Tooltip } from '@mui/material';
-import { PlayArrow, Visibility, VisibilityOff } from '@mui/icons-material';
+import { PlayArrow, Visibility, VisibilityOff, WhatsApp } from '@mui/icons-material';
 import type { FocusProject, FocusTask } from '../../types/models';
 import { GoogleSourceChip } from '../../components/common/GoogleSourceChip';
 
@@ -30,6 +30,7 @@ export function TaskRow({
               {task.source === 'google_tasks' && <GoogleSourceChip component="span" service="tasks" />}
               {task.source === 'google_calendar' && <GoogleSourceChip component="span" service="calendar" />}
               {(task.source === 'gmail' || task.source === 'google_gmail') && <GoogleSourceChip component="span" service="gmail" />}
+              {task.source === 'whatsapp' && <Chip component="span" size="small" icon={<WhatsApp />} label="WhatsApp" sx={{ color: '#087b38', borderColor: '#25D366', bgcolor: 'rgba(37, 211, 102, .08)' }} variant="outlined" />}
               {task.is_daily_anchor && <Chip component="span" size="small" label="Daily Anchor" color="secondary" variant="outlined" />}
               {task.scheduled_time && <span>{task.scheduled_time.slice(0, 5)}</span>}
               {contextLabel && <span>{contextLabel}</span>}
