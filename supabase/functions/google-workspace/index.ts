@@ -751,10 +751,10 @@ async function handleData(req) {
 async function handleStatus(req) {
   ensureConfigured();
   const user = await requireUser(req);
-  const row = await getIntegration(user.id);
+  const { row, credentials } = await authorisedCredentials(user);
   const matchesAccount = Boolean(row) && String(row.provider_email || "").trim().toLowerCase() === String(user.email || "").trim().toLowerCase();
   return json(req, {
-    connected: matchesAccount,
+    connected: matchesAccount && Boolean(credentials?.access_token),
     email: matchesAccount ? row.provider_email : null,
     scopes: matchesAccount ? row.scopes || [] : [],
   });
