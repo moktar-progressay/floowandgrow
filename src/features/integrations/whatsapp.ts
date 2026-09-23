@@ -11,6 +11,7 @@ interface WhatsAppStatus {
 
 interface WhatsAppSyncResult {
   accepted: boolean;
+  registered?: boolean;
   syncType: 'history' | 'smb_app_state_sync';
   requestId?: string | null;
 }
@@ -59,7 +60,7 @@ export function useWhatsAppConnection() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] }),
   });
   const syncHistory = useMutation({
-    mutationFn: () => requestWhatsApp<WhatsAppSyncResult>(token, '/sync-history', 'POST'),
+    mutationFn: (pin?: string) => requestWhatsApp<WhatsAppSyncResult>(token, '/sync-history', 'POST', pin ? { pin } : {}),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['whatsapp-chats'] }),
   });
   return { status, connect, disconnect, syncHistory };
