@@ -7,7 +7,7 @@ export const env = {
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || fallbackPublishableKey,
   metaAppId: import.meta.env.VITE_META_APP_ID || '2295080044640450',
   whatsappEmbeddedSignupConfigId:
-    import.meta.env.VITE_WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID || '1308944731214492',
+    import.meta.env.VITE_WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID || '1490481036433985',
 };
 
 export const googleWorkspaceFunction = `${env.supabaseUrl}/functions/v1/google-workspace`;
