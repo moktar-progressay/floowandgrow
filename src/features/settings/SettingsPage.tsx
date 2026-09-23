@@ -1,17 +1,14 @@
-import { Alert, Button, Chip, CircularProgress, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Button, Chip, CircularProgress, Stack, Typography } from '@mui/material';
 import { Download, Google, LinkOff, Refresh, WhatsApp } from '@mui/icons-material';
 import { PageHeader } from '../../components/common/PageHeader';
 import { SurfaceCard } from '../../components/common/SurfaceCard';
-import { useState } from 'react';
 import { useWhatsAppConnection } from '../integrations/whatsapp';
 
 export function SettingsPage({ connected, email, error, onConnect, onRefresh, onDisconnect }: { connected: boolean; email?: string; error?: string; onConnect: () => void; onRefresh: () => void; onDisconnect: () => void }) {
-  const [whatsappPin, setWhatsAppPin] = useState('');
   const whatsapp = useWhatsAppConnection();
   const whatsappConnected = whatsapp.status.data?.connected ?? false;
   const whatsappBusy = whatsapp.status.isPending || whatsapp.connect.isPending || whatsapp.disconnect.isPending || whatsapp.syncHistory.isPending;
   const whatsappError = whatsapp.connect.error || whatsapp.disconnect.error || whatsapp.syncHistory.error || whatsapp.status.error;
-  const needsWhatsAppRegistration = whatsappError instanceof Error && /133010|not registered/i.test(whatsappError.message);
   return <>
     <PageHeader title="Connections" description="Control which services FocusOS can access." />
     <Stack gap={2}>
@@ -47,26 +44,9 @@ export function SettingsPage({ connected, email, error, onConnect, onRefresh, on
         <Alert severity="info" sx={{ mt: 2 }}>Your WhatsApp Business App remains available. Each new inbound message is added to Tasks with a green WhatsApp tag.</Alert>
         {whatsapp.syncHistory.isSuccess && <Alert severity="success" sx={{ mt: 2 }}>Chat history import requested. Meta will deliver it in batches over the next few minutes.</Alert>}
         {whatsappError && <Alert severity="error" sx={{ mt: 2 }}>{whatsappError instanceof Error ? whatsappError.message : 'WhatsApp could not be connected.'}</Alert>}
-        {needsWhatsAppRegistration && <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} mt={2} alignItems={{ sm: 'center' }}>
-          <TextField
-            label="Create a 6-digit API PIN"
-            type="password"
-            value={whatsappPin}
-            onChange={(event) => setWhatsAppPin(event.target.value.replace(/\D/g, '').slice(0, 6))}
-            inputProps={{ inputMode: 'numeric', pattern: '[0-9]*', maxLength: 6 }}
-            helperText="Keep this PIN safe. FocusOS will not store it."
-            size="small"
-          />
-          <Button
-            variant="contained"
-            startIcon={<Download />}
-            disabled={whatsappBusy || whatsappPin.length !== 6}
-            onClick={() => whatsapp.syncHistory.mutate(whatsappPin)}
-          >Register and import</Button>
-        </Stack>}
         <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} mt={2}>
           {whatsappConnected ? <>
-            {!needsWhatsAppRegistration && <Button variant="contained" startIcon={<Download />} onClick={() => whatsapp.syncHistory.mutate(undefined)} disabled={whatsappBusy}>Import chat history</Button>}
+            <Button variant="contained" startIcon={<Download />} onClick={() => whatsapp.syncHistory.mutate()} disabled={whatsappBusy}>Import chat history</Button>
             <Button variant="contained" startIcon={<Refresh />} onClick={() => void whatsapp.status.refetch()} disabled={whatsappBusy}>Refresh</Button>
             <Button color="error" startIcon={<LinkOff />} onClick={() => whatsapp.disconnect.mutate()} disabled={whatsappBusy}>Disconnect</Button>
           </> : <Button variant="contained" startIcon={<WhatsApp />} onClick={() => whatsapp.connect.mutate()} disabled={whatsappBusy}>Connect WhatsApp Business</Button>}
