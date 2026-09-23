@@ -681,11 +681,34 @@ function gmailPayload(gmail) {
     }),
   };
 }
+function calendarWindow() {
+  return {
+    start: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString(),
+    end: new Date(Date.now() + 366 * 24 * 60 * 60 * 1000).toISOString(),
+  };
+}
+async function loadCalendar(accessToken) {
+  const { start, end } = calendarWindow();
+  return googleAllItems("https://www.googleapis.com/calendar/v3/calendars/primary/events?" + new URLSearchParams({ timeMin: start, timeMax: end, maxResults: "2500", singleEvents: "true", showDeleted: "true", orderBy: "startTime" }).toString(), accessToken);
+}
+function calendarPayload(events) {
+  return {
+    events: events
+      .filter((event) => event.status !== "cancelled")
+      .map((event) => ({ id: event.id, title: event.summary || "Untitled event", start: event.start?.dateTime || event.start?.date, end: event.end?.dateTime || event.end?.date, location: event.location || "", link: event.htmlLink || "" })),
+  };
+}
 async function handleGmailData(req) {
   const { user, row, accessToken } = await connectedUser(req);
   const gmail = await loadGmail(accessToken);
   await synchroniseGoogleToFocus(user.id, [], [], [], gmail.messages);
   return json(req, { connected: true, email: row.provider_email, services: { gmail: { ok: true, error: null } }, gmail: gmailPayload(gmail) });
+}
+async function handleCalendarData(req) {
+  const { user, row, accessToken } = await connectedUser(req);
+  const events = await loadCalendar(accessToken);
+  await synchroniseGoogleToFocus(user.id, [], [], events, []);
+  return json(req, { connected: true, email: row.provider_email, services: { calendar: { ok: true, error: null } }, calendar: calendarPayload(events) });
 }
 async function handleData(req) {
   ensureConfigured();
@@ -693,11 +716,9 @@ async function handleData(req) {
   const { row, credentials } = await authorisedCredentials(user);
   if (!row || !credentials) return json(req, { connected: false, email: null, gmail: null, calendar: null, drive: null, tasks: null, chat: null, services: {} });
   const accessToken = credentials.access_token;
-  const start = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
-  const end = new Date(Date.now() + 366 * 24 * 60 * 60 * 1000).toISOString();
   const loaders: Record<string, Promise<any>> = {
     gmail: loadGmail(accessToken),
-    calendar: googleAllItems("https://www.googleapis.com/calendar/v3/calendars/primary/events?" + new URLSearchParams({ timeMin: start, timeMax: end, maxResults: "2500", singleEvents: "true", showDeleted: "true", orderBy: "startTime" }).toString(), accessToken),
+    calendar: loadCalendar(accessToken),
     drive: googleAllItems("https://www.googleapis.com/drive/v3/files?" + new URLSearchParams({ q: "trashed = false", pageSize: "1000", orderBy: "modifiedTime desc", fields: "nextPageToken,files(id,name,mimeType,modifiedTime,webViewLink,iconLink,size,starred,parents)" }).toString(), accessToken),
     tasks: (async () => {
       const lists = await googleAllItems("https://tasks.googleapis.com/tasks/v1/users/@me/lists?maxResults=100", accessToken);
@@ -742,7 +763,7 @@ async function handleData(req) {
     scopes: row.scopes || [],
     services,
     gmail: gmailPayload(gmail),
-    calendar: { events: calendar.filter((event) => event.status !== "cancelled").map((event) => ({ id: event.id, title: event.summary || "Untitled event", start: event.start?.dateTime || event.start?.date, end: event.end?.dateTime || event.end?.date, location: event.location || "", link: event.htmlLink || "" })) },
+    calendar: calendarPayload(calendar),
     drive: { files: drive.map((file) => ({ id: file.id, name: file.name || "Untitled file", mimeType: file.mimeType || "", modifiedTime: file.modifiedTime || "", link: file.webViewLink || "", iconLink: file.iconLink || "", size: file.size ? Number(file.size) : null, starred: Boolean(file.starred), parents: file.parents || [] })) },
     tasks: { available: Boolean(values.tasks), readOnly: false, lists: taskData.lists, items: taskData.items.filter((task) => task.status !== "completed" && !task.deleted) },
     chat,
@@ -782,6 +803,7 @@ Deno.serve(async (req) => {
     if (action === "status" && req.method === "GET") return await handleStatus(req);
     if (action === "data" && req.method === "GET") return await handleData(req);
     if (action === "gmail-data" && req.method === "GET") return await handleGmailData(req);
+    if (action === "calendar-data" && req.method === "GET") return await handleCalendarData(req);
     if (action === "gmail-message" && req.method === "POST") return await handleGmailMessage(req);
     if (action === "gmail-action" && req.method === "POST") return await handleGmailAction(req);
     if (action === "gmail-reply" && req.method === "POST") return await handleGmailReply(req);

@@ -33,4 +33,10 @@ describe('Google Workspace Edge Function source', () => {
     expect(functionSource).toContain('const { row, credentials } = await authorisedCredentials(user);');
     expect(functionSource).toContain('connected: matchesAccount && Boolean(credentials?.access_token)');
   });
+
+  it('serves the dedicated calendar feed used by Home', () => {
+    expect(functionSource).toContain('async function handleCalendarData(req)');
+    expect(functionSource).toContain('calendar: calendarPayload(events)');
+    expect(functionSource).toContain('action === "calendar-data"');
+  });
 });
