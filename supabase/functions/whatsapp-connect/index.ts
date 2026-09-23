@@ -167,9 +167,6 @@ async function handleConnect(req: Request) {
 async function handleSync(req: Request, syncType: "history" | "smb_app_state_sync") {
   ensureConfigured();
   const user = await requireUser(req);
-  const input = await req.json().catch(() => ({}));
-  const pin = String(input?.pin ?? "").trim();
-  if (pin && !/^\d{6}$/.test(pin)) throw new Error("Enter a six-digit WhatsApp API PIN.");
   const { data: connection, error } = await service
     .from("focusos_whatsapp_connections")
     .select("phone_number_id")
@@ -177,14 +174,6 @@ async function handleSync(req: Request, syncType: "history" | "smb_app_state_syn
     .maybeSingle();
   if (error) throw error;
   if (!connection?.phone_number_id) throw new Error("Connect WhatsApp Business first.");
-
-  if (pin) {
-    await graphJson(`${connection.phone_number_id}/register`, WHATSAPP_ACCESS_TOKEN, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ messaging_product: "whatsapp", pin }),
-    });
-  }
 
   let contactsRequestId: string | null = null;
   if (syncType === "history") {
@@ -209,7 +198,6 @@ async function handleSync(req: Request, syncType: "history" | "smb_app_state_syn
   });
   return json(req, {
     accepted: true,
-    registered: Boolean(pin),
     syncType,
     requestId: result?.request_id ?? null,
     contactsRequestId,
@@ -235,6 +223,96 @@ async function handleChats(req: Request) {
   return json(req, { messages: data ?? [], hasMore: (data?.length ?? 0) === limit });
 }
 
+function taskSchedule(timestamp: string | null, timezone: string) {
+  const date = timestamp ? new Date(timestamp) : new Date();
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone || "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return {
+    scheduled_date: `${value("year")}-${value("month")}-${value("day")}`,
+    scheduled_time: `${value("hour")}:${value("minute")}:00`,
+  };
+}
+
+async function handleChatTask(req: Request) {
+  ensureConfigured();
+  const user = await requireUser(req);
+  const input = await req.json().catch(() => ({}));
+  const messageId = String(input?.messageId ?? "").trim();
+  if (!messageId || messageId.length > 512) throw new Error("Select a valid WhatsApp message.");
+  const [{ data: message, error: messageError }, { data: connection, error: connectionError }] = await Promise.all([
+    service.from("whatsapp_messages")
+      .select("meta_message_id,from_phone,to_phone,contact_name,direction,message_type,message_text,message_timestamp,phone_number_id")
+      .eq("user_id", user.id)
+      .eq("meta_message_id", messageId)
+      .maybeSingle(),
+    service.from("focusos_whatsapp_connections").select("timezone").eq("user_id", user.id).maybeSingle(),
+  ]);
+  if (messageError) throw messageError;
+  if (connectionError) throw connectionError;
+  if (!message) throw new Error("That WhatsApp message was not found.");
+
+  const contact = String(message.contact_name || (message.direction === "inbound" ? message.from_phone : message.to_phone) || "client")
+    .replace(/\s+/g, " ").trim().slice(0, 80);
+  const preview = String(message.message_text || `${message.message_type || "WhatsApp"} message`)
+    .replace(/\s+/g, " ").trim().slice(0, 160);
+  const legacyKey = `whatsapp:${message.meta_message_id}`;
+  const schedule = taskSchedule(message.message_timestamp, connection?.timezone ?? "Europe/London");
+  let taskId: string | null = null;
+  const { data: inserted, error: insertError } = await service.from("focusos_tasks").insert({
+    user_id: user.id,
+    legacy_key: legacyKey,
+    title: `WhatsApp from ${contact}: ${preview}`,
+    status: "open",
+    source: "whatsapp",
+    scheduled_date: schedule.scheduled_date,
+    scheduled_time: schedule.scheduled_time,
+  }).select("id").single();
+  if (!insertError) taskId = inserted?.id ?? null;
+  else if (insertError.code === "23505") {
+    const { data: existing, error: existingError } = await service.from("focusos_tasks")
+      .select("id").eq("user_id", user.id).eq("legacy_key", legacyKey).single();
+    if (existingError) throw existingError;
+    taskId = existing.id;
+  } else throw insertError;
+  if (!taskId) throw new Error("The WhatsApp task could not be created.");
+
+  let { data: tag, error: tagLookupError } = await service.from("focusos_tags")
+    .select("id").eq("user_id", user.id).ilike("name", "WhatsApp").limit(1).maybeSingle();
+  if (tagLookupError) throw tagLookupError;
+  if (!tag?.id) {
+    const { data: createdTag, error: tagInsertError } = await service.from("focusos_tags")
+      .insert({ user_id: user.id, name: "WhatsApp", colour: "#25D366" }).select("id").single();
+    if (tagInsertError && tagInsertError.code !== "23505") throw tagInsertError;
+    tag = createdTag ?? (await service.from("focusos_tags").select("id").eq("user_id", user.id).ilike("name", "WhatsApp").limit(1).single()).data;
+  }
+  if (tag?.id) {
+    const { error: taskTagError } = await service.from("focusos_task_tags").upsert({
+      user_id: user.id, task_id: taskId, tag_id: tag.id,
+    }, { onConflict: "task_id,tag_id", ignoreDuplicates: true });
+    if (taskTagError) throw taskTagError;
+  }
+  const { error: linkError } = await service.from("focusos_external_links").upsert({
+    user_id: user.id,
+    task_id: taskId,
+    provider: "whatsapp",
+    external_container_id: message.phone_number_id,
+    external_id: message.meta_message_id,
+    external_updated_at: message.message_timestamp,
+    last_synced_at: new Date().toISOString(),
+    sync_status: "synced",
+  }, { onConflict: "user_id,provider,external_id" });
+  if (linkError) throw linkError;
+  return json(req, { taskId, created: !insertError });
+}
+
 async function handleDisconnect(req: Request) {
   ensureConfigured();
   const user = await requireUser(req);
@@ -249,6 +327,7 @@ Deno.serve(async (req: Request) => {
   try {
     if (action === "status" && req.method === "GET") return await handleStatus(req);
     if (action === "chats" && req.method === "GET") return await handleChats(req);
+    if (action === "chat-task" && req.method === "POST") return await handleChatTask(req);
     if (action === "connect" && req.method === "POST") return await handleConnect(req);
     if (action === "sync-history" && req.method === "POST") return await handleSync(req, "history");
     if (action === "sync-contacts" && req.method === "POST") return await handleSync(req, "smb_app_state_sync");
