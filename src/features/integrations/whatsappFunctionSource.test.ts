@@ -40,6 +40,8 @@ describe('WhatsApp Edge Function sources', () => {
     expect(connectionSource).toContain('sync_type: syncType');
     expect(connectionSource).toContain('.eq("user_id", user.id)');
     expect(connectionSource).toContain('action === "chats"');
+    expect(connectionSource).toContain('/register');
+    expect(connectionSource).toContain('Enter a six-digit WhatsApp API PIN.');
   });
 
   it('keeps Meta credentials server-side and authenticates the FocusOS user', () => {
