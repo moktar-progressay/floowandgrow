@@ -9,6 +9,12 @@ interface WhatsAppStatus {
   updatedAt?: string | null;
 }
 
+interface WhatsAppSyncResult {
+  accepted: boolean;
+  syncType: 'history' | 'smb_app_state_sync';
+  requestId?: string | null;
+}
+
 export async function requestWhatsApp<T>(token: string, path: string, method = 'GET', body?: unknown): Promise<T> {
   const response = await fetch(whatsappConnectFunction + path, {
     method,
@@ -52,5 +58,9 @@ export function useWhatsAppConnection() {
     mutationFn: () => requestWhatsApp<WhatsAppStatus>(token, '/disconnect', 'POST'),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] }),
   });
-  return { status, connect, disconnect };
+  const syncHistory = useMutation({
+    mutationFn: () => requestWhatsApp<WhatsAppSyncResult>(token, '/sync-history', 'POST'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['whatsapp-chats'] }),
+  });
+  return { status, connect, disconnect, syncHistory };
 }
