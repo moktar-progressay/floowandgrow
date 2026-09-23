@@ -4,8 +4,9 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const META_APP_ID = Deno.env.get("WHATSAPP_APP_ID") ?? "2295080044640450";
-const META_APP_SECRET = (Deno.env.get("WHATSAPP_APP_SECRET") ?? "").trim();
+const WHATSAPP_ACCESS_TOKEN = (Deno.env.get("WHATSAPP_ACCESS_TOKEN") ?? "").trim();
+const WHATSAPP_WABA_ID = (Deno.env.get("WHATSAPP_WABA_ID") ?? "2000638797991010").trim();
+const WHATSAPP_PHONE_NUMBER_ID = (Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") ?? "1334090636449881").trim();
 const WHATSAPP_OWNER_EMAIL = (Deno.env.get("WHATSAPP_OWNER_EMAIL") ?? "moktar@progressay.com").trim().toLowerCase();
 const TOKEN_SECRET = Deno.env.get("WHATSAPP_TOKEN_ENCRYPTION_KEY")
   ?? Deno.env.get("GOOGLE_TOKEN_ENCRYPTION_KEY")
@@ -62,7 +63,9 @@ function ensureConfigured() {
   const missing = [
     ["SUPABASE_ANON_KEY", SUPABASE_ANON_KEY],
     ["SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY],
-    ["WHATSAPP_APP_SECRET", META_APP_SECRET],
+    ["WHATSAPP_ACCESS_TOKEN", WHATSAPP_ACCESS_TOKEN],
+    ["WHATSAPP_WABA_ID", WHATSAPP_WABA_ID],
+    ["WHATSAPP_PHONE_NUMBER_ID", WHATSAPP_PHONE_NUMBER_ID],
     ["WHATSAPP_TOKEN_ENCRYPTION_KEY or GOOGLE_TOKEN_ENCRYPTION_KEY", TOKEN_SECRET],
   ].filter(([, value]) => !value).map(([name]) => name);
   if (missing.length) throw new Error(`WhatsApp connection setup is incomplete: ${missing.join(", ")}`);
@@ -112,59 +115,48 @@ async function handleStatus(req: Request) {
   });
 }
 
-async function handleExchange(req: Request) {
+async function handleConnect(req: Request) {
   ensureConfigured();
   const user = await requireUser(req);
   const input = await req.json().catch(() => ({}));
-  const code = String(input.code ?? "").trim();
-  const wabaId = String(input.wabaId ?? "").trim();
-  const phoneNumberId = String(input.phoneNumberId ?? "").trim();
-  const businessId = String(input.businessId ?? "").trim() || null;
   const timezone = String(input.timezone ?? "Europe/London").trim();
-  if (!code || code.length > 4096) throw new Error("Meta did not return a valid authorisation code.");
-  if (!/^\d{5,32}$/.test(wabaId) || !/^\d{5,32}$/.test(phoneNumberId)) {
-    throw new Error("Meta did not return the WhatsApp account details.");
+  if (!/^\d{5,32}$/.test(WHATSAPP_WABA_ID) || !/^\d{5,32}$/.test(WHATSAPP_PHONE_NUMBER_ID)) {
+    throw new Error("The configured WhatsApp account details are invalid.");
   }
   try { new Intl.DateTimeFormat("en-GB", { timeZone: timezone }).format(); }
   catch { throw new Error("The browser returned an invalid timezone."); }
 
-  const tokenResponse = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/oauth/access_token`, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: META_APP_ID, client_secret: META_APP_SECRET, code }),
-  });
-  const tokenPayload = await tokenResponse.json().catch(() => ({}));
-  if (!tokenResponse.ok || !tokenPayload.access_token) {
-    const detail = String(tokenPayload?.error?.message ?? "Meta rejected the authorisation code.").slice(0, 220);
-    throw new Error(detail);
+  const phone = await graphJson(
+    `${WHATSAPP_PHONE_NUMBER_ID}?fields=id,display_phone_number,verified_name`,
+    WHATSAPP_ACCESS_TOKEN,
+  );
+  if (String(phone.id ?? "") !== WHATSAPP_PHONE_NUMBER_ID) {
+    throw new Error("The configured WhatsApp phone number could not be confirmed.");
   }
+  await graphJson(`${WHATSAPP_WABA_ID}/subscribed_apps`, WHATSAPP_ACCESS_TOKEN, { method: "POST" });
 
-  const accessToken = String(tokenPayload.access_token);
-  const phone = await graphJson(`${phoneNumberId}?fields=id,display_phone_number,verified_name`, accessToken);
-  if (String(phone.id ?? "") !== phoneNumberId) throw new Error("The selected WhatsApp phone number could not be confirmed.");
-  await graphJson(`${wabaId}/subscribed_apps`, accessToken, { method: "POST" });
-
-  const encrypted = await encryptAccessToken(accessToken);
-  const expiresIn = Number(tokenPayload.expires_in ?? 0);
-  const tokenExpiresAt = Number.isFinite(expiresIn) && expiresIn > 0
-    ? new Date(Date.now() + expiresIn * 1000).toISOString()
-    : null;
+  const encrypted = await encryptAccessToken(WHATSAPP_ACCESS_TOKEN);
   const { error } = await service.from("focusos_whatsapp_connections").upsert({
     user_id: user.id,
-    waba_id: wabaId,
-    phone_number_id: phoneNumberId,
-    business_id: businessId,
+    waba_id: WHATSAPP_WABA_ID,
+    phone_number_id: WHATSAPP_PHONE_NUMBER_ID,
+    business_id: null,
     display_phone_number: phone.display_phone_number ?? null,
     verified_name: phone.verified_name ?? null,
     timezone,
     access_token_ciphertext: encrypted.ciphertext,
     access_token_iv: encrypted.iv,
-    token_expires_at: tokenExpiresAt,
+    token_expires_at: null,
     updated_at: new Date().toISOString(),
   }, { onConflict: "user_id" });
   if (error) throw error;
 
-  console.log(JSON.stringify({ event: "whatsapp_connected", user_id: user.id, waba_id: wabaId, phone_number_id: phoneNumberId }));
+  console.log(JSON.stringify({
+    event: "whatsapp_connected",
+    user_id: user.id,
+    waba_id: WHATSAPP_WABA_ID,
+    phone_number_id: WHATSAPP_PHONE_NUMBER_ID,
+  }));
   return json(req, {
     connected: true,
     phoneNumber: phone.display_phone_number ?? null,
@@ -185,7 +177,7 @@ Deno.serve(async (req: Request) => {
   const action = new URL(req.url).pathname.split("/").filter(Boolean).pop() ?? "";
   try {
     if (action === "status" && req.method === "GET") return await handleStatus(req);
-    if (action === "exchange" && req.method === "POST") return await handleExchange(req);
+    if (action === "connect" && req.method === "POST") return await handleConnect(req);
     if (action === "disconnect" && req.method === "POST") return await handleDisconnect(req);
     return json(req, { error: "Not found" }, 404);
   } catch (error) {
