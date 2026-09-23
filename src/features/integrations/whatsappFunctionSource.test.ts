@@ -29,10 +29,16 @@ describe('WhatsApp Edge Function sources', () => {
   });
 
   it('keeps Meta credentials server-side and authenticates the FocusOS user', () => {
-    expect(connectionSource).toContain('Deno.env.get("WHATSAPP_APP_SECRET")');
+    expect(connectionSource).toContain('Deno.env.get("WHATSAPP_ACCESS_TOKEN")');
     expect(connectionSource).toContain('client.auth.getUser');
     expect(connectionSource).toContain('This WhatsApp connection is restricted to its owner.');
     expect(connectionSource).not.toContain('return json(req, { accessToken');
-    expect(connectionSource).not.toContain('access_token: accessToken');
+    expect(connectionSource).not.toContain('accessToken: WHATSAPP_ACCESS_TOKEN');
+  });
+
+  it('connects the configured phone without exposing the permanent token to the browser', () => {
+    expect(connectionSource).toContain('action === "connect"');
+    expect(connectionSource).toContain('`${WHATSAPP_WABA_ID}/subscribed_apps`');
+    expect(connectionSource).toContain('encryptAccessToken(WHATSAPP_ACCESS_TOKEN)');
   });
 });
