@@ -28,4 +28,9 @@ describe('Google Workspace Edge Function source', () => {
     expect(functionSource).toContain('PROTECTED_GOOGLE_EMAIL');
     expect(functionSource).toContain('This Google account is protected and cannot be linked here.');
   });
+
+  it('validates or refreshes credentials before reporting Google as connected', () => {
+    expect(functionSource).toContain('const { row, credentials } = await authorisedCredentials(user);');
+    expect(functionSource).toContain('connected: matchesAccount && Boolean(credentials?.access_token)');
+  });
 });
