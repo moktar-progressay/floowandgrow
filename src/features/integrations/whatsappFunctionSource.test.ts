@@ -28,6 +28,20 @@ describe('WhatsApp Edge Function sources', () => {
     expect(webhookSource).toContain('onConflict: "task_id,tag_id"');
   });
 
+  it('stores coexistence history and phone-sent messages without creating historical tasks', () => {
+    expect(webhookSource).toContain('field === "history"');
+    expect(webhookSource).toContain('value?.history ?? []');
+    expect(webhookSource).toContain('field === "smb_message_echoes"');
+    expect(webhookSource).toContain('direction: "outbound"');
+  });
+
+  it('requests the one-time Meta history sync and exposes owner-filtered chats', () => {
+    expect(connectionSource).toContain('/smb_app_data');
+    expect(connectionSource).toContain('sync_type: syncType');
+    expect(connectionSource).toContain('.eq("user_id", user.id)');
+    expect(connectionSource).toContain('action === "chats"');
+  });
+
   it('keeps Meta credentials server-side and authenticates the FocusOS user', () => {
     expect(connectionSource).toContain('Deno.env.get("WHATSAPP_ACCESS_TOKEN")');
     expect(connectionSource).toContain('client.auth.getUser');
