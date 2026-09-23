@@ -167,6 +167,9 @@ async function handleConnect(req: Request) {
 async function handleSync(req: Request, syncType: "history" | "smb_app_state_sync") {
   ensureConfigured();
   const user = await requireUser(req);
+  const input = await req.json().catch(() => ({}));
+  const pin = String(input?.pin ?? "").trim();
+  if (pin && !/^\d{6}$/.test(pin)) throw new Error("Enter a six-digit WhatsApp API PIN.");
   const { data: connection, error } = await service
     .from("focusos_whatsapp_connections")
     .select("phone_number_id")
@@ -174,6 +177,14 @@ async function handleSync(req: Request, syncType: "history" | "smb_app_state_syn
     .maybeSingle();
   if (error) throw error;
   if (!connection?.phone_number_id) throw new Error("Connect WhatsApp Business first.");
+
+  if (pin) {
+    await graphJson(`${connection.phone_number_id}/register`, WHATSAPP_ACCESS_TOKEN, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ messaging_product: "whatsapp", pin }),
+    });
+  }
 
   let contactsRequestId: string | null = null;
   if (syncType === "history") {
@@ -198,6 +209,7 @@ async function handleSync(req: Request, syncType: "history" | "smb_app_state_syn
   });
   return json(req, {
     accepted: true,
+    registered: Boolean(pin),
     syncType,
     requestId: result?.request_id ?? null,
     contactsRequestId,
