@@ -6,7 +6,7 @@ export type HomeSection = 'focusTask' | 'agenda' | 'anchors' | 'carriedForward';
 
 const keys = {
   sidebar: 'focusos.ui.sidebar',
-  taskMode: 'focusos.ui.taskMode',
+  taskMode: 'focusos.ui.taskMode.v2',
   sections: 'focusos.ui.sections',
 } as const;
 
@@ -43,7 +43,7 @@ export function persistSidebarMode(mode: SidebarMode) {
 }
 
 export function useHomePreferences() {
-  const [taskMode, setTaskModeState] = useState<TaskMode>(() => readValue(keys.taskMode, 'one', (value): value is TaskMode => value === 'one' || value === 'all'));
+  const [taskMode, setTaskModeState] = useState<TaskMode>(() => readValue(keys.taskMode, 'all', (value): value is TaskMode => value === 'one' || value === 'all'));
   const [sections, setSectionsState] = useState<Record<HomeSection, boolean>>(() => readValue(
     keys.sections,
     defaultSections,
