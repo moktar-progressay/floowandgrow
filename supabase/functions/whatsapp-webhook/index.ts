@@ -71,6 +71,39 @@ function messageText(message: any): string | null {
   }
 }
 
+function messageTimestamp(value: unknown): string | null {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  return new Date(seconds * 1000).toISOString();
+}
+
+function phoneDigits(value: unknown) {
+  return String(value ?? "").replace(/\D/g, "");
+}
+
+async function recordWebhookEvent(input: {
+  eventType: string;
+  wabaId: string | null;
+  phoneNumberId: string | null;
+  payload: unknown;
+}) {
+  const { error } = await supabase.from("whatsapp_webhook_events").insert({
+    event_type: input.eventType,
+    waba_id: input.wabaId,
+    phone_number_id: input.phoneNumberId,
+    payload: input.payload,
+  });
+  if (error) throw error;
+}
+
+async function upsertWhatsAppMessage(row: Record<string, unknown>) {
+  const { error } = await supabase.from("whatsapp_messages").upsert({
+    ...row,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "meta_message_id" });
+  if (error) throw error;
+}
+
 function firstError(status: any) {
   const error = Array.isArray(status?.errors) ? status.errors[0] : null;
   if (!error) return { code: null, message: null };
@@ -250,24 +283,89 @@ Deno.serve(async (req: Request) => {
   let body: any;
   try { body = JSON.parse(new TextDecoder().decode(rawBodyBytes)); }
   catch { return json({ error: "Invalid JSON" }, 400); }
-  if (body?.object !== "whatsapp_business_account") return json({ ignored: true }, 200);
-
   try {
-    for (const entry of body.entry ?? []) {
+    const entries = body?.object === "whatsapp_business_account"
+      ? body.entry ?? []
+      : body?.event && body?.data
+        ? [{ id: body.data.id ?? null, changes: [{ field: body.event, value: body.data }] }]
+        : [];
+    if (!entries.length) return json({ ignored: true }, 200);
+
+    for (const entry of entries) {
       const wabaId = entry?.id ?? null;
       for (const change of entry?.changes ?? []) {
-        if (change?.field !== "messages") continue;
+        const field = String(change?.field ?? "unknown");
         const value = change?.value ?? {};
         const phoneNumberId = value?.metadata?.phone_number_id ?? null;
         const connection = await connectionFor(phoneNumberId, wabaId);
 
-        const { error: eventInsertError } = await supabase.from("whatsapp_webhook_events").insert({
-          event_type: "messages",
-          waba_id: wabaId,
-          phone_number_id: phoneNumberId,
+        await recordWebhookEvent({
+          eventType: field,
+          wabaId,
+          phoneNumberId,
           payload: { entry, change },
         });
-        if (eventInsertError) throw eventInsertError;
+
+        if (field === "history") {
+          const businessPhone = value?.metadata?.display_phone_number ?? null;
+          const businessDigits = phoneDigits(businessPhone);
+          for (const chunk of value?.history ?? []) {
+            for (const thread of chunk?.threads ?? []) {
+              const threadPhone = thread?.id ?? null;
+              for (const message of thread?.messages ?? []) {
+                if (!message?.id) continue;
+                const outbound = Boolean(message?.to)
+                  || (businessDigits && phoneDigits(message?.from) === businessDigits);
+                const contactPhone = outbound
+                  ? message?.to ?? threadPhone
+                  : message?.from ?? threadPhone;
+                await upsertWhatsAppMessage({
+                  user_id: connection?.user_id ?? null,
+                  meta_message_id: message.id,
+                  waba_id: wabaId,
+                  phone_number_id: phoneNumberId,
+                  from_phone: message?.from ?? (outbound ? businessPhone : contactPhone),
+                  to_phone: message?.to ?? (outbound ? contactPhone : businessPhone),
+                  contact_name: null,
+                  direction: outbound ? "outbound" : "inbound",
+                  message_type: message?.type ?? "unknown",
+                  message_text: messageText(message),
+                  reply_to_meta_message_id: message?.context?.id ?? null,
+                  message_timestamp: messageTimestamp(message?.timestamp),
+                  status: message?.history_context?.status ?? (outbound ? "sent" : "received"),
+                  payload: { ...message, history_sync: chunk?.metadata ?? null },
+                });
+              }
+            }
+          }
+          continue;
+        }
+
+        if (field === "smb_message_echoes") {
+          const businessPhone = value?.metadata?.display_phone_number ?? null;
+          for (const message of value?.message_echoes ?? []) {
+            if (!message?.id) continue;
+            await upsertWhatsAppMessage({
+              user_id: connection?.user_id ?? null,
+              meta_message_id: message.id,
+              waba_id: wabaId,
+              phone_number_id: phoneNumberId,
+              from_phone: message?.from ?? businessPhone,
+              to_phone: message?.to ?? null,
+              contact_name: null,
+              direction: "outbound",
+              message_type: message?.type ?? "unknown",
+              message_text: messageText(message),
+              reply_to_meta_message_id: message?.context?.id ?? null,
+              message_timestamp: messageTimestamp(message?.timestamp),
+              status: "sent",
+              payload: message,
+            });
+          }
+          continue;
+        }
+
+        if (field !== "messages") continue;
 
         const contacts = new Map<string, string>();
         for (const contact of value?.contacts ?? []) {
@@ -277,7 +375,7 @@ Deno.serve(async (req: Request) => {
         for (const message of value?.messages ?? []) {
           if (!message?.id) continue;
           const from = message?.from ?? null;
-          const timestamp = message?.timestamp ? new Date(Number(message.timestamp) * 1000).toISOString() : null;
+          const timestamp = messageTimestamp(message?.timestamp);
           const text = messageText(message);
           const contactName = from ? (contacts.get(from) || null) : null;
           const row = {
@@ -297,8 +395,7 @@ Deno.serve(async (req: Request) => {
             payload: message,
             updated_at: new Date().toISOString(),
           };
-          const { error } = await supabase.from("whatsapp_messages").upsert(row, { onConflict: "meta_message_id" });
-          if (error) throw error;
+          await upsertWhatsAppMessage(row);
 
           if (connection?.user_id) {
             await ensureWhatsAppTask({
