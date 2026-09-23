@@ -43,6 +43,13 @@ describe('WhatsApp Edge Function sources', () => {
     expect(connectionSource).not.toContain('/register');
   });
 
+  it('completes Business App coexistence through Embedded Signup before requesting history', () => {
+    expect(connectionSource).toContain('action === "embedded-signup"');
+    expect(connectionSource).toContain('/oauth/access_token');
+    expect(connectionSource).toContain('platform_type,is_on_biz_app,code_verification_status');
+    expect(connectionSource).toContain('requestBusinessAppSync(phoneNumberId, onboardingToken, "history")');
+  });
+
   it('creates tasks only from WhatsApp messages owned by the signed-in user', () => {
     expect(connectionSource).toContain('action === "chat-task"');
     expect(connectionSource).toContain('.eq("user_id", user.id)');
