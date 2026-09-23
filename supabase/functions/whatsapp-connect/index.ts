@@ -5,6 +5,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const WHATSAPP_ACCESS_TOKEN = (Deno.env.get("WHATSAPP_ACCESS_TOKEN") ?? "").trim();
+const META_APP_ID = (Deno.env.get("WHATSAPP_APP_ID") ?? "2295080044640450").trim();
+const META_APP_SECRET = (Deno.env.get("WHATSAPP_APP_SECRET_V2") ?? Deno.env.get("WHATSAPP_APP_SECRET") ?? "").trim();
 const WHATSAPP_WABA_ID = (Deno.env.get("WHATSAPP_WABA_ID") ?? "2000638797991010").trim();
 const WHATSAPP_PHONE_NUMBER_ID = (Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") ?? "1334090636449881").trim();
 const WHATSAPP_OWNER_EMAIL = (Deno.env.get("WHATSAPP_OWNER_EMAIL") ?? "moktar@progressay.com").trim().toLowerCase();
@@ -107,11 +109,102 @@ async function handleStatus(req: Request) {
     .eq("user_id", user.id)
     .maybeSingle();
   if (error) throw error;
+  let metaState: Record<string, unknown> | null = null;
+  if (data?.phone_number_id) {
+    metaState = await graphJson(
+      `${data.phone_number_id}?fields=id,display_phone_number,verified_name,status,platform_type,is_on_biz_app,code_verification_status`,
+      WHATSAPP_ACCESS_TOKEN,
+    );
+  }
+  const connected = Boolean(data)
+    && String(metaState?.status ?? "").toUpperCase() === "CONNECTED"
+    && String(metaState?.platform_type ?? "").toUpperCase() === "CLOUD_API";
   return json(req, {
-    connected: Boolean(data),
+    configured: Boolean(data),
+    connected,
     phoneNumber: data?.display_phone_number ?? null,
     verifiedName: data?.verified_name ?? null,
+    metaStatus: metaState?.status ?? null,
+    platformType: metaState?.platform_type ?? null,
+    isOnBusinessApp: metaState?.is_on_biz_app ?? null,
+    codeVerificationStatus: metaState?.code_verification_status ?? null,
     updatedAt: data?.updated_at ?? null,
+  });
+}
+
+async function exchangeEmbeddedSignupCode(code: string) {
+  if (!META_APP_ID || !META_APP_SECRET) throw new Error("Meta Embedded Signup is not fully configured.");
+  const url = new URL(`https://graph.facebook.com/${GRAPH_VERSION}/oauth/access_token`);
+  url.searchParams.set("client_id", META_APP_ID);
+  url.searchParams.set("client_secret", META_APP_SECRET);
+  url.searchParams.set("code", code);
+  const response = await fetch(url, { method: "GET" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.access_token) {
+    throw new Error(String(payload?.error?.message ?? "Meta could not complete Embedded Signup.").slice(0, 240));
+  }
+  return String(payload.access_token);
+}
+
+async function requestBusinessAppSync(phoneNumberId: string, accessToken: string, syncType: "history" | "smb_app_state_sync") {
+  return graphJson(`${phoneNumberId}/smb_app_data`, accessToken, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messaging_product: "whatsapp", sync_type: syncType }),
+  });
+}
+
+async function handleEmbeddedSignup(req: Request) {
+  ensureConfigured();
+  const user = await requireUser(req);
+  const input = await req.json().catch(() => ({}));
+  const code = String(input?.code ?? "").trim();
+  const wabaId = String(input?.wabaId ?? "").trim();
+  const phoneNumberId = String(input?.phoneNumberId ?? "").trim();
+  if (!code || code.length > 4096) throw new Error("Meta did not return a valid Embedded Signup code.");
+  if (wabaId !== WHATSAPP_WABA_ID || phoneNumberId !== WHATSAPP_PHONE_NUMBER_ID) {
+    throw new Error("Select the Progressay Impact WhatsApp account and +44 7498 945898.");
+  }
+
+  const onboardingToken = await exchangeEmbeddedSignupCode(code);
+  const phone = await graphJson(
+    `${phoneNumberId}?fields=id,display_phone_number,verified_name,status,platform_type,is_on_biz_app,code_verification_status`,
+    onboardingToken,
+  );
+  await graphJson(`${wabaId}/subscribed_apps`, onboardingToken, { method: "POST" });
+
+  const encrypted = await encryptAccessToken(WHATSAPP_ACCESS_TOKEN);
+  const timezone = String(input?.timezone ?? "Europe/London").trim();
+  try { new Intl.DateTimeFormat("en-GB", { timeZone: timezone }).format(); }
+  catch { throw new Error("The browser returned an invalid timezone."); }
+  const { error } = await service.from("focusos_whatsapp_connections").upsert({
+    user_id: user.id,
+    waba_id: wabaId,
+    phone_number_id: phoneNumberId,
+    business_id: null,
+    display_phone_number: phone.display_phone_number ?? null,
+    verified_name: phone.verified_name ?? null,
+    timezone,
+    access_token_ciphertext: encrypted.ciphertext,
+    access_token_iv: encrypted.iv,
+    token_expires_at: null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id" });
+  if (error) throw error;
+
+  const contacts = await requestBusinessAppSync(phoneNumberId, onboardingToken, "smb_app_state_sync").catch(() => null);
+  const history = await requestBusinessAppSync(phoneNumberId, onboardingToken, "history");
+  return json(req, {
+    configured: true,
+    connected: String(phone.status ?? "").toUpperCase() === "CONNECTED"
+      && String(phone.platform_type ?? "").toUpperCase() === "CLOUD_API",
+    phoneNumber: phone.display_phone_number ?? null,
+    verifiedName: phone.verified_name ?? null,
+    metaStatus: phone.status ?? null,
+    platformType: phone.platform_type ?? null,
+    historyRequested: true,
+    historyRequestId: history?.request_id ?? null,
+    contactsRequestId: contacts?.request_id ?? null,
   });
 }
 
@@ -178,11 +271,7 @@ async function handleSync(req: Request, syncType: "history" | "smb_app_state_syn
   let contactsRequestId: string | null = null;
   if (syncType === "history") {
     try {
-      const contactsResult = await graphJson(`${connection.phone_number_id}/smb_app_data`, WHATSAPP_ACCESS_TOKEN, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ messaging_product: "whatsapp", sync_type: "smb_app_state_sync" }),
-      });
+      const contactsResult = await requestBusinessAppSync(connection.phone_number_id, WHATSAPP_ACCESS_TOKEN, "smb_app_state_sync");
       contactsRequestId = contactsResult?.request_id ?? null;
     } catch (contactsError) {
       console.warn(JSON.stringify({
@@ -191,11 +280,7 @@ async function handleSync(req: Request, syncType: "history" | "smb_app_state_syn
       }));
     }
   }
-  const result = await graphJson(`${connection.phone_number_id}/smb_app_data`, WHATSAPP_ACCESS_TOKEN, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ messaging_product: "whatsapp", sync_type: syncType }),
-  });
+  const result = await requestBusinessAppSync(connection.phone_number_id, WHATSAPP_ACCESS_TOKEN, syncType);
   return json(req, {
     accepted: true,
     syncType,
@@ -326,6 +411,7 @@ Deno.serve(async (req: Request) => {
   const action = new URL(req.url).pathname.split("/").filter(Boolean).pop() ?? "";
   try {
     if (action === "status" && req.method === "GET") return await handleStatus(req);
+    if (action === "embedded-signup" && req.method === "POST") return await handleEmbeddedSignup(req);
     if (action === "chats" && req.method === "GET") return await handleChats(req);
     if (action === "chat-task" && req.method === "POST") return await handleChatTask(req);
     if (action === "connect" && req.method === "POST") return await handleConnect(req);
