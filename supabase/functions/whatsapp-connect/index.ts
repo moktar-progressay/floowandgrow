@@ -164,6 +164,65 @@ async function handleConnect(req: Request) {
   });
 }
 
+async function handleSync(req: Request, syncType: "history" | "smb_app_state_sync") {
+  ensureConfigured();
+  const user = await requireUser(req);
+  const { data: connection, error } = await service
+    .from("focusos_whatsapp_connections")
+    .select("phone_number_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!connection?.phone_number_id) throw new Error("Connect WhatsApp Business first.");
+
+  let contactsRequestId: string | null = null;
+  if (syncType === "history") {
+    try {
+      const contactsResult = await graphJson(`${connection.phone_number_id}/smb_app_data`, WHATSAPP_ACCESS_TOKEN, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ messaging_product: "whatsapp", sync_type: "smb_app_state_sync" }),
+      });
+      contactsRequestId = contactsResult?.request_id ?? null;
+    } catch (contactsError) {
+      console.warn(JSON.stringify({
+        event: "whatsapp_contacts_sync_skipped",
+        message: contactsError instanceof Error ? contactsError.message : "Contact sync was not accepted",
+      }));
+    }
+  }
+  const result = await graphJson(`${connection.phone_number_id}/smb_app_data`, WHATSAPP_ACCESS_TOKEN, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messaging_product: "whatsapp", sync_type: syncType }),
+  });
+  return json(req, {
+    accepted: true,
+    syncType,
+    requestId: result?.request_id ?? null,
+    contactsRequestId,
+  });
+}
+
+async function handleChats(req: Request) {
+  ensureConfigured();
+  const user = await requireUser(req);
+  const url = new URL(req.url);
+  const requestedLimit = Number(url.searchParams.get("limit") ?? 200);
+  const limit = Math.max(1, Math.min(Number.isFinite(requestedLimit) ? requestedLimit : 200, 500));
+  const before = url.searchParams.get("before");
+  let query = service
+    .from("whatsapp_messages")
+    .select("id,meta_message_id,from_phone,to_phone,contact_name,direction,message_type,message_text,message_timestamp,status,created_at")
+    .eq("user_id", user.id)
+    .order("message_timestamp", { ascending: false, nullsFirst: false })
+    .limit(limit);
+  if (before) query = query.lt("message_timestamp", before);
+  const { data, error } = await query;
+  if (error) throw error;
+  return json(req, { messages: data ?? [], hasMore: (data?.length ?? 0) === limit });
+}
+
 async function handleDisconnect(req: Request) {
   ensureConfigured();
   const user = await requireUser(req);
@@ -177,7 +236,10 @@ Deno.serve(async (req: Request) => {
   const action = new URL(req.url).pathname.split("/").filter(Boolean).pop() ?? "";
   try {
     if (action === "status" && req.method === "GET") return await handleStatus(req);
+    if (action === "chats" && req.method === "GET") return await handleChats(req);
     if (action === "connect" && req.method === "POST") return await handleConnect(req);
+    if (action === "sync-history" && req.method === "POST") return await handleSync(req, "history");
+    if (action === "sync-contacts" && req.method === "POST") return await handleSync(req, "smb_app_state_sync");
     if (action === "disconnect" && req.method === "POST") return await handleDisconnect(req);
     return json(req, { error: "Not found" }, 404);
   } catch (error) {
