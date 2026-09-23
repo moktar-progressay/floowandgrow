@@ -40,8 +40,15 @@ describe('WhatsApp Edge Function sources', () => {
     expect(connectionSource).toContain('sync_type: syncType');
     expect(connectionSource).toContain('.eq("user_id", user.id)');
     expect(connectionSource).toContain('action === "chats"');
-    expect(connectionSource).toContain('/register');
-    expect(connectionSource).toContain('Enter a six-digit WhatsApp API PIN.');
+    expect(connectionSource).not.toContain('/register');
+  });
+
+  it('creates tasks only from WhatsApp messages owned by the signed-in user', () => {
+    expect(connectionSource).toContain('action === "chat-task"');
+    expect(connectionSource).toContain('.eq("user_id", user.id)');
+    expect(connectionSource).toContain('legacyKey = `whatsapp:${message.meta_message_id}`');
+    expect(connectionSource).toContain('source: "whatsapp"');
+    expect(connectionSource).toContain('name: "WhatsApp", colour: "#25D366"');
   });
 
   it('keeps Meta credentials server-side and authenticates the FocusOS user', () => {
