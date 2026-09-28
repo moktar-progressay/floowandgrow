@@ -155,23 +155,22 @@ export function ProjectDetailPage({ projects, goals, tasks, onAddTask, onEdit, o
         const goalTasks = projectTasks.filter((task) => task.goal_id === goal.id);
         const goalComplete = goalTasks.filter((task) => task.status === 'completed').length;
         return <Accordion key={goal.id} defaultExpanded sx={{ borderRadius: '16px !important', overflow: 'hidden', '&:before': { display: 'none' } }}>
-          <AccordionSummary expandIcon={<ExpandMore />}>
-            <Stack direction="row" alignItems="center" gap={1.5} width="100%" minWidth={0} mr={1}>
-              <Flag sx={{ color: project.colour || 'primary.main' }} />
-              <Stack minWidth={0} flex={1}>
-                <Stack direction="row" alignItems="center" gap={0.25} minWidth={0}>
+          <Stack direction="row" alignItems="center">
+            <AccordionSummary expandIcon={<ExpandMore />} sx={{ flex: 1, minWidth: 0 }}>
+              <Stack direction="row" alignItems="center" gap={1.5} width="100%" minWidth={0} mr={1}>
+                <Flag sx={{ color: project.colour || 'primary.main' }} />
+                <Stack minWidth={0} flex={1}>
                   <Typography fontWeight={800} noWrap>{goal.title}</Typography>
-                  <IconButton
-                    aria-label={`Edit ${goal.title}`}
-                    size="small"
-                    onClick={(event) => { event.stopPropagation(); beginGoalEdit(goal); }}
-                    onFocus={(event) => event.stopPropagation()}
-                  ><Edit fontSize="small" /></IconButton>
+                  <Typography variant="caption" color="text.secondary">{goalComplete} of {goalTasks.length} tasks completed</Typography>
                 </Stack>
-                <Typography variant="caption" color="text.secondary">{goalComplete} of {goalTasks.length} tasks completed</Typography>
               </Stack>
-            </Stack>
-          </AccordionSummary>
+            </AccordionSummary>
+            <IconButton
+              aria-label={`Edit ${goal.title}`}
+              onClick={() => beginGoalEdit(goal)}
+              sx={{ width: 44, height: 44, mr: 1, flexShrink: 0 }}
+            ><Edit fontSize="small" /></IconButton>
+          </Stack>
           <AccordionDetails>
             {editingGoalId === goal.id ? <Stack gap={2}>
               <TextField size="small" label="Goal" value={editGoalTitle} onChange={(event) => setEditGoalTitle(event.target.value)} required autoFocus />
