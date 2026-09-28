@@ -10,6 +10,7 @@ import { SurfaceCard } from '../../components/common/SurfaceCard';
 import { useNotice } from '../../app/AppProviders';
 import { useNoteMutations } from '../data/useFocusData';
 import type { FocusGoal, FocusNote, FocusProject, FocusTag, NoteDraft, NoteTag, VaultDocument } from '../../types/models';
+import { userFacingError } from '../../utils/userFacingError';
 
 const emptyNote: NoteDraft = { title: '', content: '', project_id: null, goal_id: null, tag_ids: [] };
 
@@ -66,7 +67,7 @@ export function VaultPage({
       setQuickCapture('');
       notify('Brain dump saved.');
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Could not save the note.', 'error');
+      notify(userFacingError(error, 'Could not save the note. Please try again.'), 'error');
     }
   };
   const submitNote = async (event: FormEvent) => {
@@ -78,7 +79,7 @@ export function VaultPage({
       setEditing(null);
       notify(editing ? 'Note updated.' : 'Note saved.');
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Could not save the note.', 'error');
+      notify(userFacingError(error, 'Could not save the note. Please try again.'), 'error');
     }
   };
   const removeNote = async () => {
@@ -89,7 +90,7 @@ export function VaultPage({
       setEditing(null);
       notify('Note deleted.');
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Could not delete the note.', 'error');
+      notify(userFacingError(error, 'Could not delete the note. Please try again.'), 'error');
     }
   };
   const toggleTag = (tagId: string) => setDraft((current) => ({

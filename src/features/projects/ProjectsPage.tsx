@@ -9,6 +9,7 @@ import type { FocusGoal, FocusProject, FocusTask } from '../../types/models';
 import { useOrganisationMutations } from '../data/useFocusData';
 import { useNotice } from '../../app/AppProviders';
 import { FilterButton, FilterDrawer } from '../../components/common/FilterDrawer';
+import { userFacingError } from '../../utils/userFacingError';
 
 export function ProjectsPage({ projects, goals, tasks }: { projects: FocusProject[]; goals: FocusGoal[]; tasks: FocusTask[] }) {
   const [projectOpen, setProjectOpen] = useState(false);
@@ -29,7 +30,7 @@ export function ProjectsPage({ projects, goals, tasks }: { projects: FocusProjec
       setProjectOpen(false);
       notify('Project created.');
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Could not create project.', 'error');
+      notify(userFacingError(error, 'Could not create the project. Please try again.'), 'error');
     }
   }
 
@@ -38,7 +39,7 @@ export function ProjectsPage({ projects, goals, tasks }: { projects: FocusProjec
       await saveProject.mutateAsync({ id: project.id, name: nextName, colour: nextColour });
       notify('Project updated.');
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Could not update project.', 'error');
+      notify(userFacingError(error, 'Could not update the project. Please try again.'), 'error');
       throw error;
     }
   }
@@ -49,7 +50,7 @@ export function ProjectsPage({ projects, goals, tasks }: { projects: FocusProjec
       await deleteProject.mutateAsync(project.id);
       notify('Project deleted. Its tasks are now in Inbox.');
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Could not delete project.', 'error');
+      notify(userFacingError(error, 'Could not delete the project. Please try again.'), 'error');
     }
   }
 
@@ -71,29 +72,30 @@ export function ProjectsPage({ projects, goals, tasks }: { projects: FocusProjec
     <FilterDrawer open={filtersOpen} activeCount={status === 'all' ? 0 : 1} onClose={() => setFiltersOpen(false)} onClear={() => setStatus('all')} title="Project filters">
       <TextField select label="Progress" value={status} onChange={(event) => setStatus(event.target.value as typeof status)}><MenuItem value="all">All projects</MenuItem><MenuItem value="active">In progress</MenuItem><MenuItem value="complete">Complete</MenuItem></TextField>
     </FilterDrawer>
-    <Dialog open={projectOpen} onClose={() => setProjectOpen(false)} fullWidth maxWidth="xs">
+    <Dialog open={projectOpen} onClose={saveProject.isPending ? undefined : () => setProjectOpen(false)} fullWidth maxWidth="xs">
       <Stack component="form" onSubmit={submitProject}>
         <DialogTitle>New project</DialogTitle>
         <DialogContent><Stack gap={2} pt={1}><TextField label="Project name" value={name} onChange={(event) => setName(event.target.value)} required autoFocus /><TextField label="Colour" type="color" value={colour} onChange={(event) => setColour(event.target.value)} /></Stack></DialogContent>
-        <DialogActions><Button onClick={() => setProjectOpen(false)}>Cancel</Button><Button type="submit" variant="contained">Create</Button></DialogActions>
+        <DialogActions><Button onClick={() => setProjectOpen(false)} disabled={saveProject.isPending}>Cancel</Button><Button type="submit" variant="contained" disabled={saveProject.isPending || !name.trim()}>{saveProject.isPending ? 'Creating…' : 'Create'}</Button></DialogActions>
       </Stack>
     </Dialog>
   </>;
 }
 
-function EditableProjectCard({ project, goals, tasks, progress, summary, onOpen, onSave, onDelete }: { project: FocusProject; goals: FocusGoal[]; tasks: FocusTask[]; progress: number; summary: string; onOpen: () => void; onSave: (name: string, colour: string) => Promise<void>; onDelete: () => void }) {
+function EditableProjectCard({ project, goals, tasks, progress, summary, onOpen, onSave, onDelete }: { project: FocusProject; goals: FocusGoal[]; tasks: FocusTask[]; progress: number; summary: string; onOpen: () => void; onSave: (name: string, colour: string) => Promise<void>; onDelete: () => Promise<void> }) {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(project.name);
   const [editColour, setEditColour] = useState(project.colour || '#25b9f4');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   if (editing) return <SurfaceCard>
     <Stack gap={2}>
       <TextField size="small" label="Project name" value={editName} onChange={(event) => setEditName(event.target.value)} required autoFocus />
       <TextField size="small" label="Colour" type="color" value={editColour} onChange={(event) => setEditColour(event.target.value)} />
       <Stack direction="row" justifyContent="space-between" gap={1}>
-        <Button color="error" startIcon={<DeleteOutline />} onClick={onDelete}>Delete</Button>
-        <Stack direction="row" gap={1}><Button onClick={() => { setEditName(project.name); setEditColour(project.colour || '#25b9f4'); setEditing(false); }}>Cancel</Button><Button variant="contained" disabled={saving || !editName.trim()} onClick={async () => { setSaving(true); try { await onSave(editName, editColour); setEditing(false); } finally { setSaving(false); } }}>Save</Button></Stack>
+        <Button color="error" startIcon={<DeleteOutline />} disabled={saving || deleting} onClick={async () => { setDeleting(true); try { await onDelete(); } finally { setDeleting(false); } }}>{deleting ? 'Deleting…' : 'Delete'}</Button>
+        <Stack direction="row" gap={1}><Button disabled={saving || deleting} onClick={() => { setEditName(project.name); setEditColour(project.colour || '#25b9f4'); setEditing(false); }}>Cancel</Button><Button variant="contained" disabled={saving || deleting || !editName.trim()} onClick={async () => { setSaving(true); try { await onSave(editName, editColour); setEditing(false); } finally { setSaving(false); } }}>{saving ? 'Saving…' : 'Save'}</Button></Stack>
       </Stack>
     </Stack>
   </SurfaceCard>;

@@ -8,6 +8,7 @@ import { TaskRow } from '../tasks/TaskRow';
 import { useOrganisationMutations } from '../data/useFocusData';
 import { useNotice } from '../../app/AppProviders';
 import type { FocusGoal, FocusProject, FocusTask } from '../../types/models';
+import { userFacingError } from '../../utils/userFacingError';
 
 type ProjectDetailProps = {
   projects: FocusProject[];
@@ -49,6 +50,7 @@ export function ProjectDetailPage({ projects, goals, tasks, onAddTask, onEdit, o
 
   async function submitGoal(event: FormEvent) {
     event.preventDefault();
+    if (saveGoal.isPending) return;
     try {
       await saveGoal.mutateAsync({ projectId: selectedProject.id, title: goalTitle, why });
       setGoalTitle('');
@@ -56,7 +58,7 @@ export function ProjectDetailPage({ projects, goals, tasks, onAddTask, onEdit, o
       setGoalOpen(false);
       notify('Goal created.');
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Could not create goal.', 'error');
+      notify(userFacingError(error, 'Could not create the goal. Please try again.'), 'error');
     }
   }
 
@@ -73,7 +75,7 @@ export function ProjectDetailPage({ projects, goals, tasks, onAddTask, onEdit, o
       setEditingProject(false);
       notify('Project updated.');
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Could not update project.', 'error');
+      notify(userFacingError(error, 'Could not update the project. Please try again.'), 'error');
     }
   }
 
@@ -84,7 +86,7 @@ export function ProjectDetailPage({ projects, goals, tasks, onAddTask, onEdit, o
       notify('Project deleted. Its tasks are now in Inbox.');
       navigate('/projects');
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Could not delete project.', 'error');
+      notify(userFacingError(error, 'Could not delete the project. Please try again.'), 'error');
     }
   }
 
@@ -100,7 +102,7 @@ export function ProjectDetailPage({ projects, goals, tasks, onAddTask, onEdit, o
       setEditingGoalId(null);
       notify('Goal updated.');
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Could not update goal.', 'error');
+      notify(userFacingError(error, 'Could not update the goal. Please try again.'), 'error');
     }
   }
 
@@ -111,7 +113,7 @@ export function ProjectDetailPage({ projects, goals, tasks, onAddTask, onEdit, o
       setEditingGoalId(null);
       notify('Goal deleted. Its tasks remain in the project.');
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Could not delete goal.', 'error');
+      notify(userFacingError(error, 'Could not delete the goal. Please try again.'), 'error');
     }
   }
 
@@ -139,8 +141,8 @@ export function ProjectDetailPage({ projects, goals, tasks, onAddTask, onEdit, o
         <TextField size="small" label="Project name" value={projectName} onChange={(event) => setProjectName(event.target.value)} required autoFocus />
         <TextField size="small" label="Colour" type="color" value={projectColour} onChange={(event) => setProjectColour(event.target.value)} />
         <Stack direction="row" justifyContent="space-between" gap={1}>
-          <Button color="error" startIcon={<DeleteOutline />} onClick={removeProject}>Delete project</Button>
-          <Stack direction="row" gap={1}><Button onClick={() => setEditingProject(false)}>Cancel</Button><Button type="submit" variant="contained" disabled={saveProject.isPending || !projectName.trim()}>Save</Button></Stack>
+          <Button color="error" startIcon={<DeleteOutline />} onClick={removeProject} disabled={saveProject.isPending || deleteProject.isPending}>{deleteProject.isPending ? 'Deleting…' : 'Delete project'}</Button>
+          <Stack direction="row" gap={1}><Button onClick={() => setEditingProject(false)} disabled={saveProject.isPending || deleteProject.isPending}>Cancel</Button><Button type="submit" variant="contained" disabled={saveProject.isPending || deleteProject.isPending || !projectName.trim()}>{saveProject.isPending ? 'Saving…' : 'Save'}</Button></Stack>
         </Stack>
       </Stack>
     </SurfaceCard>}
@@ -172,12 +174,12 @@ export function ProjectDetailPage({ projects, goals, tasks, onAddTask, onEdit, o
             ><Edit fontSize="small" /></IconButton>
           </Stack>
           <AccordionDetails>
-            {editingGoalId === goal.id ? <Stack gap={2}>
+            {editingGoalId === goal.id ? <Stack component="form" gap={2} onSubmit={(event) => { event.preventDefault(); void updateGoal(goal); }}>
               <TextField size="small" label="Goal" value={editGoalTitle} onChange={(event) => setEditGoalTitle(event.target.value)} required autoFocus />
               <TextField size="small" label="Why this matters" value={editGoalWhy} onChange={(event) => setEditGoalWhy(event.target.value)} multiline minRows={2} />
               <Stack direction="row" justifyContent="space-between" gap={1}>
-                <Button color="error" startIcon={<DeleteOutline />} onClick={() => removeGoal(goal)}>Delete goal</Button>
-                <Stack direction="row" gap={1}><Button onClick={() => setEditingGoalId(null)}>Cancel</Button><Button variant="contained" disabled={saveGoal.isPending || !editGoalTitle.trim()} onClick={() => updateGoal(goal)}>Save</Button></Stack>
+                <Button type="button" color="error" startIcon={<DeleteOutline />} onClick={() => removeGoal(goal)} disabled={saveGoal.isPending || deleteGoal.isPending}>{deleteGoal.isPending ? 'Deleting…' : 'Delete goal'}</Button>
+                <Stack direction="row" gap={1}><Button type="button" onClick={() => setEditingGoalId(null)} disabled={saveGoal.isPending || deleteGoal.isPending}>Cancel</Button><Button type="submit" variant="contained" disabled={saveGoal.isPending || deleteGoal.isPending || !editGoalTitle.trim()}>{saveGoal.isPending ? 'Saving…' : 'Save'}</Button></Stack>
               </Stack>
             </Stack> : <>
               <Box mb={1.5}>{goal.why_this_matters ? <Typography variant="body2" color="text.secondary">{goal.why_this_matters}</Typography> : <Typography variant="body2" color="text.secondary">No reason added.</Typography>}</Box>
@@ -195,11 +197,11 @@ export function ProjectDetailPage({ projects, goals, tasks, onAddTask, onEdit, o
         <AccordionDetails>{taskList(unassignedTasks)}</AccordionDetails>
       </Accordion>}
     </Stack>
-    <Dialog open={goalOpen} onClose={() => setGoalOpen(false)} fullWidth maxWidth="sm">
+    <Dialog open={goalOpen} onClose={saveGoal.isPending ? undefined : () => setGoalOpen(false)} fullWidth maxWidth="sm">
       <Stack component="form" onSubmit={submitGoal}>
         <DialogTitle>New goal</DialogTitle>
         <DialogContent><Stack gap={2} pt={1}><TextField label="Goal" value={goalTitle} onChange={(event) => setGoalTitle(event.target.value)} required autoFocus /><TextField label="Why this matters" value={why} onChange={(event) => setWhy(event.target.value)} multiline minRows={3} /></Stack></DialogContent>
-        <DialogActions><Button onClick={() => setGoalOpen(false)}>Cancel</Button><Button type="submit" variant="contained">Save goal</Button></DialogActions>
+        <DialogActions><Button onClick={() => setGoalOpen(false)} disabled={saveGoal.isPending}>Cancel</Button><Button type="submit" variant="contained" disabled={saveGoal.isPending || !goalTitle.trim()}>{saveGoal.isPending ? 'Saving…' : 'Save goal'}</Button></DialogActions>
       </Stack>
     </Dialog>
   </>;

@@ -1,10 +1,11 @@
-import { Alert, Button, Chip, CircularProgress, Stack, Typography } from '@mui/material';
+import { Alert, AlertTitle, Button, Chip, CircularProgress, Stack, Typography } from '@mui/material';
 import { Download, Google, LinkOff, Refresh, WhatsApp } from '@mui/icons-material';
 import { PageHeader } from '../../components/common/PageHeader';
 import { SurfaceCard } from '../../components/common/SurfaceCard';
 import { useWhatsAppConnection } from '../integrations/whatsapp';
+import { userFacingError } from '../../utils/userFacingError';
 
-export function SettingsPage({ connected, email, error, onConnect, onRefresh, onDisconnect }: { connected: boolean; email?: string; error?: string; onConnect: () => void; onRefresh: () => void; onDisconnect: () => void }) {
+export function SettingsPage({ connected, loading, email, error, onConnect, onRefresh, onDisconnect }: { connected: boolean; loading: boolean; email?: string; error?: string; onConnect: () => void; onRefresh: () => void; onDisconnect: () => void }) {
   const whatsapp = useWhatsAppConnection();
   const whatsappConnected = whatsapp.status.data?.connected ?? false;
   const whatsappConfigured = whatsapp.status.data?.configured ?? false;
@@ -24,9 +25,11 @@ export function SettingsPage({ connected, email, error, onConnect, onRefresh, on
           <Chip label={connected ? 'Connected' : 'Not connected'} color={connected ? 'success' : 'default'} sx={{ ml: { sm: 'auto' } }} />
         </Stack>
         <Alert severity="info" sx={{ mt: 2 }}>Google credentials are encrypted and handled by the Supabase Edge Function. They are not stored in this browser.</Alert>
-        {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+        {error && <Alert severity="error" action={<Button color="inherit" size="small" onClick={onRefresh} disabled={loading}>Try again</Button>} sx={{ mt: 2 }}>
+          <AlertTitle>Google Workspace needs attention</AlertTitle>{error}
+        </Alert>}
         <Stack direction="row" gap={1.5} mt={2}>
-          {connected ? <><Button variant="contained" startIcon={<Refresh />} onClick={onRefresh}>Refresh</Button><Button color="error" startIcon={<LinkOff />} onClick={onDisconnect}>Disconnect</Button></> : <Button variant="contained" onClick={onConnect}>Connect Google Workspace</Button>}
+          {connected ? <><Button variant="contained" startIcon={<Refresh />} onClick={onRefresh} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</Button><Button color="error" startIcon={<LinkOff />} onClick={() => { if (window.confirm('Disconnect Google Workspace from FocusOS?')) onDisconnect(); }} disabled={loading}>Disconnect</Button></> : <Button variant="contained" onClick={onConnect} disabled={loading}>{loading ? 'Connecting…' : 'Connect Google Workspace'}</Button>}
         </Stack>
       </SurfaceCard>
 
@@ -48,12 +51,15 @@ export function SettingsPage({ connected, email, error, onConnect, onRefresh, on
           {whatsapp.status.data?.platformType && <> Current Meta state: {whatsapp.status.data.platformType} / {whatsapp.status.data.metaStatus || 'UNKNOWN'}.</>}
         </Alert>}
         {whatsapp.syncHistory.isSuccess && <Alert severity="success" sx={{ mt: 2 }}>Chat history import requested. Meta will deliver it in batches over the next few minutes.</Alert>}
-        {whatsappError && <Alert severity="error" sx={{ mt: 2 }}>{whatsappError instanceof Error ? whatsappError.message : 'WhatsApp could not be connected.'}</Alert>}
+        {whatsappError && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void whatsapp.status.refetch()} disabled={whatsappBusy}>Check again</Button>} sx={{ mt: 2 }}>
+          <AlertTitle>WhatsApp needs attention</AlertTitle>
+          {userFacingError(whatsappError, 'WhatsApp could not complete that action. Check the Meta connection, then try again.')}
+        </Alert>}
         <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} mt={2}>
           {whatsappConnected ? <>
             <Button variant="contained" startIcon={<Download />} onClick={() => whatsapp.syncHistory.mutate()} disabled={whatsappBusy}>Import chat history</Button>
             <Button variant="contained" startIcon={<Refresh />} onClick={() => void whatsapp.status.refetch()} disabled={whatsappBusy}>Refresh</Button>
-            <Button color="error" startIcon={<LinkOff />} onClick={() => whatsapp.disconnect.mutate()} disabled={whatsappBusy}>Disconnect</Button>
+            <Button color="error" startIcon={<LinkOff />} onClick={() => { if (window.confirm('Disconnect WhatsApp Business from FocusOS? Your WhatsApp Business app and chats will remain available.')) whatsapp.disconnect.mutate(); }} disabled={whatsappBusy}>Disconnect</Button>
           </> : <Button variant="contained" startIcon={<WhatsApp />} onClick={() => whatsapp.connect.mutate()} disabled={whatsappBusy}>{whatsappConfigured ? 'Complete WhatsApp setup' : 'Connect WhatsApp Business'}</Button>}
         </Stack>
       </SurfaceCard>

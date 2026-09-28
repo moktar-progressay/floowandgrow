@@ -9,6 +9,7 @@ import { useNotice } from '../../app/AppProviders';
 import { useOrganisationMutations, useTaskMutations } from '../data/useFocusData';
 import { localDate } from './taskDates';
 import { activeQuickToken, currentLocalTime, matchingProjects, matchingTags, removeQuickToken } from './taskQuickEntry';
+import { userFacingError } from '../../utils/userFacingError';
 
 const emptyDraft = (initialDate?: string | null, initialProjectId?: string | null, initialGoalId?: string | null): TaskDraft => ({
   title: '',
@@ -129,7 +130,7 @@ export function TaskDialog({
       setTagEntry('');
       setTagEntryOpen(false);
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Tag could not be created.', 'error');
+      notify(userFacingError(error, 'The tag could not be created. Please try again.'), 'error');
     }
   };
 
@@ -145,7 +146,7 @@ export function TaskDialog({
       setGoalEntryOpen(false);
       notify('Project created and selected.');
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Project could not be created.', 'error');
+      notify(userFacingError(error, 'The project could not be created. Please try again.'), 'error');
     }
   };
 
@@ -160,7 +161,7 @@ export function TaskDialog({
       setGoalEntryOpen(false);
       notify('Goal created and selected.');
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Goal could not be created.', 'error');
+      notify(userFacingError(error, 'The goal could not be created. Please try again.'), 'error');
     }
   };
 
@@ -190,12 +191,12 @@ export function TaskDialog({
         : onSaved ? 'Task added and synced.' : 'Task added.');
       onClose();
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Task could not be saved.', 'error');
+      notify(userFacingError(error, 'The task could not be saved. Please try again.'), 'error');
     }
   }
 
   async function remove() {
-    if (!task || !window.confirm('Delete this task?')) return;
+    if (!task || !window.confirm(`Delete “${task.title}”? This cannot be undone.`)) return;
     try {
       let googleRemoved = true;
       if (onBeforeDelete) {
@@ -206,7 +207,7 @@ export function TaskDialog({
       notify(googleRemoved ? 'Task deleted.' : 'Task deleted from FocusOS. The Google copy may remain.', googleRemoved ? 'success' : 'warning');
       onClose();
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Task could not be deleted.', 'error');
+      notify(userFacingError(error, 'The task could not be deleted. Please try again.'), 'error');
     }
   }
 

@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ThemeProvider } from '@mui/material';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAppTheme } from '../../theme/createAppTheme';
 import type { FocusGoal, FocusProject } from '../../types/models';
 import { ProjectDetailPage } from './ProjectDetailPage';
@@ -27,6 +27,11 @@ const goal: FocusGoal = {
 };
 
 describe('ProjectDetailPage goal editing', () => {
+  beforeEach(() => {
+    mutations.saveGoal.mutateAsync.mockReset();
+    mutations.saveGoal.mutateAsync.mockResolvedValue(goal);
+  });
+
   it('opens the inline editor when the mobile-sized edit control is tapped', () => {
     render(
       <ThemeProvider theme={createAppTheme('dark')}>
@@ -42,5 +47,28 @@ describe('ProjectDetailPage goal editing', () => {
 
     expect(screen.getByRole('textbox', { name: 'Goal' })).toHaveValue('Improve players');
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+  });
+
+  it('saves the edited goal through the form without toggling the accordion', async () => {
+    render(
+      <ThemeProvider theme={createAppTheme('dark')}>
+        <MemoryRouter initialEntries={[`/projects/${project.id}`]}>
+          <Routes>
+            <Route path="/projects/:projectId" element={<ProjectDetailPage projects={[project]} goals={[goal]} tasks={[]} onAddTask={vi.fn()} onEdit={vi.fn()} onToggle={vi.fn()} onHide={vi.fn()} onFocus={vi.fn()} />} />
+          </Routes>
+        </MemoryRouter>
+      </ThemeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Improve players' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Goal' }), { target: { value: 'Improve player pathways' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(mutations.saveGoal.mutateAsync).toHaveBeenCalledWith({
+      id: goal.id,
+      projectId: project.id,
+      title: 'Improve player pathways',
+      why: '',
+    }));
   });
 });

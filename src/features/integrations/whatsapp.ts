@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { env, whatsappConnectFunction } from '../../config/env';
 import { useAuth } from '../auth/AuthProvider';
@@ -34,8 +33,13 @@ let metaSdkPromise: Promise<FacebookSdk> | null = null;
 function loadMetaSdk() {
   if (window.FB) return Promise.resolve(window.FB);
   if (metaSdkPromise) return metaSdkPromise;
-  metaSdkPromise = new Promise<FacebookSdk>((resolve, reject) => {
-    const timeout = window.setTimeout(() => reject(new Error('Meta login took too long to load. Please refresh and try again.')), 20_000);
+  const attempt = new Promise<FacebookSdk>((resolve, reject) => {
+    const fail = (error: Error) => {
+      window.clearTimeout(timeout);
+      document.getElementById('facebook-jssdk')?.remove();
+      reject(error);
+    };
+    const timeout = window.setTimeout(() => fail(new Error('Meta login took too long to load. Please try again.')), 20_000);
     window.fbAsyncInit = () => {
       if (!window.FB) return;
       window.FB.init({ appId: env.metaAppId, cookie: true, xfbml: false, version: 'v26.0' });
@@ -50,9 +54,13 @@ function loadMetaSdk() {
       script.defer = true;
       script.crossOrigin = 'anonymous';
       script.src = 'https://connect.facebook.net/en_GB/sdk.js';
-      script.onerror = () => reject(new Error('Meta login could not load. Check your connection and try again.'));
+      script.onerror = () => fail(new Error('Meta login could not load. Check your connection and try again.'));
       document.head.appendChild(script);
     }
+  });
+  metaSdkPromise = attempt.catch((error) => {
+    metaSdkPromise = null;
+    throw error;
   });
   return metaSdkPromise;
 }
@@ -147,7 +155,6 @@ export function useWhatsAppConnection() {
   const { session } = useAuth();
   const token = session?.access_token ?? '';
   const queryClient = useQueryClient();
-  useEffect(() => { void loadMetaSdk().catch(() => undefined); }, []);
   const status = useQuery({
     queryKey: ['whatsapp-status', session?.user.id],
     enabled: Boolean(token),

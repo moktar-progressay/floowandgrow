@@ -4,6 +4,7 @@ import { useAuth } from '../features/auth/AuthProvider';
 import { LandingPage } from '../features/auth/LandingPage';
 import { AuthPage } from '../features/auth/AuthPage';
 import { LoadingScreen } from '../components/common/LoadingScreen';
+import { LoadFailureScreen } from '../components/common/LoadFailureScreen';
 import { AppShell } from '../components/layout/AppShell';
 import { AppStatusControls } from '../components/layout/AppStatusControls';
 import { useFocusData, useRewardMutation, useTaskMutations } from '../features/data/useFocusData';
@@ -20,6 +21,7 @@ import type { AgentProposal } from '../features/assistant/agentClient';
 import { draftReply } from '../features/assistant/agentClient';
 import { supabase } from '../services/supabase/client';
 import { markAppLoaded, recoverStaleChunk } from './AppErrorBoundary';
+import { userFacingError } from '../utils/userFacingError';
 
 function lazyWithRecovery<T extends ComponentType<any>>(load: () => Promise<{ default: T }>) {
   return lazy(async () => {
@@ -62,7 +64,7 @@ export function ProtectedApp() {
   const [emailReader, setEmailReader] = useState<{ message: GoogleMessage; task: FocusTask | null } | null>(null);
   const loadEmail = useCallback((messageId: string) => google.action<GoogleMessageDetail>('/gmail-message', { messageId }), [google.action]);
   if (focus.isLoading) return <LoadingScreen label="Loading your workspace…" />;
-  if (focus.error || !focus.data) return <LoadingScreen label={focus.error instanceof Error ? focus.error.message : 'Could not load FocusOS.'} />;
+  if (focus.error || !focus.data) return <LoadFailureScreen message={userFacingError(focus.error, 'Your workspace is temporarily unavailable. Your saved work has not been changed.')} onRetry={() => void focus.refetch()} />;
   const { state, tasks, projects, goals, tags, taskTags, notes, noteTags, dailyCompletions, rewardEvents = [] } = focus.data;
   const localToday = localDate();
   const anchorCompletedOn = (taskId: string, date: string) =>
@@ -126,14 +128,13 @@ export function ProtectedApp() {
       if (kind === 'email_read' && !wasCompleted) void refreshInboxAndRecordZero();
       notify(wasCompleted ? 'Task reopened.' : reward?.awarded ? `Task completed. +${reward.points} XP` : 'Task completed.');
     }
-    catch (error) { notify(error instanceof Error ? error.message : 'Could not update task.', 'error'); }
+    catch (error) { notify(userFacingError(error, 'Could not update the task. Please try again.'), 'error'); }
   };
   const connect = () => google.connect.mutate();
-  const googleError = google.error instanceof Error
-    ? google.error.message
-    : google.connectionError instanceof Error
-      ? google.connectionError.message
-      : google.connect.error instanceof Error ? google.connect.error.message : undefined;
+  const googleErrorSource = google.error || google.connectionError || google.connect.error;
+  const googleError = googleErrorSource
+    ? userFacingError(googleErrorSource, 'Google Workspace could not be reached. Please retry the connection.')
+    : undefined;
   const googleLoading = google.checkingConnection || google.isFetching;
   const syncTaskToGoogle = async (taskId: string) => { await google.action('/sync-focus-task', { taskId }); };
   const removeTaskFromGoogle = async (taskId: string) => { await google.action('/delete-focus-task-links', { taskId }); };
@@ -143,7 +144,7 @@ export function ProtectedApp() {
       await setTaskHidden.mutateAsync({ id: task.id, hidden });
       notify(hidden ? 'Task hidden. You can restore it from Hidden.' : 'Task restored.');
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Could not change task visibility.', 'error');
+      notify(userFacingError(error, 'Could not change the task visibility. Please try again.'), 'error');
     }
   };
   const messages = google.gmail?.messages ?? [];
@@ -173,7 +174,7 @@ export function ProtectedApp() {
       const reward = await awardReward.mutateAsync({ rewardKey: `gmail:${message.id}:follow-up`, kind: 'follow_up_created', source: 'gmail', metadata: { entityId: message.id, subject: message.subject } });
       notify(reward.awarded ? `Email added as a task. +${reward.points} XP` : 'Email added as a task.');
     }
-    catch (error) { notify(error instanceof Error ? error.message : 'Could not create task.', 'error'); }
+    catch (error) { notify(userFacingError(error, 'Could not create the task. Please try again.'), 'error'); }
   };
   const archiveMessage = async (message: GoogleMessage) => {
     try {
@@ -182,7 +183,7 @@ export function ProtectedApp() {
       void Promise.allSettled([refreshInboxAndRecordZero(), focus.refetch()]);
       notify(reward.awarded ? `Email archived. +${reward.points} XP` : 'Email archived.');
     }
-    catch (error) { notify(error instanceof Error ? error.message : 'Could not archive email.', 'error'); }
+    catch (error) { notify(userFacingError(error, 'Could not archive the email. Please try again.'), 'error'); }
   };
   const completeEmail = async (message: GoogleMessage) => {
     await google.action('/gmail-action', { messageId: message.id, action: 'read' });
@@ -278,7 +279,7 @@ export function ProtectedApp() {
       <Route path="/inbox" element={<InboxPage messages={messages} connected={google.connected} loading={google.gmailLoading} error={google.gmailError instanceof Error ? google.gmailError.message : google.data?.services?.gmail?.error || googleError} onConnect={connect} onRefresh={() => void google.refetchGmail()} onOpen={(message) => setEmailReader({ message, task: null })} onArchive={archiveMessage} onCreateTask={createMessageTask} />} />
       <Route path="/assistant" element={<AssistantPage tasks={tasksForToday} onApproveProposal={approveAgentProposal} />} />
       <Route path="/progress" element={<ProgressPage events={rewardEvents} totalXp={state.xp} />} />
-      <Route path="/settings" element={<SettingsPage connected={google.connected} email={google.email} error={googleError} onConnect={connect} onRefresh={() => void google.refetch()} onDisconnect={() => google.disconnect.mutate()} />} />
+      <Route path="/settings" element={<SettingsPage connected={google.connected} loading={googleLoading || google.connect.isPending || google.disconnect.isPending} email={google.email} error={googleError} onConnect={connect} onRefresh={() => void google.refetch()} onDisconnect={() => google.disconnect.mutate()} />} />
       <Route path="/more" element={<MorePage />} />
       <Route path="*" element={<Navigate to="/today" replace />} />
     </Routes></Suspense>
@@ -286,7 +287,7 @@ export function ProtectedApp() {
     <FocusMode task={focusTask} open={Boolean(focusTask)} onClose={() => setFocusTask(null)} onComplete={(task) => { void toggle(task); setFocusTask(null); }} onAddTask={openAdd} onRename={renameFocusTask} onSprintComplete={(task, minutes, sessionId) => {
       void awardReward.mutateAsync({ rewardKey: `focus:${task.id}:${sessionId}`, kind: 'focus_sprint_completed', source: 'focus_mode', metadata: { entityId: task.id, title: task.title, minutes } })
         .then((reward) => notify(reward.awarded ? `Focus sprint complete. +${reward.points} XP` : 'Focus sprint complete.'))
-        .catch((error) => notify(error instanceof Error ? error.message : 'Could not save focus reward.', 'error'));
+        .catch((error) => notify(userFacingError(error, 'Could not save the focus reward. Please try again.'), 'error'));
     }} />
     <RelaxMode open={relaxOpen} onClose={() => setRelaxOpen(false)} />
     <EmailReaderDialog open={Boolean(emailReader)} message={emailReader?.message ?? null} onClose={() => setEmailReader(null)} onLoad={loadEmail} onComplete={completeEmail} onArchive={archiveEmailFromReader} onCreateTask={createMessageTask} onReply={replyToEmail} onDraftReply={draftEmailReply} />

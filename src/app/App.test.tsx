@@ -1,10 +1,10 @@
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProtectedApp } from './App';
 
 const focusResult = vi.hoisted(() => ({
-  current: { isLoading: true, error: null, data: null } as Record<string, unknown>,
+  current: { isLoading: true, error: null, data: null, refetch: vi.fn() } as Record<string, unknown>,
 }));
 
 vi.mock('../features/data/useFocusData', () => ({
@@ -37,6 +37,10 @@ vi.mock('../features/inbox/EmailReaderDialog', () => ({ EmailReaderDialog: () =>
 vi.mock('../features/today/TodayPage', () => ({ TodayPage: () => <div>Today</div> }));
 
 describe('ProtectedApp', () => {
+  beforeEach(() => {
+    focusResult.current = { isLoading: true, error: null, data: null, refetch: vi.fn() };
+  });
+
   it('keeps the same hook order when loading finishes', () => {
     const view = render(<MemoryRouter initialEntries={['/today']}><ProtectedApp /></MemoryRouter>);
     focusResult.current = {
@@ -45,8 +49,26 @@ describe('ProtectedApp', () => {
       data: {
         state: { xp: 0, docs: [] }, tasks: [], projects: [], goals: [], tags: [], taskTags: [], dailyCompletions: [],
       },
+      refetch: vi.fn(),
     };
 
     expect(() => view.rerender(<MemoryRouter initialEntries={['/today']}><ProtectedApp /></MemoryRouter>)).not.toThrow();
+  });
+
+  it('shows a clear retry action instead of an endless spinner when workspace loading fails', () => {
+    const refetch = vi.fn();
+    focusResult.current = {
+      isLoading: false,
+      error: new Error('Postgres relation focusos_tasks does not exist'),
+      data: null,
+      refetch,
+    };
+
+    render(<MemoryRouter initialEntries={['/today']}><ProtectedApp /></MemoryRouter>);
+
+    expect(screen.getByRole('heading', { name: 'FocusOS could not load' })).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(refetch).toHaveBeenCalledOnce();
   });
 });

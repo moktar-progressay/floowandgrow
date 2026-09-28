@@ -68,9 +68,9 @@ export function AppShell({ children, onAddTask, statusActions }: { children: Rea
       </List>
       <Box mt="auto" p={2}>
         <Stack direction={sidebarCollapsed ? 'column' : 'row'} gap={1} alignItems={sidebarCollapsed ? 'center' : 'stretch'}>
-          <Tooltip title="Connections"><IconButton onClick={() => navigate('/settings')}><Settings /></IconButton></Tooltip>
-          <Tooltip title="Change theme"><IconButton onClick={toggleMode}>{mode === 'dark' ? <LightMode /> : <DarkMode />}</IconButton></Tooltip>
-          <Tooltip title="Sign out"><IconButton color="error" onClick={() => void supabase.auth.signOut()}><Logout /></IconButton></Tooltip>
+          <Tooltip title="Connections"><IconButton aria-label="Connections" onClick={() => navigate('/settings')}><Settings /></IconButton></Tooltip>
+          <Tooltip title="Change theme"><IconButton aria-label={`Switch to ${mode === 'dark' ? 'light' : 'dark'} theme`} onClick={toggleMode}>{mode === 'dark' ? <LightMode /> : <DarkMode />}</IconButton></Tooltip>
+          <Tooltip title="Sign out"><IconButton aria-label="Sign out" color="error" onClick={() => void supabase.auth.signOut()}><Logout /></IconButton></Tooltip>
         </Stack>
       </Box>
     </Stack>
@@ -101,12 +101,12 @@ export function AppShell({ children, onAddTask, statusActions }: { children: Rea
       ) : (
         <Drawer open={mobileOpen} onClose={() => setMobileOpen(false)} ModalProps={{ keepMounted: true }} sx={{ '& .MuiDrawer-paper': { width: drawerWidth } }}>{drawer}</Drawer>
       )}
-      <Box component="main" flex={1} width="100%" minWidth={0} pb={{ xs: 10, md: 0 }}>
+      <Box component="main" flex={1} width="100%" minWidth={0} pb={{ xs: 'calc(88px + env(safe-area-inset-bottom))', md: 0 }}>
         <AppBar
           position="sticky"
           color="transparent"
           elevation={0}
-          sx={{ bgcolor: 'background.paper', backgroundImage: 'none', borderBottom: 1, borderColor: 'divider' }}
+          sx={{ bgcolor: 'background.paper', backgroundImage: 'none', borderBottom: 1, borderColor: 'divider', pt: { xs: 'env(safe-area-inset-top)', md: 0 } }}
         >
           <Toolbar sx={{ gap: 2 }}>
             <Tooltip title={desktopNavOpen ? (sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation') : 'Open navigation'}>
@@ -131,7 +131,7 @@ export function AppShell({ children, onAddTask, statusActions }: { children: Rea
           showLabels
           value={bottomValue}
           onChange={(_, value: string) => navigate(value)}
-          sx={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: theme.zIndex.appBar, borderTop: 1, borderColor: 'divider', height: 72 }}
+          sx={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: theme.zIndex.appBar, borderTop: 1, borderColor: 'divider', height: 'calc(72px + env(safe-area-inset-bottom))', pb: 'env(safe-area-inset-bottom)' }}
         >
           <BottomNavigationAction label="Home" value="/today" icon={<Home />} />
           <BottomNavigationAction label="Tasks" value="/tasks" icon={<TaskAlt />} />
@@ -145,7 +145,7 @@ export function AppShell({ children, onAddTask, statusActions }: { children: Rea
         sx={{
           position: 'fixed',
           right: { xs: 18, sm: 24, md: 30 },
-          bottom: { xs: 90, md: 28 },
+          bottom: { xs: 'calc(90px + env(safe-area-inset-bottom))', md: 28 },
           width: { xs: 54, sm: 58 },
           height: { xs: 54, sm: 58 },
           bgcolor: 'background.paper',
