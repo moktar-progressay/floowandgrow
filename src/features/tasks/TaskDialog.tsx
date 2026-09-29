@@ -3,7 +3,7 @@ import {
   Button, Checkbox, Chip, Collapse, Dialog, DialogActions, DialogContent, DialogTitle,
   FormControlLabel, InputAdornment, MenuItem, Stack, TextField, Typography,
 } from '@mui/material';
-import { AccessTime, Add, CalendarToday, Flag, Folder, LocalOffer, NotificationsActive } from '@mui/icons-material';
+import { AccessTime, Add, CalendarToday, ExpandMore, Flag, Folder, LocalOffer, NotificationsActive } from '@mui/icons-material';
 import type { FocusGoal, FocusProject, FocusTag, FocusTask, TaskDraft, TaskTag } from '../../types/models';
 import { useNotice } from '../../app/AppProviders';
 import { useOrganisationMutations, useTaskMutations } from '../data/useFocusData';
@@ -57,6 +57,7 @@ export function TaskDialog({
   const [goalWhy, setGoalWhy] = useState('');
   const [createdProjects, setCreatedProjects] = useState<FocusProject[]>([]);
   const [createdGoals, setCreatedGoals] = useState<FocusGoal[]>([]);
+  const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -70,6 +71,7 @@ export function TaskDialog({
     setGoalWhy('');
     setCreatedProjects([]);
     setCreatedGoals([]);
+    setMoreOptionsOpen(false);
     setDraft(task ? {
       title: task.title,
       priority: task.priority,
@@ -269,10 +271,39 @@ export function TaskDialog({
                 </Stack>
               </Stack>
             )}
+            <Stack gap={1}>
+              <Typography variant="subtitle2" color="text.secondary">WHEN</Typography>
+              <Stack direction="row" gap={1} flexWrap="wrap">
+                <Button size="small" variant={draft.scheduled_date === localDate() ? 'contained' : 'outlined'} onClick={() => setDraft({ ...draft, scheduled_date: localDate() })}>Today</Button>
+                <Button size="small" variant={draft.scheduled_date === localDate(new Date(Date.now() + 86400000)) ? 'contained' : 'outlined'} onClick={() => setDraft({ ...draft, scheduled_date: localDate(new Date(Date.now() + 86400000)) })}>Tomorrow</Button>
+                <Button size="small" variant="text" onClick={() => document.getElementById('task-date-input')?.focus()}>Choose date</Button>
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.25}>
+                <TextField id="task-date-input" fullWidth label="Due date" type="date" slotProps={{ inputLabel: { shrink: true }, input: { startAdornment: <InputAdornment position="start"><CalendarToday fontSize="small" /></InputAdornment> } }} value={draft.scheduled_date ?? ''} onChange={(event) => setDraft({ ...draft, scheduled_date: event.target.value || null })} />
+                <TextField fullWidth label="Time (optional)" type="time" slotProps={{ inputLabel: { shrink: true }, input: { startAdornment: <InputAdornment position="start"><AccessTime fontSize="small" /></InputAdornment> } }} value={draft.scheduled_time ?? ''} onChange={(event) => setDraft({ ...draft, scheduled_time: event.target.value || null })} />
+              </Stack>
+            </Stack>
+            <Stack gap={1}>
+              <Typography variant="subtitle2" color="text.secondary">PRIORITY</Typography>
+              <Stack direction="row" gap={1} flexWrap="wrap">
+                {[{ value: null, label: 'Standard' }, { value: 'red', label: 'Critical' }, { value: 'yellow', label: 'Important' }, { value: 'green', label: 'Flexible' }].map((option) => (
+                  <Chip key={option.label} icon={<Flag />} label={option.label} color={draft.priority === option.value ? 'primary' : 'default'} variant={draft.priority === option.value ? 'filled' : 'outlined'} onClick={() => setDraft({ ...draft, priority: option.value as TaskDraft['priority'] })} />
+                ))}
+              </Stack>
+            </Stack>
+            <Button
+              size="small"
+              variant="text"
+              endIcon={<ExpandMore sx={{ transform: moreOptionsOpen ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }} />}
+              onClick={() => setMoreOptionsOpen((value) => !value)}
+              sx={{ alignSelf: 'flex-start' }}
+              aria-expanded={moreOptionsOpen}
+            >
+              {moreOptionsOpen ? 'Fewer options' : 'More options'}
+            </Button>
+            <Collapse in={moreOptionsOpen} unmountOnExit>
+              <Stack gap={2.25}>
             <Stack direction={{ xs: 'column', sm: 'row' }} gap={2}>
-              <TextField select fullWidth label="Priority" value={draft.priority ?? ''} onChange={(event) => setDraft({ ...draft, priority: (event.target.value || null) as TaskDraft['priority'] })} slotProps={{ input: { startAdornment: <InputAdornment position="start"><Flag fontSize="small" /></InputAdornment> } }}>
-                <MenuItem value="">Standard</MenuItem><MenuItem value="red">Critical</MenuItem><MenuItem value="yellow">Important</MenuItem><MenuItem value="green">Flexible</MenuItem>
-              </TextField>
               <Stack width="100%" gap={0.25}>
                 <TextField select fullWidth label="Project" disabled={draft.is_daily_anchor} value={draft.project_id ?? ''} onChange={(event) => { setDraft({ ...draft, project_id: event.target.value || null, goal_id: null }); setGoalEntryOpen(false); }} slotProps={{ input: { startAdornment: <InputAdornment position="start"><Folder fontSize="small" /></InputAdornment> } }}>
                   <MenuItem value="">Inbox</MenuItem>
@@ -306,10 +337,6 @@ export function TaskDialog({
                 <Stack direction="row" justifyContent="flex-end" gap={1}><Button size="small" onClick={() => setGoalEntryOpen(false)}>Cancel</Button><Button size="small" variant="contained" disabled={!goalTitle.trim() || saveGoal.isPending} onClick={() => void createAndSelectGoal()}>Create goal</Button></Stack>
               </Stack>
             </Collapse>
-            <Stack direction={{ xs: 'column', sm: 'row' }} gap={2}>
-              <TextField fullWidth label="Date" type="date" slotProps={{ inputLabel: { shrink: true }, input: { startAdornment: <InputAdornment position="start"><CalendarToday fontSize="small" /></InputAdornment> } }} value={draft.scheduled_date ?? ''} onChange={(event) => setDraft({ ...draft, scheduled_date: event.target.value || null })} />
-              <TextField fullWidth label="Time" type="time" slotProps={{ inputLabel: { shrink: true }, input: { startAdornment: <InputAdornment position="start"><AccessTime fontSize="small" /></InputAdornment> } }} value={draft.scheduled_time ?? ''} onChange={(event) => setDraft({ ...draft, scheduled_time: event.target.value || null })} />
-            </Stack>
             <Stack gap={1} p={1.5} border={1} borderColor="divider" borderRadius={2.5}>
               <TextField
                 select
@@ -372,6 +399,8 @@ export function TaskDialog({
                 </Stack>
               </Stack>
             )}
+              </Stack>
+            </Collapse>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
