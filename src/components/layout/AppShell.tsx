@@ -148,13 +148,14 @@ export function AppShell({ children, onAddTask, statusActions }: { children: Rea
           bottom: { xs: 'calc(90px + env(safe-area-inset-bottom))', md: 28 },
           width: { xs: 54, sm: 58 },
           height: { xs: 54, sm: 58 },
-          bgcolor: 'background.paper',
-          color: 'primary.main',
+          bgcolor: 'primary.main',
+          color: 'common.white',
           border: 1,
-          borderColor: 'divider',
-          boxShadow: '0 12px 32px rgba(32,84,170,.18)',
+          borderColor: 'primary.main',
+          boxShadow: '0 12px 32px rgba(37,185,244,.34)',
           zIndex: theme.zIndex.speedDial,
-          '&:hover': { bgcolor: 'background.paper', color: 'primary.dark' },
+          '&:hover': { bgcolor: 'primary.dark', color: 'common.white' },
+          '&:focus-visible': { outline: '3px solid', outlineColor: 'primary.light', outlineOffset: 3 },
         }}
       >
         <AddTask />
