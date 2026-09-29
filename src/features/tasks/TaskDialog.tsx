@@ -3,11 +3,12 @@ import {
   Button, Checkbox, Chip, Collapse, Dialog, DialogActions, DialogContent, DialogTitle,
   FormControlLabel, InputAdornment, MenuItem, Stack, TextField, Typography,
 } from '@mui/material';
-import { AccessTime, Add, CalendarToday, Flag, Folder, LocalOffer } from '@mui/icons-material';
+import { AccessTime, Add, CalendarToday, Flag, Folder, LocalOffer, NotificationsActive } from '@mui/icons-material';
 import type { FocusGoal, FocusProject, FocusTag, FocusTask, TaskDraft, TaskTag } from '../../types/models';
 import { useNotice } from '../../app/AppProviders';
 import { useOrganisationMutations, useTaskMutations } from '../data/useFocusData';
 import { localDate } from './taskDates';
+import { reminderChoices } from './taskReminders';
 import { activeQuickToken, currentLocalTime, matchingProjects, matchingTags, removeQuickToken } from './taskQuickEntry';
 import { userFacingError } from '../../utils/userFacingError';
 
@@ -18,6 +19,10 @@ const emptyDraft = (initialDate?: string | null, initialProjectId?: string | nul
   goal_id: initialGoalId || null,
   scheduled_date: initialDate || localDate(),
   scheduled_time: currentLocalTime(),
+  reminder_minutes_before: null,
+  reminder_channel: 'in_app',
+  reminder_at: null,
+  reminder_delivered_at: null,
   is_daily_anchor: false,
   tag_ids: [],
 });
@@ -72,6 +77,10 @@ export function TaskDialog({
       goal_id: task.goal_id,
       scheduled_date: task.scheduled_date,
       scheduled_time: task.scheduled_time?.slice(0, 5) ?? null,
+      reminder_minutes_before: task.reminder_minutes_before ?? null,
+      reminder_channel: task.reminder_channel ?? 'in_app',
+      reminder_at: task.reminder_at ?? null,
+      reminder_delivered_at: task.reminder_delivered_at ?? null,
       is_daily_anchor: task.is_daily_anchor,
       tag_ids: taskTags.filter((item) => item.task_id === task.id).map((item) => item.tag_id),
     } : emptyDraft(initialDate, initialProjectId, initialGoalId));
@@ -99,6 +108,17 @@ export function TaskDialog({
     [tags, quickToken],
   );
   const selectedTags = tags.filter((tag) => draft.tag_ids.includes(tag.id));
+
+  const selectReminderChannel = async (channel: TaskDraft['reminder_channel']) => {
+    if (channel !== 'in_app' && 'Notification' in window && Notification.permission === 'default') {
+      try { await Notification.requestPermission(); }
+      catch { notify('Browser notifications could not be enabled. FocusOS will still show an in-app reminder while it is open.', 'warning'); }
+    }
+    if (channel !== 'in_app' && (!('Notification' in window) || Notification.permission === 'denied')) {
+      notify('Browser alerts are unavailable or blocked. FocusOS will still show an in-app reminder while it is open.', 'warning');
+    }
+    setDraft((current) => ({ ...current, reminder_channel: channel }));
+  };
 
   const selectProject = (project: FocusProject) => {
     if (!quickToken) return;
@@ -289,6 +309,32 @@ export function TaskDialog({
             <Stack direction={{ xs: 'column', sm: 'row' }} gap={2}>
               <TextField fullWidth label="Date" type="date" slotProps={{ inputLabel: { shrink: true }, input: { startAdornment: <InputAdornment position="start"><CalendarToday fontSize="small" /></InputAdornment> } }} value={draft.scheduled_date ?? ''} onChange={(event) => setDraft({ ...draft, scheduled_date: event.target.value || null })} />
               <TextField fullWidth label="Time" type="time" slotProps={{ inputLabel: { shrink: true }, input: { startAdornment: <InputAdornment position="start"><AccessTime fontSize="small" /></InputAdornment> } }} value={draft.scheduled_time ?? ''} onChange={(event) => setDraft({ ...draft, scheduled_time: event.target.value || null })} />
+            </Stack>
+            <Stack gap={1} p={1.5} border={1} borderColor="divider" borderRadius={2.5}>
+              <TextField
+                select
+                fullWidth
+                label="Reminder"
+                value={draft.reminder_minutes_before === null ? '' : String(draft.reminder_minutes_before)}
+                disabled={!draft.scheduled_date || !draft.scheduled_time}
+                onChange={(event) => setDraft({ ...draft, reminder_minutes_before: event.target.value === '' ? null : Number(event.target.value) })}
+                slotProps={{ input: { startAdornment: <InputAdornment position="start"><NotificationsActive fontSize="small" /></InputAdornment> } }}
+                helperText="Choose when FocusOS should remind you before this task."
+              >
+                <MenuItem value="">No reminder</MenuItem>
+                {reminderChoices.map((choice) => <MenuItem key={choice.value} value={String(choice.value)}>{choice.label}</MenuItem>)}
+              </TextField>
+              {draft.reminder_minutes_before != null && <>
+                <TextField select fullWidth label="Alert type" value={draft.reminder_channel} onChange={(event) => void selectReminderChannel(event.target.value as TaskDraft['reminder_channel'])}>
+                  <MenuItem value="in_app">In-app pop-up</MenuItem>
+                  <MenuItem value="browser">Browser notification</MenuItem>
+                  <MenuItem value="both">Both</MenuItem>
+                </TextField>
+                <Typography variant="caption" color="text.secondary">
+                  Browser notifications need permission. In-app pop-ups appear while FocusOS is open.
+                </Typography>
+              </>}
+              {(!draft.scheduled_date || !draft.scheduled_time) && <Typography variant="caption" color="text.secondary">Add a date and time to set a reminder.</Typography>}
             </Stack>
             <Stack gap={0}>
               <FormControlLabel control={<Checkbox checked={draft.is_daily_anchor} onChange={(event) => { const checked = event.target.checked; setDraft({ ...draft, is_daily_anchor: checked, ...(checked ? { project_id: null, goal_id: null } : {}) }); setProjectEntryOpen(false); setGoalEntryOpen(false); }} />} label="Daily Anchor" />

@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Checkbox, Chip, IconButton, ListItem, ListItemButton, ListItemText, Stack, Tooltip } from '@mui/material';
 import { PlayArrow, Visibility, VisibilityOff, WhatsApp } from '@mui/icons-material';
 import type { FocusProject, FocusTask } from '../../types/models';
 import { GoogleSourceChip } from '../../components/common/GoogleSourceChip';
+import { countdownLabel, taskDueAt } from './taskReminders';
 
 export function TaskRow({
   task, project, completed, contextLabel, hidden = false, showProject = true, onToggle, onEdit, onFocus, onHide,
@@ -18,6 +20,14 @@ export function TaskRow({
   onHide?: () => void;
 }) {
   const complete = completed ?? task.status === 'completed';
+  const [now, setNow] = useState(Date.now());
+  const dueAt = taskDueAt(task);
+  useEffect(() => {
+    if (dueAt === null || complete) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, [complete, dueAt]);
+  const countdown = complete ? null : countdownLabel(task, now);
   return (
     <ListItem disablePadding>
       {!hidden && <Checkbox checked={complete} onChange={onToggle} inputProps={{ 'aria-label': `${complete ? 'Reopen' : 'Complete'} ${task.title}` }} />}
@@ -33,6 +43,7 @@ export function TaskRow({
               {task.source === 'whatsapp' && <Chip component="span" size="small" icon={<WhatsApp />} label="WhatsApp" sx={{ color: '#087b38', borderColor: '#25D366', bgcolor: 'rgba(37, 211, 102, .08)' }} variant="outlined" />}
               {task.is_daily_anchor && <Chip component="span" size="small" label="Daily Anchor" color="secondary" variant="outlined" />}
               {task.scheduled_time && <span>{task.scheduled_time.slice(0, 5)}</span>}
+              {countdown && <Chip component="span" size="small" label={countdown} color={countdown.startsWith('Overdue') ? 'error' : 'info'} variant="outlined" />}
               {contextLabel && <span>{contextLabel}</span>}
             </Stack>
           }

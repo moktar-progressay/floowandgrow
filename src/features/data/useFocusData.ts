@@ -16,6 +16,7 @@ import type {
   TaskDraft,
   TaskTag,
 } from '../../types/models';
+import { reminderAt } from '../tasks/taskReminders';
 
 const focusKey = (userId: string) => ['focusos', userId] as const;
 
@@ -197,6 +198,9 @@ export function useTaskMutations() {
   const saveTask = useMutation({
     mutationFn: async ({ id, draft }: { id?: string; draft: TaskDraft }) => {
       const projectId = draft.is_daily_anchor ? await ensureDailyAnchorsProject(userId) : draft.project_id;
+      const scheduledReminderAt = draft.is_daily_anchor
+        ? null
+        : reminderAt(draft.scheduled_date, draft.scheduled_time, draft.reminder_minutes_before);
       const payload = {
         user_id: userId,
         title: draft.title.trim(),
@@ -205,6 +209,10 @@ export function useTaskMutations() {
         goal_id: draft.goal_id || null,
         scheduled_date: draft.scheduled_date || null,
         scheduled_time: draft.scheduled_time || null,
+        reminder_minutes_before: draft.is_daily_anchor ? null : draft.reminder_minutes_before ?? null,
+        reminder_channel: draft.reminder_channel ?? 'in_app',
+        reminder_at: scheduledReminderAt,
+        reminder_delivered_at: draft.reminder_at === scheduledReminderAt ? draft.reminder_delivered_at ?? null : null,
         is_daily_anchor: draft.is_daily_anchor,
         recurrence: draft.is_daily_anchor ? 'daily' : 'none',
         updated_at: new Date().toISOString(),
@@ -262,6 +270,9 @@ export function useTaskMutations() {
             .update({
               status: task.status === 'completed' ? 'open' : 'completed',
               completed_at: task.status === 'completed' ? null : new Date().toISOString(),
+              reminder_delivered_at: task.status === 'completed'
+                ? task.reminder_delivered_at ?? null
+                : task.reminder_at ? new Date().toISOString() : task.reminder_delivered_at ?? null,
               updated_at: new Date().toISOString(),
             })
             .eq('id', task.id)

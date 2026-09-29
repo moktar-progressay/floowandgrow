@@ -14,6 +14,7 @@ import { YesterdayRecap } from '../gamification/YesterdayRecap';
 import { eventDateKey, eventTime } from '../calendar/calendarDates';
 import { GoogleSourceChip } from '../../components/common/GoogleSourceChip';
 import { useHomePreferences } from './uiPreferences';
+import { UpcomingMemoBar } from './UpcomingMemoBar';
 
 function normalisedTaskTitle(task: FocusTask) {
   return task.title.trim().toLocaleLowerCase();
@@ -115,13 +116,14 @@ export function TodayPage({
   return (
     <Stack
       width="100%"
-      maxWidth={980}
+      maxWidth={820}
       mx="auto"
-      gap={{ xs: 3, md: 4 }}
+      gap={{ xs: 2.5, md: 3 }}
       pb={{ xs: 16, sm: 14, md: 16 }}
       position="relative"
       sx={{ overflowX: 'clip' }}
     >
+      <UpcomingMemoBar tasks={tasks} events={events} />
       <Stack textAlign="center">
         <Typography variant="caption" color="text.secondary">{new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())}</Typography>
         <Typography variant="h4" component="h1" fontWeight={850}>{greeting}{firstName ? `, ${firstName}` : ''}</Typography>

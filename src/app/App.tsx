@@ -10,6 +10,7 @@ import { AppStatusControls } from '../components/layout/AppStatusControls';
 import { useFocusData, useRewardMutation, useTaskMutations } from '../features/data/useFocusData';
 import { useGoogleWorkspace, mapDriveFiles } from '../features/integrations/googleWorkspace';
 import { TaskDialog } from '../features/tasks/TaskDialog';
+import { TaskReminderMonitor } from '../features/tasks/TaskReminderMonitor';
 import { FocusMode } from '../features/focus/FocusMode';
 import { RelaxMode } from '../features/focus/RelaxMode';
 import { EmailReaderDialog } from '../features/inbox/EmailReaderDialog';
@@ -167,7 +168,7 @@ export function ProtectedApp() {
     }
   };
   const createMessageTask = async (message: GoogleMessage) => {
-    const draft: TaskDraft = { title: `Follow up: ${message.subject || 'Email'}`, priority: null, project_id: null, goal_id: null, scheduled_date: new Date().toISOString().slice(0, 10), scheduled_time: null, is_daily_anchor: false, tag_ids: [] };
+    const draft: TaskDraft = { title: `Follow up: ${message.subject || 'Email'}`, priority: null, project_id: null, goal_id: null, scheduled_date: new Date().toISOString().slice(0, 10), scheduled_time: null, reminder_minutes_before: null, reminder_channel: 'in_app', is_daily_anchor: false, tag_ids: [] };
     try {
       const taskId = await saveTask.mutateAsync({ draft });
       if (google.connected) await syncTaskToGoogle(taskId);
@@ -217,6 +218,10 @@ export function ProtectedApp() {
       goal_id: task.goal_id,
       scheduled_date: task.scheduled_date,
       scheduled_time: task.scheduled_time,
+      reminder_minutes_before: task.reminder_minutes_before ?? null,
+      reminder_channel: task.reminder_channel ?? 'in_app',
+      reminder_at: task.reminder_at ?? null,
+      reminder_delivered_at: task.reminder_delivered_at ?? null,
       is_daily_anchor: task.is_daily_anchor,
       tag_ids: taskTags.filter((link) => link.task_id === task.id).map((link) => link.tag_id),
     } });
@@ -233,6 +238,8 @@ export function ProtectedApp() {
         goal_id: null,
         scheduled_date: proposal.scheduledDate ?? null,
         scheduled_time: proposal.scheduledTime ?? null,
+        reminder_minutes_before: null,
+        reminder_channel: 'in_app',
         is_daily_anchor: false,
         tag_ids: [],
       } });
@@ -258,6 +265,10 @@ export function ProtectedApp() {
       goal_id: task.goal_id,
       scheduled_date: proposal.scheduledDate === undefined ? task.scheduled_date : proposal.scheduledDate,
       scheduled_time: proposal.scheduledTime === undefined ? task.scheduled_time : proposal.scheduledTime,
+      reminder_minutes_before: task.reminder_minutes_before ?? null,
+      reminder_channel: task.reminder_channel ?? 'in_app',
+      reminder_at: task.reminder_at ?? null,
+      reminder_delivered_at: task.reminder_delivered_at ?? null,
       is_daily_anchor: task.is_daily_anchor,
       tag_ids: taskTags.filter((link) => link.task_id === task.id).map((link) => link.tag_id),
     } });
@@ -268,6 +279,7 @@ export function ProtectedApp() {
     onAddTask={openAdd}
     statusActions={<AppStatusControls tasks={tasksForToday} events={google.data?.calendar?.events ?? []} unreadEmails={google.gmail?.unread ?? 0} xp={state.xp} rewardEvents={rewardEvents} onEditTask={openEdit} />}
   >
+    <TaskReminderMonitor tasks={tasks} />
     <Suspense fallback={<LoadingScreen label="Opening page…" />}><Routes>
       <Route path="/today" element={<TodayPage tasks={tasks} projects={projects} events={unlinkedEvents} dailyCompletions={dailyCompletions} rewardEvents={rewardEvents} onAdd={openAdd} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onRelax={() => setRelaxOpen(true)} />} />
       <Route path="/tasks" element={<TasksPage tasks={tasksForToday} projects={projects} events={unlinkedEvents} xp={state.xp} streak={sharedStreak} googleConnected={google.connected} googleEmail={google.email} googleLoading={googleLoading} googleError={google.data?.services?.tasks?.error || google.data?.services?.calendar?.error || google.data?.services?.gmail?.error || googleError} onGoogleConnect={connect} onGoogleRefresh={() => void google.refetch()} onAdd={openAdd} onAddOnDate={openAddOnDate} onEdit={openEdit} onToggle={toggle} onHide={hideTask} onFocus={setFocusTask} onChallenge={(task) => { if (task.source === 'gmail' || task.source === 'google_gmail') void openEdit(task); else setFocusTask(task); }} />} />
