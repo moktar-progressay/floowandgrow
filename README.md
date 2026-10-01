@@ -44,7 +44,7 @@ The default Supabase URL and public publishable key are safe browser configurati
 
 ## Task Orb agent
 
-The Task Orb uses the current OpenAI Agents SDK inside the authenticated `focus-agent` Supabase Edge Function. The browser never receives the OpenAI API key.
+The Task Orb uses the current OpenAI Agents SDK inside the authenticated `focus-agent` Supabase Edge Function. The browser never receives provider API keys. When OmniRoute is configured it becomes the assistant's OpenAI-compatible gateway; the existing OpenAI configuration remains the fallback when OmniRoute is not configured.
 
 Configure the server secrets before deploying:
 
@@ -53,6 +53,17 @@ supabase secrets set OPENAI_API_KEY=your_key
 supabase secrets set OPENAI_MODEL=gpt-5.6-luna
 supabase functions deploy focus-agent
 ```
+
+To route the assistant through a secured OmniRoute deployment instead:
+
+```bash
+supabase secrets set OMNIROUTE_BASE_URL=https://your-omniroute-host.example/v1
+supabase secrets set OMNIROUTE_API_KEY=your_omniroute_key
+supabase secrets set OMNIROUTE_MODEL=auto/smart
+supabase functions deploy focus-agent
+```
+
+Keep `REQUIRE_API_KEY=true` on OmniRoute. These secrets belong only in Supabase's encrypted server-side secret store, never in browser environment variables.
 
 The agent streams newline-delimited JSON with status, tool progress, text deltas, approval proposals and completion events. Its tools can review the signed-in user's task stream, inspect an owned task and prepare a proposed change. They cannot mutate data. FocusOS performs a change only after the user presses the proposal's approval button.
 

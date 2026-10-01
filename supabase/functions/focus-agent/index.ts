@@ -1,5 +1,13 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { Agent, run, setDefaultOpenAIKey, setTracingExportApiKey, tool } from "npm:@openai/agents@0.18.0";
+import {
+  Agent,
+  run,
+  setDefaultOpenAIClient,
+  setDefaultOpenAIKey,
+  setTracingExportApiKey,
+  tool,
+} from "npm:@openai/agents@0.18.0";
+import OpenAI from "npm:openai@7.2.0";
 import { z } from "npm:zod@4.1.5";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -7,6 +15,12 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
 const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") || "gpt-5.6-luna";
+const OMNIROUTE_BASE_URL = (Deno.env.get("OMNIROUTE_BASE_URL") || "").replace(/\/+$/, "");
+const OMNIROUTE_API_KEY = Deno.env.get("OMNIROUTE_API_KEY") || "";
+const OMNIROUTE_MODEL = Deno.env.get("OMNIROUTE_MODEL") || "auto/smart";
+const USE_OMNIROUTE = Boolean(OMNIROUTE_BASE_URL && OMNIROUTE_API_KEY);
+const AI_PROVIDER = USE_OMNIROUTE ? "omniroute" : "openai";
+const AI_MODEL = USE_OMNIROUTE ? OMNIROUTE_MODEL : OPENAI_MODEL;
 const APP_URLS = [
   Deno.env.get("FOCUSOS_APP_URL") || "https://moktar-progressay.github.io",
   "https://moktar-progressay.github.io",
@@ -14,6 +28,16 @@ const APP_URLS = [
 ];
 const encoder = new TextEncoder();
 const requestWindows = new Map<string, number[]>();
+
+if (USE_OMNIROUTE) {
+  setDefaultOpenAIClient(new OpenAI({
+    apiKey: OMNIROUTE_API_KEY,
+    baseURL: OMNIROUTE_BASE_URL,
+  }));
+} else if (OPENAI_API_KEY) {
+  setDefaultOpenAIKey(OPENAI_API_KEY);
+  setTracingExportApiKey(OPENAI_API_KEY);
+}
 
 type TaskRow = {
   id: string;
@@ -220,7 +244,7 @@ function streamResponse(
 
   const agent = new Agent({
     name: "FocusOS Task Orb",
-    model: OPENAI_MODEL,
+    model: AI_MODEL,
     instructions: `You are the FocusOS Task Orb, an ADHD-friendly task management assistant.
 Use short, warm UK English. Put the most useful answer first. Avoid long paragraphs.
 On every turn, call review_task_stream before answering, even for a general greeting.
@@ -251,7 +275,10 @@ Today in the user's timezone is ${localDate()}.`,
         const result = await run(agent, input, {
           stream: true,
           maxTurns: 6,
-          tracing: { apiKey: OPENAI_API_KEY, includeTaskAndTurnSpans: true },
+          tracingDisabled: USE_OMNIROUTE,
+          ...(USE_OMNIROUTE ? {} : {
+            tracing: { apiKey: OPENAI_API_KEY, includeTaskAndTurnSpans: true },
+          }),
         });
         for await (const event of result) {
           if (event.type === "run_item_stream_event" && (event.name === "tool_called" || event.name === "tool_output")) {
@@ -265,7 +292,7 @@ Today in the user's timezone is ${localDate()}.`,
         }
         await result.completed;
         for (const proposal of proposals) send({ type: "proposal", proposal });
-        send({ type: "done", requestId, model: OPENAI_MODEL });
+        send({ type: "done", requestId, model: AI_MODEL, provider: AI_PROVIDER });
       } catch (error) {
         console.error(JSON.stringify({ requestId, userId, event: "focus_agent_error", error: error instanceof Error ? error.message : String(error) }));
         send({ type: "error", message: error instanceof Error ? error.message : "The Task Orb could not answer." });
@@ -288,13 +315,16 @@ Today in the user's timezone is ${localDate()}.`,
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) return json(req, { error: "Server configuration is incomplete." }, 500);
-  if (!OPENAI_API_KEY) return json(req, { error: "OPENAI_API_KEY is not configured." }, 503);
-  setDefaultOpenAIKey(OPENAI_API_KEY);
-  setTracingExportApiKey(OPENAI_API_KEY);
+  if (!USE_OMNIROUTE && !OPENAI_API_KEY) return json(req, { error: "No assistant provider is configured." }, 503);
   try {
     const user = await requireUser(req);
     enforceRateLimit(user.id);
-    if (req.method === "GET") return json(req, { ok: true, configured: true, model: OPENAI_MODEL });
+    if (req.method === "GET") return json(req, {
+      ok: true,
+      configured: true,
+      model: AI_MODEL,
+      provider: AI_PROVIDER,
+    });
     if (req.method !== "POST") return json(req, { error: "Method not allowed." }, 405);
     const body = await req.json();
     const message = String(body?.message || "").trim();
