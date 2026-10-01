@@ -54,7 +54,9 @@ export function ProjectsPage({ projects, goals, tasks }: { projects: FocusProjec
     }
   }
 
-  const summaries = projects.map((project) => {
+  const summaries = [...projects]
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }))
+    .map((project) => {
     const projectGoals = goals.filter((goal) => goal.project_id === project.id && goal.status !== 'archived');
     const projectTasks = tasks.filter((task) => task.project_id === project.id && task.status !== 'archived');
     const complete = projectTasks.filter((task) => task.status === 'completed').length;
