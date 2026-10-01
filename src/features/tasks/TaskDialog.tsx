@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react';
 import {
-  Button, Checkbox, Chip, Collapse, Dialog, DialogActions, DialogContent, DialogTitle,
+  Autocomplete, Button, Checkbox, Chip, Collapse, Dialog, DialogActions, DialogContent, DialogTitle,
   FormControlLabel, InputAdornment, MenuItem, Stack, TextField, Typography,
 } from '@mui/material';
 import { AccessTime, Add, CalendarToday, ExpandMore, Flag, Folder, LocalOffer, NotificationsActive } from '@mui/icons-material';
@@ -89,7 +89,8 @@ export function TaskDialog({
   }, [open, task, initialDate, initialProjectId, initialGoalId, taskTags]);
 
   const allProjects = useMemo(
-    () => [...projects, ...createdProjects.filter((created) => !projects.some((project) => project.id === created.id))],
+    () => [...projects, ...createdProjects.filter((created) => !projects.some((project) => project.id === created.id))]
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true })),
     [createdProjects, projects],
   );
   const allGoals = useMemo(
@@ -97,7 +98,8 @@ export function TaskDialog({
     [createdGoals, goals],
   );
   const availableGoals = useMemo(
-    () => allGoals.filter((goal) => goal.project_id === draft.project_id),
+    () => allGoals.filter((goal) => goal.project_id === draft.project_id)
+      .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true })),
     [allGoals, draft.project_id],
   );
   const quickToken = useMemo(() => activeQuickToken(draft.title), [draft.title]);
@@ -110,6 +112,7 @@ export function TaskDialog({
     [tags, quickToken],
   );
   const selectedTags = tags.filter((tag) => draft.tag_ids.includes(tag.id));
+  const selectedProject = allProjects.find((project) => project.id === draft.project_id) ?? null;
 
   const selectReminderChannel = async (channel: TaskDraft['reminder_channel']) => {
     if (channel !== 'in_app' && 'Notification' in window && Notification.permission === 'default') {
@@ -204,14 +207,13 @@ export function TaskDialog({
     if (!draft.title.trim()) return;
     try {
       const taskId = await saveTask.mutateAsync({ id: task?.id, draft });
-      if (onSaved) {
-        try { await onSaved(taskId); }
-        catch { notify('Task saved in FocusOS, but Google sync needs another try.', 'warning'); onClose(); return; }
-      }
       notify(task
-        ? onSaved ? 'Task updated and synced.' : 'Task updated.'
-        : onSaved ? 'Task added and synced.' : 'Task added.');
+        ? onSaved ? 'Task updated. Syncing to Google…' : 'Task updated.'
+        : onSaved ? 'Task added. Syncing to Google…' : 'Task added.');
       onClose();
+      if (onSaved) {
+        void onSaved(taskId).catch(() => notify('Task saved in FocusOS, but Google sync needs another try.', 'warning'));
+      }
     } catch (error) {
       notify(userFacingError(error, 'The task could not be saved. Please try again.'), 'error');
     }
@@ -303,13 +305,20 @@ export function TaskDialog({
             </Button>
             <Collapse in={moreOptionsOpen} unmountOnExit>
               <Stack gap={2.25}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} gap={2}>
-              <Stack width="100%" gap={0.25}>
-                <TextField select fullWidth label="Project" disabled={draft.is_daily_anchor} value={draft.project_id ?? ''} onChange={(event) => { setDraft({ ...draft, project_id: event.target.value || null, goal_id: null }); setGoalEntryOpen(false); }} slotProps={{ input: { startAdornment: <InputAdornment position="start"><Folder fontSize="small" /></InputAdornment> } }}>
-                  <MenuItem value="">Inbox</MenuItem>
-                  {allProjects.filter((project) => project.name !== 'Daily Anchors').map((project) => <MenuItem key={project.id} value={project.id}>{project.name}</MenuItem>)}
-                </TextField>
+            <Stack gap={1.25}>
+              <Autocomplete
+                fullWidth
+                options={allProjects.filter((project) => project.name !== 'Daily Anchors')}
+                value={selectedProject}
+                disabled={draft.is_daily_anchor}
+                getOptionLabel={(project) => project.name}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                onChange={(_, project) => { setDraft({ ...draft, project_id: project?.id ?? null, goal_id: null }); setGoalEntryOpen(false); }}
+                renderInput={(params) => <TextField {...params} label="Project" placeholder="Search projects" helperText="Type a name, or add @project in the task title." />}
+              />
+              <Stack direction="row" gap={1} alignItems="center">
                 {!draft.is_daily_anchor && <Button size="small" startIcon={<Add />} onClick={() => setProjectEntryOpen((value) => !value)} sx={{ alignSelf: 'flex-start' }}>Add project</Button>}
+                {selectedProject && <Typography variant="caption" color="text.secondary">Selected project</Typography>}
               </Stack>
             </Stack>
             <Collapse in={projectEntryOpen && !draft.is_daily_anchor}>
@@ -322,11 +331,17 @@ export function TaskDialog({
                 <Stack direction="row" justifyContent="flex-end" gap={1}><Button size="small" onClick={() => setProjectEntryOpen(false)}>Cancel</Button><Button size="small" variant="contained" disabled={!projectName.trim() || saveProject.isPending} onClick={() => void createAndSelectProject()}>Create project</Button></Stack>
               </Stack>
             </Collapse>
-            <Stack gap={0.25}>
-              <TextField select label="Goal" value={draft.goal_id ?? ''} disabled={!draft.project_id || draft.is_daily_anchor} onChange={(event) => setDraft({ ...draft, goal_id: event.target.value || null })}>
-                <MenuItem value="">No goal</MenuItem>
-                {availableGoals.map((goal) => <MenuItem key={goal.id} value={goal.id}>{goal.title}</MenuItem>)}
-              </TextField>
+            <Stack gap={0.5}>
+              <Autocomplete
+                fullWidth
+                options={availableGoals}
+                value={availableGoals.find((goal) => goal.id === draft.goal_id) ?? null}
+                disabled={!draft.project_id || draft.is_daily_anchor}
+                getOptionLabel={(goal) => goal.title}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                onChange={(_, goal) => setDraft({ ...draft, goal_id: goal?.id ?? null })}
+                renderInput={(params) => <TextField {...params} label="Goal" placeholder={selectedProject ? `Goals in ${selectedProject.name}` : 'Choose a project first'} helperText={selectedProject ? `Nested under ${selectedProject.name}` : 'Select a project to see its goals.'} />}
+              />
               {draft.project_id && !draft.is_daily_anchor && <Button size="small" startIcon={<Add />} onClick={() => setGoalEntryOpen((value) => !value)} sx={{ alignSelf: 'flex-start' }}>Add goal to project</Button>}
             </Stack>
             <Collapse in={goalEntryOpen && Boolean(draft.project_id) && !draft.is_daily_anchor}>
