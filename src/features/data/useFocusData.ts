@@ -75,7 +75,7 @@ export function useFocusData() {
             .select('*')
             .eq('user_id', userId)
             .eq('status', 'active')
-            .order('created_at'),
+            .order('name', { ascending: true }),
         ),
         checked(
           supabase
@@ -193,7 +193,7 @@ export function useTaskMutations() {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const userId = session?.user.id ?? '';
-  const refresh = () => queryClient.invalidateQueries({ queryKey: focusKey(userId) });
+  const refresh = () => { void queryClient.invalidateQueries({ queryKey: focusKey(userId) }); };
 
   const saveTask = useMutation({
     mutationFn: async ({ id, draft }: { id?: string; draft: TaskDraft }) => {
@@ -228,7 +228,7 @@ export function useTaskMutations() {
           );
       if (!saved) throw new Error('Task was not saved.');
       const taskId = saved.id as string;
-      await checked(supabase.from('focusos_task_tags').delete().eq('task_id', taskId).eq('user_id', userId));
+      if (id) await checked(supabase.from('focusos_task_tags').delete().eq('task_id', taskId).eq('user_id', userId));
       if (draft.tag_ids.length) {
         await checked(
           supabase.from('focusos_task_tags').insert(
@@ -279,7 +279,33 @@ export function useTaskMutations() {
             .eq('user_id', userId),
         );
     },
-    onSuccess: refresh,
+    onMutate: async ({ task, completionDate, completed }) => {
+      await queryClient.cancelQueries({ queryKey: focusKey(userId) });
+      const previous = queryClient.getQueryData(focusKey(userId));
+      const date = completionDate ?? new Date().toISOString().slice(0, 10);
+      const now = new Date().toISOString();
+      queryClient.setQueryData(focusKey(userId), (current: any) => {
+        if (!current) return current;
+        if (task.is_daily_anchor) {
+          const dailyCompletions = (current.dailyCompletions as DailyCompletion[]).filter(
+            (item) => !(item.task_id === task.id && item.completion_date === date),
+          );
+          if (!completed) dailyCompletions.push({ task_id: task.id, completion_date: date, completed_at: now });
+          return { ...current, dailyCompletions };
+        }
+        return {
+          ...current,
+          tasks: (current.tasks as FocusTask[]).map((item) => item.id === task.id
+            ? { ...item, status: completed ? 'open' : 'completed', completed_at: completed ? null : now }
+            : item),
+        };
+      });
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) queryClient.setQueryData(focusKey(userId), context.previous);
+    },
+    onSettled: refresh,
   });
 
   const deleteTask = useMutation({
