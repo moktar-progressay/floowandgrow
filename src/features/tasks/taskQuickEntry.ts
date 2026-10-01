@@ -22,7 +22,10 @@ export function removeQuickToken(value: string, token: QuickToken) {
 
 export function matchingProjects(projects: FocusProject[], query: string) {
   const normalised = query.toLocaleLowerCase();
-  return projects.filter((project) => project.name.toLocaleLowerCase().includes(normalised)).slice(0, 5);
+  return [...projects]
+    .filter((project) => project.name.toLocaleLowerCase().startsWith(normalised))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }))
+    .slice(0, 5);
 }
 
 export function matchingTags(tags: FocusTag[], query: string) {

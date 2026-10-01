@@ -31,6 +31,7 @@ vi.mock('../features/integrations/googleWorkspace', () => ({
 vi.mock('./AppProviders', () => ({ useNotice: () => ({ notify: vi.fn() }) }));
 vi.mock('../components/layout/AppShell', () => ({ AppShell: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
 vi.mock('../features/tasks/TaskDialog', () => ({ TaskDialog: () => null }));
+vi.mock('../features/tasks/TaskReminderMonitor', () => ({ TaskReminderMonitor: () => null }));
 vi.mock('../features/focus/FocusMode', () => ({ FocusMode: () => null }));
 vi.mock('../features/focus/RelaxMode', () => ({ RelaxMode: () => null }));
 vi.mock('../features/inbox/EmailReaderDialog', () => ({ EmailReaderDialog: () => null }));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeQuickToken, currentLocalTime, removeQuickToken } from './taskQuickEntry';
+import { activeQuickToken, currentLocalTime, matchingProjects, removeQuickToken } from './taskQuickEntry';
 
 describe('task quick entry', () => {
   it('uses the current local time', () => {
@@ -15,5 +15,10 @@ describe('task quick entry', () => {
     const value = 'Prepare report @work';
     const token = activeQuickToken(value);
     expect(token && removeQuickToken(value, token)).toBe('Prepare report ');
+  });
+
+  it('suggests project names by prefix in alphabetical order', () => {
+    const projects = ['Progressay', 'Other', 'Park', 'Projects'].map((name) => ({ id: name, name })) as never[];
+    expect(matchingProjects(projects, 'p').map((project) => project.name)).toEqual(['Park', 'Progressay', 'Projects']);
   });
 });

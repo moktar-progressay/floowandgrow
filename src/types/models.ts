@@ -11,6 +11,10 @@ export interface FocusTask {
   goal_id: string | null;
   scheduled_date: string | null;
   scheduled_time: string | null;
+  reminder_minutes_before?: number | null;
+  reminder_channel?: 'in_app' | 'browser' | 'both';
+  reminder_at?: string | null;
+  reminder_delivered_at?: string | null;
   is_daily_anchor: boolean;
   recurrence: 'none' | 'daily';
   sort_order: number;
@@ -127,6 +131,10 @@ export interface TaskDraft {
   goal_id: string | null;
   scheduled_date: string | null;
   scheduled_time: string | null;
+  reminder_minutes_before: number | null;
+  reminder_channel: 'in_app' | 'browser' | 'both';
+  reminder_at?: string | null;
+  reminder_delivered_at?: string | null;
   is_daily_anchor: boolean;
   tag_ids: string[];
 }

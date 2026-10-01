@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react';
 import {
-  Button, Checkbox, Chip, Collapse, Dialog, DialogActions, DialogContent, DialogTitle,
+  Autocomplete, Button, Checkbox, Chip, Collapse, Dialog, DialogActions, DialogContent, DialogTitle,
   FormControlLabel, InputAdornment, MenuItem, Stack, TextField, Typography,
 } from '@mui/material';
-import { AccessTime, Add, CalendarToday, Flag, Folder, LocalOffer } from '@mui/icons-material';
+import { AccessTime, Add, CalendarToday, ExpandMore, Flag, Folder, LocalOffer, NotificationsActive } from '@mui/icons-material';
 import type { FocusGoal, FocusProject, FocusTag, FocusTask, TaskDraft, TaskTag } from '../../types/models';
 import { useNotice } from '../../app/AppProviders';
 import { useOrganisationMutations, useTaskMutations } from '../data/useFocusData';
 import { localDate } from './taskDates';
+import { reminderChoices } from './taskReminders';
 import { activeQuickToken, currentLocalTime, matchingProjects, matchingTags, removeQuickToken } from './taskQuickEntry';
 import { userFacingError } from '../../utils/userFacingError';
 
@@ -18,6 +19,10 @@ const emptyDraft = (initialDate?: string | null, initialProjectId?: string | nul
   goal_id: initialGoalId || null,
   scheduled_date: initialDate || localDate(),
   scheduled_time: currentLocalTime(),
+  reminder_minutes_before: null,
+  reminder_channel: 'in_app',
+  reminder_at: null,
+  reminder_delivered_at: null,
   is_daily_anchor: false,
   tag_ids: [],
 });
@@ -52,6 +57,7 @@ export function TaskDialog({
   const [goalWhy, setGoalWhy] = useState('');
   const [createdProjects, setCreatedProjects] = useState<FocusProject[]>([]);
   const [createdGoals, setCreatedGoals] = useState<FocusGoal[]>([]);
+  const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -65,6 +71,7 @@ export function TaskDialog({
     setGoalWhy('');
     setCreatedProjects([]);
     setCreatedGoals([]);
+    setMoreOptionsOpen(false);
     setDraft(task ? {
       title: task.title,
       priority: task.priority,
@@ -72,13 +79,18 @@ export function TaskDialog({
       goal_id: task.goal_id,
       scheduled_date: task.scheduled_date,
       scheduled_time: task.scheduled_time?.slice(0, 5) ?? null,
+      reminder_minutes_before: task.reminder_minutes_before ?? null,
+      reminder_channel: task.reminder_channel ?? 'in_app',
+      reminder_at: task.reminder_at ?? null,
+      reminder_delivered_at: task.reminder_delivered_at ?? null,
       is_daily_anchor: task.is_daily_anchor,
       tag_ids: taskTags.filter((item) => item.task_id === task.id).map((item) => item.tag_id),
     } : emptyDraft(initialDate, initialProjectId, initialGoalId));
   }, [open, task, initialDate, initialProjectId, initialGoalId, taskTags]);
 
   const allProjects = useMemo(
-    () => [...projects, ...createdProjects.filter((created) => !projects.some((project) => project.id === created.id))],
+    () => [...projects, ...createdProjects.filter((created) => !projects.some((project) => project.id === created.id))]
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true })),
     [createdProjects, projects],
   );
   const allGoals = useMemo(
@@ -86,7 +98,8 @@ export function TaskDialog({
     [createdGoals, goals],
   );
   const availableGoals = useMemo(
-    () => allGoals.filter((goal) => goal.project_id === draft.project_id),
+    () => allGoals.filter((goal) => goal.project_id === draft.project_id)
+      .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true })),
     [allGoals, draft.project_id],
   );
   const quickToken = useMemo(() => activeQuickToken(draft.title), [draft.title]);
@@ -99,6 +112,18 @@ export function TaskDialog({
     [tags, quickToken],
   );
   const selectedTags = tags.filter((tag) => draft.tag_ids.includes(tag.id));
+  const selectedProject = allProjects.find((project) => project.id === draft.project_id) ?? null;
+
+  const selectReminderChannel = async (channel: TaskDraft['reminder_channel']) => {
+    if (channel !== 'in_app' && 'Notification' in window && Notification.permission === 'default') {
+      try { await Notification.requestPermission(); }
+      catch { notify('Browser notifications could not be enabled. FocusOS will still show an in-app reminder while it is open.', 'warning'); }
+    }
+    if (channel !== 'in_app' && (!('Notification' in window) || Notification.permission === 'denied')) {
+      notify('Browser alerts are unavailable or blocked. FocusOS will still show an in-app reminder while it is open.', 'warning');
+    }
+    setDraft((current) => ({ ...current, reminder_channel: channel }));
+  };
 
   const selectProject = (project: FocusProject) => {
     if (!quickToken) return;
@@ -182,14 +207,13 @@ export function TaskDialog({
     if (!draft.title.trim()) return;
     try {
       const taskId = await saveTask.mutateAsync({ id: task?.id, draft });
-      if (onSaved) {
-        try { await onSaved(taskId); }
-        catch { notify('Task saved in FocusOS, but Google sync needs another try.', 'warning'); onClose(); return; }
-      }
       notify(task
-        ? onSaved ? 'Task updated and synced.' : 'Task updated.'
-        : onSaved ? 'Task added and synced.' : 'Task added.');
+        ? onSaved ? 'Task updated. Syncing to Google…' : 'Task updated.'
+        : onSaved ? 'Task added. Syncing to Google…' : 'Task added.');
       onClose();
+      if (onSaved) {
+        void onSaved(taskId).catch(() => notify('Task saved in FocusOS, but Google sync needs another try.', 'warning'));
+      }
     } catch (error) {
       notify(userFacingError(error, 'The task could not be saved. Please try again.'), 'error');
     }
@@ -249,16 +273,52 @@ export function TaskDialog({
                 </Stack>
               </Stack>
             )}
-            <Stack direction={{ xs: 'column', sm: 'row' }} gap={2}>
-              <TextField select fullWidth label="Priority" value={draft.priority ?? ''} onChange={(event) => setDraft({ ...draft, priority: (event.target.value || null) as TaskDraft['priority'] })} slotProps={{ input: { startAdornment: <InputAdornment position="start"><Flag fontSize="small" /></InputAdornment> } }}>
-                <MenuItem value="">Standard</MenuItem><MenuItem value="red">Critical</MenuItem><MenuItem value="yellow">Important</MenuItem><MenuItem value="green">Flexible</MenuItem>
-              </TextField>
-              <Stack width="100%" gap={0.25}>
-                <TextField select fullWidth label="Project" disabled={draft.is_daily_anchor} value={draft.project_id ?? ''} onChange={(event) => { setDraft({ ...draft, project_id: event.target.value || null, goal_id: null }); setGoalEntryOpen(false); }} slotProps={{ input: { startAdornment: <InputAdornment position="start"><Folder fontSize="small" /></InputAdornment> } }}>
-                  <MenuItem value="">Inbox</MenuItem>
-                  {allProjects.filter((project) => project.name !== 'Daily Anchors').map((project) => <MenuItem key={project.id} value={project.id}>{project.name}</MenuItem>)}
-                </TextField>
+            <Stack gap={1}>
+              <Typography variant="subtitle2" color="text.secondary">WHEN</Typography>
+              <Stack direction="row" gap={1} flexWrap="wrap">
+                <Button size="small" variant={draft.scheduled_date === localDate() ? 'contained' : 'outlined'} onClick={() => setDraft({ ...draft, scheduled_date: localDate() })}>Today</Button>
+                <Button size="small" variant={draft.scheduled_date === localDate(new Date(Date.now() + 86400000)) ? 'contained' : 'outlined'} onClick={() => setDraft({ ...draft, scheduled_date: localDate(new Date(Date.now() + 86400000)) })}>Tomorrow</Button>
+                <Button size="small" variant="text" onClick={() => document.getElementById('task-date-input')?.focus()}>Choose date</Button>
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.25}>
+                <TextField id="task-date-input" fullWidth label="Due date" type="date" slotProps={{ inputLabel: { shrink: true }, input: { startAdornment: <InputAdornment position="start"><CalendarToday fontSize="small" /></InputAdornment> } }} value={draft.scheduled_date ?? ''} onChange={(event) => setDraft({ ...draft, scheduled_date: event.target.value || null })} />
+                <TextField fullWidth label="Time (optional)" type="time" slotProps={{ inputLabel: { shrink: true }, input: { startAdornment: <InputAdornment position="start"><AccessTime fontSize="small" /></InputAdornment> } }} value={draft.scheduled_time ?? ''} onChange={(event) => setDraft({ ...draft, scheduled_time: event.target.value || null })} />
+              </Stack>
+            </Stack>
+            <Stack gap={1}>
+              <Typography variant="subtitle2" color="text.secondary">PRIORITY</Typography>
+              <Stack direction="row" gap={1} flexWrap="wrap">
+                {[{ value: null, label: 'Standard' }, { value: 'red', label: 'Critical' }, { value: 'yellow', label: 'Important' }, { value: 'green', label: 'Flexible' }].map((option) => (
+                  <Chip key={option.label} icon={<Flag />} label={option.label} color={draft.priority === option.value ? 'primary' : 'default'} variant={draft.priority === option.value ? 'filled' : 'outlined'} onClick={() => setDraft({ ...draft, priority: option.value as TaskDraft['priority'] })} />
+                ))}
+              </Stack>
+            </Stack>
+            <Button
+              size="small"
+              variant="text"
+              endIcon={<ExpandMore sx={{ transform: moreOptionsOpen ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }} />}
+              onClick={() => setMoreOptionsOpen((value) => !value)}
+              sx={{ alignSelf: 'flex-start' }}
+              aria-expanded={moreOptionsOpen}
+            >
+              {moreOptionsOpen ? 'Fewer options' : 'More options'}
+            </Button>
+            <Collapse in={moreOptionsOpen} unmountOnExit>
+              <Stack gap={2.25}>
+            <Stack gap={1.25}>
+              <Autocomplete
+                fullWidth
+                options={allProjects.filter((project) => project.name !== 'Daily Anchors')}
+                value={selectedProject}
+                disabled={draft.is_daily_anchor}
+                getOptionLabel={(project) => project.name}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                onChange={(_, project) => { setDraft({ ...draft, project_id: project?.id ?? null, goal_id: null }); setGoalEntryOpen(false); }}
+                renderInput={(params) => <TextField {...params} label="Project" placeholder="Search projects" helperText="Type a name, or add @project in the task title." />}
+              />
+              <Stack direction="row" gap={1} alignItems="center">
                 {!draft.is_daily_anchor && <Button size="small" startIcon={<Add />} onClick={() => setProjectEntryOpen((value) => !value)} sx={{ alignSelf: 'flex-start' }}>Add project</Button>}
+                {selectedProject && <Typography variant="caption" color="text.secondary">Selected project</Typography>}
               </Stack>
             </Stack>
             <Collapse in={projectEntryOpen && !draft.is_daily_anchor}>
@@ -271,11 +331,17 @@ export function TaskDialog({
                 <Stack direction="row" justifyContent="flex-end" gap={1}><Button size="small" onClick={() => setProjectEntryOpen(false)}>Cancel</Button><Button size="small" variant="contained" disabled={!projectName.trim() || saveProject.isPending} onClick={() => void createAndSelectProject()}>Create project</Button></Stack>
               </Stack>
             </Collapse>
-            <Stack gap={0.25}>
-              <TextField select label="Goal" value={draft.goal_id ?? ''} disabled={!draft.project_id || draft.is_daily_anchor} onChange={(event) => setDraft({ ...draft, goal_id: event.target.value || null })}>
-                <MenuItem value="">No goal</MenuItem>
-                {availableGoals.map((goal) => <MenuItem key={goal.id} value={goal.id}>{goal.title}</MenuItem>)}
-              </TextField>
+            <Stack gap={0.5}>
+              <Autocomplete
+                fullWidth
+                options={availableGoals}
+                value={availableGoals.find((goal) => goal.id === draft.goal_id) ?? null}
+                disabled={!draft.project_id || draft.is_daily_anchor}
+                getOptionLabel={(goal) => goal.title}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                onChange={(_, goal) => setDraft({ ...draft, goal_id: goal?.id ?? null })}
+                renderInput={(params) => <TextField {...params} label="Goal" placeholder={selectedProject ? `Goals in ${selectedProject.name}` : 'Choose a project first'} helperText={selectedProject ? `Nested under ${selectedProject.name}` : 'Select a project to see its goals.'} />}
+              />
               {draft.project_id && !draft.is_daily_anchor && <Button size="small" startIcon={<Add />} onClick={() => setGoalEntryOpen((value) => !value)} sx={{ alignSelf: 'flex-start' }}>Add goal to project</Button>}
             </Stack>
             <Collapse in={goalEntryOpen && Boolean(draft.project_id) && !draft.is_daily_anchor}>
@@ -286,9 +352,31 @@ export function TaskDialog({
                 <Stack direction="row" justifyContent="flex-end" gap={1}><Button size="small" onClick={() => setGoalEntryOpen(false)}>Cancel</Button><Button size="small" variant="contained" disabled={!goalTitle.trim() || saveGoal.isPending} onClick={() => void createAndSelectGoal()}>Create goal</Button></Stack>
               </Stack>
             </Collapse>
-            <Stack direction={{ xs: 'column', sm: 'row' }} gap={2}>
-              <TextField fullWidth label="Date" type="date" slotProps={{ inputLabel: { shrink: true }, input: { startAdornment: <InputAdornment position="start"><CalendarToday fontSize="small" /></InputAdornment> } }} value={draft.scheduled_date ?? ''} onChange={(event) => setDraft({ ...draft, scheduled_date: event.target.value || null })} />
-              <TextField fullWidth label="Time" type="time" slotProps={{ inputLabel: { shrink: true }, input: { startAdornment: <InputAdornment position="start"><AccessTime fontSize="small" /></InputAdornment> } }} value={draft.scheduled_time ?? ''} onChange={(event) => setDraft({ ...draft, scheduled_time: event.target.value || null })} />
+            <Stack gap={1} p={1.5} border={1} borderColor="divider" borderRadius={2.5}>
+              <TextField
+                select
+                fullWidth
+                label="Reminder"
+                value={draft.reminder_minutes_before === null ? '' : String(draft.reminder_minutes_before)}
+                disabled={!draft.scheduled_date || !draft.scheduled_time}
+                onChange={(event) => setDraft({ ...draft, reminder_minutes_before: event.target.value === '' ? null : Number(event.target.value) })}
+                slotProps={{ input: { startAdornment: <InputAdornment position="start"><NotificationsActive fontSize="small" /></InputAdornment> } }}
+                helperText="Choose when FocusOS should remind you before this task."
+              >
+                <MenuItem value="">No reminder</MenuItem>
+                {reminderChoices.map((choice) => <MenuItem key={choice.value} value={String(choice.value)}>{choice.label}</MenuItem>)}
+              </TextField>
+              {draft.reminder_minutes_before != null && <>
+                <TextField select fullWidth label="Alert type" value={draft.reminder_channel} onChange={(event) => void selectReminderChannel(event.target.value as TaskDraft['reminder_channel'])}>
+                  <MenuItem value="in_app">In-app pop-up</MenuItem>
+                  <MenuItem value="browser">Browser notification</MenuItem>
+                  <MenuItem value="both">Both</MenuItem>
+                </TextField>
+                <Typography variant="caption" color="text.secondary">
+                  Browser notifications need permission. In-app pop-ups appear while FocusOS is open.
+                </Typography>
+              </>}
+              {(!draft.scheduled_date || !draft.scheduled_time) && <Typography variant="caption" color="text.secondary">Add a date and time to set a reminder.</Typography>}
             </Stack>
             <Stack gap={0}>
               <FormControlLabel control={<Checkbox checked={draft.is_daily_anchor} onChange={(event) => { const checked = event.target.checked; setDraft({ ...draft, is_daily_anchor: checked, ...(checked ? { project_id: null, goal_id: null } : {}) }); setProjectEntryOpen(false); setGoalEntryOpen(false); }} />} label="Daily Anchor" />
@@ -326,6 +414,8 @@ export function TaskDialog({
                 </Stack>
               </Stack>
             )}
+              </Stack>
+            </Collapse>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
