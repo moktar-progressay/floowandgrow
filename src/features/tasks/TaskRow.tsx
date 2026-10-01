@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Checkbox, Chip, IconButton, ListItem, ListItemButton, ListItemText, Stack, Tooltip } from '@mui/material';
+import { Box, Checkbox, Chip, IconButton, ListItem, ListItemButton, ListItemText, Stack, Tooltip } from '@mui/material';
 import { PlayArrow, Visibility, VisibilityOff, WhatsApp } from '@mui/icons-material';
 import type { FocusProject, FocusTask } from '../../types/models';
 import { GoogleSourceChip } from '../../components/common/GoogleSourceChip';
@@ -21,6 +21,7 @@ export function TaskRow({
 }) {
   const complete = completed ?? task.status === 'completed';
   const [now, setNow] = useState(Date.now());
+  const [burstActive, setBurstActive] = useState(false);
   const dueAt = taskDueAt(task);
   useEffect(() => {
     if (dueAt === null || complete) return;
@@ -28,9 +29,37 @@ export function TaskRow({
     return () => window.clearInterval(timer);
   }, [complete, dueAt]);
   const countdown = complete ? null : countdownLabel(task, now);
+  useEffect(() => {
+    if (!burstActive) return;
+    const timer = window.setTimeout(() => setBurstActive(false), 850);
+    return () => window.clearTimeout(timer);
+  }, [burstActive]);
+  const handleToggle = () => {
+    if (!complete) setBurstActive(true);
+    onToggle();
+  };
   return (
-    <ListItem disablePadding>
-      {!hidden && <Checkbox checked={complete} onChange={onToggle} inputProps={{ 'aria-label': `${complete ? 'Reopen' : 'Complete'} ${task.title}` }} />}
+    <ListItem disablePadding sx={{ position: 'relative', overflow: 'visible', transition: 'background-color 220ms ease', bgcolor: burstActive ? 'rgba(46, 204, 113, .08)' : undefined }}>
+      {!hidden && <Box sx={{ position: 'relative', flexShrink: 0 }}>
+        <Checkbox checked={complete} onChange={handleToggle} inputProps={{ 'aria-label': `${complete ? 'Reopen' : 'Complete'} ${task.title}` }} sx={{ transform: burstActive ? 'scale(1.12)' : undefined, transition: 'transform 180ms ease' }} />
+        {burstActive && <Box aria-hidden="true" sx={{ position: 'absolute', inset: 0, pointerEvents: 'none', '@media (prefers-reduced-motion: reduce)': { display: 'none' } }}>
+          {['#25b9f4', '#7c5cff', '#35b779', '#ffb020', '#f36b91', '#25b9f4', '#7c5cff', '#35b779', '#ffb020', '#f36b91', '#25b9f4', '#7c5cff'].map((colour, index) => {
+            const angle = (Math.PI * 2 * index) / 12;
+            const x = Math.round(Math.cos(angle) * 24);
+            const y = Math.round(Math.sin(angle) * 24);
+            return <Box key={index} component="span" sx={{
+              position: 'absolute', left: '50%', top: '50%', width: 6, height: 8,
+              borderRadius: index % 3 === 0 ? '50%' : '2px', bgcolor: colour,
+              animation: 'focusos-task-confetti 760ms cubic-bezier(.16, .75, .25, 1) both',
+              '--burst-x': `${x}px`, '--burst-y': `${y}px`,
+              '@keyframes focusos-task-confetti': {
+                '0%': { opacity: 1, transform: 'translate(-50%, -50%) scale(.8) rotate(0deg)' },
+                '100%': { opacity: 0, transform: 'translate(calc(-50% + var(--burst-x)), calc(-50% + var(--burst-y))) scale(.2) rotate(220deg)' },
+              },
+            }} />;
+          })}
+        </Box>}
+      </Box>}
       <ListItemButton onClick={onEdit} sx={{ minWidth: 0, px: 1, py: 1.5 }}>
         <ListItemText
           primary={task.title}
